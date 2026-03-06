@@ -6,7 +6,7 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 
 ## In Scope
 
-- **Scene graph** with a trait-based object system (`SceneObject`) and stable IDs via a generational arena or slotmap.
+- **Scene graph** with a trait-based object system (`SceneObject`) and sequential `ObjectId` handles.
 - **Property system** using a string-keyed `AnimValue` enum. Objects implement an `Animatable` trait. The animation system drives objects generically through this interface.
 - **Keyframe animation engine.** Tracks, timelines, easing functions, pure evaluation.
 - **Clock / transport controls.** Play, pause, frame-step, scrub, variable speed, loop modes.

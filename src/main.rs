@@ -1,4 +1,10 @@
+#![allow(dead_code)]
+
+mod scene;
+
 use macroquad::prelude::*;
+use scene::objects::{Circle, Line};
+use scene::Scene;
 
 fn window_conf() -> Conf {
     Conf {
@@ -12,11 +18,22 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let mut scene = Scene::new();
+    scene.add(Circle::new(
+        vec3(screen_width() / 2.0, screen_height() / 2.0, 0.0),
+        100.0,
+        BLUE,
+    ));
+    scene.add(Line::new(
+        vec3(100.0, 100.0, 0.0),
+        vec3(400.0, 300.0, 0.0),
+        3.0,
+        RED,
+    ));
+
     loop {
         clear_background(BLACK);
-
-        draw_circle(screen_width() / 2.0, screen_height() / 2.0, 100.0, BLUE);
-
+        scene.draw_all();
         next_frame().await;
     }
 }

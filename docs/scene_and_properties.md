@@ -1,56 +1,28 @@
 # Scene Graph & Property System
 
+Implemented in `src/scene/`.
+
 ## Scene Graph
 
-The scene holds all renderable objects with stable IDs.
+- **Storage:** `Vec<Option<Box<dyn SceneNode>>>` with sequential `ObjectId(usize)` keys. See `src/scene/mod.rs`.
+- **Operations:** `add`, `remove`, `get`, `get_mut`, `iter`, `draw_all`.
+- **SceneNode** is a supertrait combining `SceneObject + Animatable`, auto-implemented for any type implementing both.
+- **Current object types:** `Circle`, `Line` (in `src/scene/objects/`). Future: Axes, Text, etc.
 
-- **Storage:** Generational arena or slotmap for stable `ObjectId` references that survive insertions/deletions.
-- **Operations:** Add, remove, iterate over objects.
-- **Object types:** Circle, Line, Axes, Text, and more as needed.
+## Traits (`src/scene/traits.rs`)
 
-## SceneObject Trait
+**SceneObject** — `draw()`, `bounding_box() -> BoundingBox`.
 
-Every renderable object implements `SceneObject`:
+**Animatable** — `get(&str) -> Option<AnimValue>`, `set(&str, AnimValue)`, `property_names() -> &[&str]`.
 
-- `draw()` — render the object using macroquad primitives.
-- `bounding_box()` — return an axis-aligned bounding box for debug visualization and selection.
+## AnimValue (`src/scene/value.rs`)
 
-## Property System
+Variants: `Float(f32)`, `Vec2`, `Vec3`, `Vec4` (also Color RGBA), `Bool`, `Transform2D { position, rotation, scale }`.
 
-Properties are the bridge between the animation engine and scene objects.
+`AnimValue::lerp(a, b, t)` interpolates between matching variants. Bool snaps at `t >= 0.5`. Panics on mismatched variants.
 
-### AnimValue Enum
+## Design Notes
 
-A tagged union representing any animatable value:
-
-- `Float(f32)`
-- `Vec2(Vec2)`
-- `Vec3(Vec3)`
-- `Vec4(Vec4)` — also used for Color (RGBA)
-- `Bool(bool)`
-- `Transform2D` — position, rotation, scale bundled together
-
-`AnimValue` implements `lerp` for interpolation between two values of the same variant.
-
-### Animatable Trait
-
-Objects that can be animated implement `Animatable`:
-
-- `get(property_name: &str) -> Option<AnimValue>` — read a property by name.
-- `set(property_name: &str, value: AnimValue)` — write a property by name.
-- `property_names() -> &[&str]` — list all animatable properties (used for validation and the value inspector).
-
-### Design Notes
-
-- **String-keyed properties** are flexible and allow the animation engine to work generically with any object type without compile-time coupling.
-- **Typo risk** is mitigated by `SceneBuilder` validating all property names at scene construction time.
-- **Round-trip invariant:** `set(name, value)` then `get(name)` must return the same value. This is enforced by tests.
-
-## Module Location
-
-```
-src/scene/
-  mod.rs          Scene struct, ObjectId, add/remove/iterate
-  objects/        Circle, Line, Axes, Text, etc.
-  traits.rs       SceneObject + Animatable trait definitions
-```
+- **String-keyed properties** allow the animation engine to work generically without compile-time coupling.
+- **Round-trip invariant:** `set(name, value)` then `get(name)` returns the same value. Enforced by tests.
+- **Typo risk** will be mitigated by `SceneBuilder` validating property names at scene construction time (not yet implemented).

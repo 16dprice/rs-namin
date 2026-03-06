@@ -6,7 +6,7 @@
 src/
   main.rs                 macroquad entry point, mode switching, main loop
   scene/
-    mod.rs                Scene struct, ObjectId (slotmap key), add/remove/iterate
+    mod.rs                Scene struct, ObjectId, SceneNode supertrait, add/remove/iterate
     objects/              Circle, Line, Axes, Text, etc.
     traits.rs             SceneObject trait (draw, bounding_box) + Animatable trait
   animation/
