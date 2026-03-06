@@ -24,7 +24,7 @@ impl Circle {
 impl SceneObject for Circle {
     fn draw(&self) {
         let color = Color::new(self.color.x, self.color.y, self.color.z, self.color.w);
-        draw_circle(self.position.x, self.position.y, self.radius, color);
+        draw_sphere(self.position, self.radius, None, color);
     }
 
     fn bounding_box(&self) -> BoundingBox {

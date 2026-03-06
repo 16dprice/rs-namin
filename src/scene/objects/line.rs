@@ -26,14 +26,7 @@ impl Line {
 impl SceneObject for Line {
     fn draw(&self) {
         let color = Color::new(self.color.x, self.color.y, self.color.z, self.color.w);
-        draw_line(
-            self.start.x,
-            self.start.y,
-            self.end.x,
-            self.end.y,
-            self.thickness,
-            color,
-        );
+        draw_line_3d(self.start, self.end, color);
     }
 
     fn bounding_box(&self) -> BoundingBox {
