@@ -11,6 +11,13 @@ use traits::{Animatable, SceneObject};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjectId(usize);
 
+impl ObjectId {
+    #[cfg(test)]
+    pub fn test_id(index: usize) -> Self {
+        Self(index)
+    }
+}
+
 pub trait SceneNode: SceneObject + Animatable {}
 impl<T: SceneObject + Animatable> SceneNode for T {}
 
