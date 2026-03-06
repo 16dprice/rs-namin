@@ -54,6 +54,10 @@ impl Track {
         self.keyframes.last().map(|k| k.time)
     }
 
+    pub fn keyframe_times(&self) -> impl Iterator<Item = f32> + '_ {
+        self.keyframes.iter().map(|k| k.time)
+    }
+
     pub fn evaluate(&self, time: f32) -> Option<AnimValue> {
         if self.keyframes.is_empty() {
             return None;

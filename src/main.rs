@@ -2,6 +2,7 @@
 
 mod animation;
 mod clock;
+mod debug;
 mod scene;
 #[cfg(test)]
 mod tests;
@@ -12,6 +13,7 @@ use animation::easing::{quad_in, quad_out};
 use animation::timeline::Timeline;
 use animation::track::{Keyframe, Track};
 use clock::Clock;
+use debug::DebugOverlay;
 use scene::objects::{Circle, Line};
 use scene::value::AnimValue;
 use scene::Scene;
@@ -86,13 +88,20 @@ async fn main() {
     clock.loop_mode = clock::LoopMode::Loop;
     clock.play();
 
+    let mut debug_overlay = DebugOverlay::new();
+
     loop {
         clear_background(BLACK);
 
+        debug_overlay.handle_input(&mut clock);
+        debug_overlay.update(&mut clock);
+
         clock.tick(get_frame_time());
         timeline.apply(clock.current_time, &mut scene);
+
         scene.draw_all();
-        draw_fps();
+        debug_overlay.draw(&clock, &scene);
+        debug_overlay.scrub_bar.draw_ticks(&timeline, clock.duration);
 
         next_frame().await;
     }

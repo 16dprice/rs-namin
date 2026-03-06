@@ -20,10 +20,10 @@ src/
     orbit.rs              OrbitController (spherical coords, input handling)
   clock.rs                Clock, PlaybackState, LoopMode, transport logic
   debug/
-    mod.rs                DebugOverlay (HUD, world-space draws, keybindings)
+    mod.rs                DebugOverlay (HUD, toggle state, input handling, draw dispatch)
+    keybindings.rs        Keybindings struct (all configurable key mappings)
     scrub_bar.rs          ScrubBar (visual timeline + drag-to-scrub)
-    value_inspector.rs    Per-object property viewer (when paused)
-    camera_log.rs         CameraDebugLog, CameraSnapshot, dump_recent()
+    value_inspector.rs    ValueInspector (per-object property viewer)
   render/
     mod.rs                RenderContext, draw dispatch
     export.rs             Offline frame capture, PNG export, ffmpeg invocation

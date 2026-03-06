@@ -1,63 +1,54 @@
 # Debug Overlay & UI
 
-All debug features are toggled with F-keys.
+Implemented in `src/debug/`. All keybindings are configurable via `Keybindings` struct in `src/debug/keybindings.rs`.
 
 ## HUD (Heads-Up Display)
 
-Screen-space overlay showing:
+Screen-space overlay (toggle: F1) showing:
 
-- Camera position, target, distance, forward vector, FOV.
 - Object count in the scene.
-- Current time, playback state, playback speed.
+- Current time / duration, playback state, playback speed.
+- Loop mode.
 
-## World-Space Debug Draws
-
-Rendered in 3D, visible from the camera's perspective:
-
-- **Ground grid** on the XZ plane.
-- **Origin axes** — RGB = XYZ (red = X, green = Y, blue = Z).
-- **Orbit-target crosshair** — shows where the camera is looking at in interactive mode.
-- **Per-object bounding boxes** — wireframe AABBs around each scene object.
-
-## Snap-to-View Keys
-
-Following Blender numpad conventions:
-
-- Front, right, top views (and their opposites).
-- Perspective/orthographic toggle.
-
-## Camera State Log
-
-`CameraDebugLog` maintains a ring buffer of recent `CameraSnapshot` entries, each tagged with a trigger label (e.g., "orbit", "timeline:keyframe_3").
-
-- Dump recent history to console on keypress.
-- Useful for debugging camera jumps or unexpected movements.
-
-## Value Inspector
-
-When paused with an object selected:
-
-- Shows all properties of the selected object (from `Animatable::property_names()`).
-- Displays current interpolated values.
-- Indicates which keyframe segment is active for each property.
+Camera info will be added once the camera system is implemented.
 
 ## Scrub Bar
 
-A visual timeline bar at the bottom of the screen:
+Visual timeline bar at the bottom of the screen (toggle: F2):
 
 - Shows playhead position along the timeline.
 - Keyframe tick marks from all tracks.
 - Time readout (current time / duration).
 - Play/pause state indicator.
-- Playback speed display.
-- **Interaction:** click-drag to scrub. Auto-pauses when dragging begins.
+- Click-drag to scrub. Auto-pauses when dragging begins, resumes on release if was playing.
+
+## Value Inspector
+
+Right-side panel (toggle: F3) showing:
+
+- All properties of every scene object (from `Animatable::property_names()`).
+- Current interpolated values formatted by type.
+
+## Transport Controls
+
+Keybindings for playback (all configurable in `Keybindings`):
+
+- Play/pause toggle (default: Space).
+- Step forward/backward one frame (default: Right/Left arrows). Auto-pauses.
+- Speed up/down by 2x (default: Up/Down arrows). Clamped to 0.125x–8x range.
+
+## Not Yet Implemented
+
+- **World-space debug draws** — ground grid, origin axes, orbit-target crosshair, per-object bounding boxes. Requires camera system.
+- **Snap-to-view keys** — Blender-style numpad views. Requires camera system.
+- **Camera state log** — ring buffer of camera snapshots. Requires camera system.
 
 ## Module Location
 
 ```
 src/debug/
-  mod.rs              DebugOverlay (HUD, world-space draws, keybindings)
+  mod.rs              DebugOverlay (HUD, toggle state, input handling, draw dispatch)
+  keybindings.rs      Keybindings struct (all configurable key mappings)
   scrub_bar.rs        ScrubBar (visual timeline + drag-to-scrub)
-  value_inspector.rs  Per-object property viewer
-  camera_log.rs       CameraDebugLog, CameraSnapshot, dump_recent()
+  value_inspector.rs  ValueInspector (per-object property viewer)
 ```
