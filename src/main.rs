@@ -8,7 +8,7 @@ mod tests;
 
 use macroquad::prelude::*;
 
-use animation::easing::quad_in_out;
+use animation::easing::{quad_in, quad_out};
 use animation::timeline::Timeline;
 use animation::track::{Keyframe, Track};
 use clock::Clock;
@@ -29,40 +29,58 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut scene = Scene::new();
-    let circle_id = scene.add(Circle::new(vec3(200.0, 360.0, 0.0), 50.0, BLUE));
+
+    let ground_y = 600.0_f32;
+    let radius = 50.0_f32;
+    let rest_y = ground_y - radius; // ball center when sitting on ground
+
+    let circle_id = scene.add(Circle::new(vec3(640.0, rest_y, 0.0), radius, BLUE));
     scene.add(Line::new(
-        vec3(0.0, 600.0, 0.0),
-        vec3(1280.0, 600.0, 0.0),
+        vec3(0.0, ground_y, 0.0),
+        vec3(1280.0, ground_y, 0.0),
         2.0,
         WHITE,
     ));
 
     let mut timeline = Timeline::new();
 
-    // Animate circle position across the screen
-    let mut pos_track = Track::new(circle_id, "position");
-    pos_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec3(vec3(200.0, 360.0, 0.0))));
-    pos_track.add_keyframe(Keyframe::with_easing(
-        2.0,
-        AnimValue::Vec3(vec3(1080.0, 360.0, 0.0)),
-        quad_in_out,
-    ));
-    timeline.add_track(pos_track);
+    // Bouncing ball: 3 bounces with decreasing height, then rest
+    // Each bounce: quad_out up (decelerating), quad_in down (accelerating)
+    let bounce_heights = [300.0_f32, 150.0, 60.0];
+    let bounce_durations = [0.8_f32, 0.6, 0.4]; // seconds per half-bounce
 
-    // Animate circle radius
-    let mut radius_track = Track::new(circle_id, "radius");
-    radius_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(50.0)));
-    radius_track.add_keyframe(Keyframe::with_easing(
-        1.0,
-        AnimValue::Float(100.0),
-        quad_in_out,
+    let mut pos_track = Track::new(circle_id, "position");
+    let mut t = 0.0_f32;
+
+    // Start on the ground
+    pos_track.add_keyframe(Keyframe::with_easing(
+        t,
+        AnimValue::Vec3(vec3(640.0, rest_y, 0.0)),
+        quad_out,
     ));
-    radius_track.add_keyframe(Keyframe::with_easing(
-        2.0,
-        AnimValue::Float(50.0),
-        quad_in_out,
-    ));
-    timeline.add_track(radius_track);
+
+    for i in 0..bounce_heights.len() {
+        let peak_y = rest_y - bounce_heights[i];
+        let dur = bounce_durations[i];
+
+        // Up to peak
+        t += dur;
+        pos_track.add_keyframe(Keyframe::with_easing(
+            t,
+            AnimValue::Vec3(vec3(640.0, peak_y, 0.0)),
+            quad_in,
+        ));
+
+        // Down to ground
+        t += dur;
+        pos_track.add_keyframe(Keyframe::with_easing(
+            t,
+            AnimValue::Vec3(vec3(640.0, rest_y, 0.0)),
+            quad_out,
+        ));
+    }
+
+    timeline.add_track(pos_track);
 
     let mut clock = Clock::new(timeline.duration(), 60.0);
     clock.loop_mode = clock::LoopMode::Loop;
