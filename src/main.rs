@@ -2,9 +2,9 @@
 
 mod animation;
 mod clock;
-#[cfg(test)]
-mod clock_tests;
 mod scene;
+#[cfg(test)]
+mod tests;
 
 use macroquad::prelude::*;
 

@@ -24,6 +24,12 @@ Every code change must include corresponding tests. See [docs/testing.md](docs/t
 - New traits or trait impls get round-trip and contract tests.
 - Bug fixes include a regression test that would have caught the bug.
 
+### Test Organization
+
+- **Unit tests** go inline at the bottom of the file they test, in a `#[cfg(test)] mod tests { ... }` block.
+- **Integration tests** that exercise multiple modules together go in `src/tests/` as separate files, registered from `src/tests/mod.rs`.
+- Do not create separate `_tests.rs` files alongside source files.
+
 ### Build Checks Before Finishing
 
 Before considering any task complete, run:

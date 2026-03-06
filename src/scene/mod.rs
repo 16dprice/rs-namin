@@ -1,10 +1,6 @@
 pub mod objects;
-#[cfg(test)]
-mod scene_tests;
 pub mod traits;
 pub mod value;
-#[cfg(test)]
-mod value_tests;
 
 use traits::{Animatable, SceneObject};
 

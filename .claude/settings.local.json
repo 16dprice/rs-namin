@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo clippy -- -D warnings)",
+      "Bash(git add:*",
+      "Bash(git commit:*)",
+      "Bash(cargo build)",
+      "Bash(cargo test)"
+    ]
+  }
+}
