@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use macroquad::prelude::*;
 
 use rs_namin::camera::Camera;
-use rs_namin::demo;
+use rs_namin::my_scene;
 
 const WIDTH: u32 = 1280;
 const HEIGHT: u32 = 720;
@@ -38,7 +38,7 @@ fn rgba_to_rgb_flipped(rgba: &[[u8; 4]], width: usize, height: usize, out: &mut 
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let (mut scene, timeline) = demo::build();
+    let (mut scene, timeline) = my_scene::build();
     let duration = timeline.duration();
     let total_frames = (duration * FPS).ceil() as u32;
 

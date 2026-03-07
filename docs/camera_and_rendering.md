@@ -46,9 +46,10 @@ Configurable: `orbit_speed`, `zoom_speed`, `move_speed`, `min_distance`, `max_di
 
 Currently only interactive mode is implemented. The main loop runs:
 1. `set_camera(&camera.to_macroquad())` — 3D scene pass
-2. `scene.draw_all()` — objects draw with 3D primitives
-3. `set_default_camera()` — switch to screen space for UI
-4. `orbit.update(&mut camera)` — process mouse input
+2. `scene.draw_world()` — world-space objects draw with custom meshes
+3. `set_default_camera()` — switch to screen space
+4. `scene.draw_screen()` — screen-space objects (e.g., Text) draw with pixel coords
+5. `orbit.update(&mut camera)` — process mouse input
 
 ### Playback Mode (not yet implemented)
 
@@ -82,5 +83,6 @@ src/camera/
   orbit.rs      OrbitController (spherical coords, mouse input)
 src/bin/
   export.rs     CLI export binary
-src/demo.rs     Shared demo scene definition
+src/demo.rs     Demo scene definition (bouncing ball, shapes, text)
+src/my_scene.rs User scene definition (active scene used by main and export)
 ```

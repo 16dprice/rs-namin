@@ -8,7 +8,7 @@ src/
   main.rs                 macroquad entry point, main loop
   scene/
     mod.rs                Scene struct, ObjectId, SceneNode supertrait, add/remove/iterate
-    objects/              Circle, Line, Rectangle, Polygon
+    objects/              Circle, Line, Rectangle, Polygon, Spiral, Text
     traits.rs             SceneObject trait (draw, bounding_box) + Animatable trait
     value.rs              AnimValue enum + lerp implementation
   animation/
@@ -25,7 +25,8 @@ src/
     keybindings.rs        Keybindings struct (all configurable key mappings)
     scrub_bar.rs          ScrubBar (visual timeline + drag-to-scrub)
     value_inspector.rs    ValueInspector (per-object property viewer)
-  demo.rs                 Shared demo scene definition (used by main and export binaries)
+  demo.rs                 Demo scene definition (bouncing ball, shapes, text)
+  my_scene.rs             User scene definition (active scene used by main and export)
   tests/
     mod.rs                Integration test registration
     timeline_integration.rs  Timeline + scene integration tests
@@ -46,9 +47,10 @@ each frame:
 
     set_camera(camera.to_macroquad())
     debug.draw_world(...)                        // grid, axes
-    scene.draw_all()
+    scene.draw_world()                           // world-space objects
 
     set_default_camera()                         // switch to screen space
+    scene.draw_screen()                          // screen-space objects (Text)
     debug.draw_hud(...)                          // camera info, value inspector
     scrub_bar.draw(...)
 
@@ -66,4 +68,4 @@ each frame:
 
 ## Demo Scene
 
-The `demo::build()` function in `src/demo.rs` constructs a shared demo scene used by both the interactive viewer and the CLI export binary. It returns a `(Scene, Timeline)` tuple with example objects and animations (bouncing ball, pulsing rectangle, spinning hexagon).
+The `my_scene::build()` function in `src/my_scene.rs` is the active scene used by both the interactive viewer and the CLI export binary. It returns a `(Scene, Timeline)` tuple. The original demo scene is preserved in `src/demo.rs` for reference.

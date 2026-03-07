@@ -4,7 +4,7 @@ use rs_namin::camera::orbit::OrbitController;
 use rs_namin::camera::Camera;
 use rs_namin::clock::{self, Clock};
 use rs_namin::debug::DebugOverlay;
-use rs_namin::demo;
+use rs_namin::my_scene;
 
 fn window_conf() -> Conf {
     Conf {
@@ -18,7 +18,7 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let (mut scene, timeline) = demo::build();
+    let (mut scene, timeline) = my_scene::build();
 
     let mut clock = Clock::new(timeline.duration(), 60.0);
     clock.loop_mode = clock::LoopMode::Loop;

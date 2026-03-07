@@ -5,13 +5,13 @@ Implemented in `src/scene/`.
 ## Scene Graph
 
 - **Storage:** `Vec<Option<Box<dyn SceneNode>>>` with sequential `ObjectId(usize)` keys. See `src/scene/mod.rs`.
-- **Operations:** `add`, `remove`, `get`, `get_mut`, `iter`, `draw_all`.
+- **Operations:** `add`, `remove`, `get`, `get_mut`, `iter`, `draw_world`, `draw_screen`.
 - **SceneNode** is a supertrait combining `SceneObject + Animatable`, auto-implemented for any type implementing both.
-- **Current object types:** `Circle`, `Line`, `Rectangle`, `Polygon` (in `src/scene/objects/`).
+- **Current object types:** `Circle`, `Line`, `Rectangle`, `Polygon`, `Spiral`, `Text` (in `src/scene/objects/`).
 
 ## Traits (`src/scene/traits.rs`)
 
-**SceneObject** — `draw()`, `bounding_box() -> BoundingBox`.
+**SceneObject** — `draw()`, `bounding_box() -> BoundingBox`, `is_screen_space() -> bool` (default `false`). Screen-space objects (like `Text`) are drawn after `set_default_camera()` instead of during the 3D camera pass.
 
 **Animatable** — `get(&str) -> Option<AnimValue>`, `set(&str, AnimValue)`, `property_names() -> &[&str]`.
 
@@ -41,6 +41,14 @@ Build flat meshes using `draw_mesh` with macroquad's `Vertex` struct. Each verte
 4. Call `draw_mesh(&self.build_mesh())` from the `SceneObject::draw()` impl.
 
 **Reference implementation:** `Circle` in `src/scene/objects/circle.rs` — triangle fan disk with 32 segments.
+
+### macroquad draw call limits
+
+macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A single `draw_mesh` call that exceeds these limits will be silently clamped. Objects with many primitives (e.g., `Spiral` with thousands of dots) must split into multiple `draw_mesh` calls, each within the buffer limits. See `Spiral` for a chunked draw implementation.
+
+### Screen-space objects
+
+Objects that return `is_screen_space() == true` (e.g., `Text`) are drawn via `scene.draw_screen()` after `set_default_camera()`, using pixel coordinates. They use macroquad's `draw_text` rather than custom meshes.
 
 ### When to use macroquad primitives
 

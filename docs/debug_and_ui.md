@@ -39,7 +39,7 @@ Keybindings for playback (all configurable in `Keybindings`):
 
 ## World-Space Debug Draws
 
-Drawn while the 3D camera is active (`draw_world()`):
+Toggle: F4. Drawn while the 3D camera is active (`draw_world()`):
 
 - **Ground grid** — 20×20 grid on the XZ plane at Y=0.
 - **Origin axes** — RGB axes (X=red, Y=green, Z=blue) at the origin.

@@ -10,7 +10,7 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 - **Property system** using a string-keyed `AnimValue` enum. Objects implement an `Animatable` trait. The animation system drives objects generically through this interface.
 - **Keyframe animation engine.** Tracks, timelines, easing functions, pure evaluation.
 - **Clock / transport controls.** Play, pause, frame-step, scrub, variable speed, loop modes.
-- **Scene objects:** Circle, Line, Rectangle, Polygon — flat custom meshes on the XY plane.
+- **Scene objects:** Circle, Line, Rectangle, Polygon, Spiral — flat custom meshes on the XY plane. Text — screen-space overlay.
 - **Two runtime modes:** Interactive (free camera) and Playback (timeline-driven camera, not yet implemented).
 - **Camera wrapper** converting to macroquad's `Camera3D` in one place. Camera is animatable.
 - **Debug overlay** with HUD, world-space helpers, camera log, snap-to-view, value inspector.
@@ -22,13 +22,13 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 
 - LaTeX rendering or rich math typesetting.
 - Hot-reloadable scripting language (Lua, Rhai, etc.) — start with the Rust DSL, add scripting later if needed.
-- Derive macro for `Animatable` — writing impls by hand for now (4 object types + Camera).
+- Derive macro for `Animatable` — writing impls by hand for now (6 object types + Camera).
 - GPU-accelerated or shader-based rendering beyond what macroquad provides.
 - Audio synchronization.
 - GUI editor for authoring keyframes (debug tools only, not an authoring UI).
 - Spline or bezier-path interpolation for spatial tracks (start with per-component lerp + easing).
 - `SceneBuilder` DSL with build-time property name validation.
-- Text rendering using macroquad's `draw_text_ex` with custom font loading.
+- Custom font loading for Text objects (currently uses macroquad's default font).
 
 ## Key Design Decisions
 
