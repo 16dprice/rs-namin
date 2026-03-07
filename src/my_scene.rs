@@ -7,10 +7,10 @@ use macroquad::prelude::*;
 use crate::animation::easing::{cubic_in, cubic_in_out, cubic_out, quad_in, quad_in_out, quad_out};
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
+use crate::scene::Scene;
 #[allow(unused_imports)]
 use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Spiral, Text};
 use crate::scene::value::AnimValue;
-use crate::scene::Scene;
 
 #[allow(unused_variables, unused_mut)]
 pub fn build() -> (Scene, Timeline) {
