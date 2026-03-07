@@ -2,6 +2,7 @@ use macroquad::prelude::*;
 
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
+use crate::camera::Camera;
 use crate::scene::objects::Circle;
 use crate::scene::value::AnimValue;
 use crate::scene::ObjectId;
@@ -19,7 +20,8 @@ fn apply_sets_property_at_time() {
     let mut timeline = Timeline::new();
     timeline.add_track(track);
 
-    timeline.apply(1.0, &mut scene);
+    let mut cam = Camera::default();
+    timeline.apply(1.0, &mut scene, &mut cam);
     let obj = scene.get(id).unwrap();
     assert_eq!(obj.get("radius"), Some(AnimValue::Float(30.0)));
 }
@@ -41,7 +43,8 @@ fn apply_multiple_tracks_same_object() {
     timeline.add_track(radius_track);
     timeline.add_track(pos_track);
 
-    timeline.apply(0.5, &mut scene);
+    let mut cam = Camera::default();
+    timeline.apply(0.5, &mut scene, &mut cam);
     let obj = scene.get(id).unwrap();
     assert_eq!(obj.get("radius"), Some(AnimValue::Float(30.0)));
     assert_eq!(

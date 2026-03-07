@@ -16,6 +16,8 @@ pub struct DebugOverlay {
     pub keybindings: Keybindings,
     pub hud_visible: bool,
     pub world_helpers_visible: bool,
+    /// When true, the camera is driven by the timeline instead of the orbit controller.
+    pub camera_follow_timeline: bool,
     pub scrub_bar: ScrubBar,
     pub value_inspector: ValueInspector,
 }
@@ -26,6 +28,7 @@ impl DebugOverlay {
             keybindings: Keybindings::default(),
             hud_visible: true,
             world_helpers_visible: true,
+            camera_follow_timeline: false,
             scrub_bar: ScrubBar::new(),
             value_inspector: ValueInspector::new(),
         }
@@ -47,6 +50,9 @@ impl DebugOverlay {
         }
         if is_key_pressed(kb.toggle_world_helpers) {
             self.world_helpers_visible = !self.world_helpers_visible;
+        }
+        if is_key_pressed(kb.toggle_camera_follow) {
+            self.camera_follow_timeline = !self.camera_follow_timeline;
         }
 
         if is_key_pressed(kb.play_pause) {
@@ -113,13 +119,19 @@ impl DebugOverlay {
         let t = camera.target;
         let fwd = camera.forward();
 
+        let cam_mode = if self.camera_follow_timeline {
+            "Timeline"
+        } else {
+            "Orbit"
+        };
+
         let hud_lines = [
             format!(
                 "Time: {:.2} / {:.2}s",
                 clock.current_time, clock.duration
             ),
             format!("State: {}  Speed: {:.2}x", state_str, clock.playback_speed),
-            format!("Loop: {}", loop_str),
+            format!("Loop: {}  Camera: {} (F5)", loop_str, cam_mode),
             format!("Objects: {}", scene.len()),
             format!(
                 "Cam: ({:.1}, {:.1}, {:.1})  Target: ({:.1}, {:.1}, {:.1})",

@@ -3,7 +3,6 @@ use std::process::{Command, Stdio};
 
 use macroquad::prelude::*;
 
-use rs_namin::camera::Camera;
 use rs_namin::my_scene;
 
 const WIDTH: u32 = 1280;
@@ -38,12 +37,10 @@ fn rgba_to_rgb_flipped(rgba: &[[u8; 4]], width: usize, height: usize, out: &mut 
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let (mut scene, timeline) = my_scene::build();
+    let (mut scene, timeline, mut camera) = my_scene::build();
+    let initial_camera = camera.clone();
     let duration = timeline.duration();
     let total_frames = (duration * FPS).ceil() as u32;
-
-    let camera = Camera::new(vec3(0.0, 4.0, 15.0), vec3(0.0, 3.0, 0.0));
-    let cam3d = camera.to_macroquad();
 
     let rt = render_target(WIDTH, HEIGHT);
     rt.texture.set_filter(FilterMode::Nearest);
@@ -101,12 +98,12 @@ async fn main() {
 
         // Render this frame to the render target
         let t = frame as f32 / FPS;
-        timeline.apply(t, &mut scene);
+        camera = initial_camera.clone();
+        timeline.apply(t, &mut scene, &mut camera);
 
-        let export_cam = Camera3D {
-            render_target: Some(rt.clone()),
-            ..cam3d
-        };
+        let mut cam3d = camera.to_macroquad();
+        cam3d.render_target = Some(rt.clone());
+        let export_cam = cam3d;
         set_camera(&export_cam);
         clear_background(BLACK);
         scene.draw_world();

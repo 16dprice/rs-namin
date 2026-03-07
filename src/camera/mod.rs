@@ -11,6 +11,7 @@ pub enum ProjectionMode {
     Orthographic,
 }
 
+#[derive(Clone)]
 pub struct Camera {
     pub position: Vec3,
     pub target: Vec3,

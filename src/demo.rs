@@ -5,10 +5,11 @@ use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Text};
 use crate::scene::value::AnimValue;
+use crate::camera::Camera;
 use crate::scene::Scene;
 
 /// Build the demo scene and timeline.
-pub fn build() -> (Scene, Timeline) {
+pub fn build() -> (Scene, Timeline, Camera) {
     let mut scene = Scene::new();
 
     let radius = 0.5_f32;
@@ -87,5 +88,7 @@ pub fn build() -> (Scene, Timeline) {
     text_track.add_keyframe(Keyframe::new(duration / 2.0, AnimValue::Float(1.0)));
     timeline.add_track(text_track);
 
-    (scene, timeline)
+    let camera = Camera::new(vec3(0.0, 4.0, 15.0), vec3(0.0, 3.0, 0.0));
+
+    (scene, timeline, camera)
 }

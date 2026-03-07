@@ -27,8 +27,14 @@ impl Keyframe {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrackTarget {
+    Object(ObjectId),
+    Camera,
+}
+
 pub struct Track {
-    pub object_id: ObjectId,
+    pub target: TrackTarget,
     pub property_name: String,
     keyframes: Vec<Keyframe>,
 }
@@ -36,7 +42,15 @@ pub struct Track {
 impl Track {
     pub fn new(object_id: ObjectId, property_name: impl Into<String>) -> Self {
         Self {
-            object_id,
+            target: TrackTarget::Object(object_id),
+            property_name: property_name.into(),
+            keyframes: Vec::new(),
+        }
+    }
+
+    pub fn camera(property_name: impl Into<String>) -> Self {
+        Self {
+            target: TrackTarget::Camera,
             property_name: property_name.into(),
             keyframes: Vec::new(),
         }
