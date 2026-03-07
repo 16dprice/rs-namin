@@ -15,6 +15,7 @@ use value_inspector::ValueInspector;
 pub struct DebugOverlay {
     pub keybindings: Keybindings,
     pub hud_visible: bool,
+    pub world_helpers_visible: bool,
     pub scrub_bar: ScrubBar,
     pub value_inspector: ValueInspector,
 }
@@ -24,6 +25,7 @@ impl DebugOverlay {
         Self {
             keybindings: Keybindings::default(),
             hud_visible: true,
+            world_helpers_visible: true,
             scrub_bar: ScrubBar::new(),
             value_inspector: ValueInspector::new(),
         }
@@ -42,6 +44,9 @@ impl DebugOverlay {
         }
         if is_key_pressed(kb.toggle_value_inspector) {
             self.value_inspector.visible = !self.value_inspector.visible;
+        }
+        if is_key_pressed(kb.toggle_world_helpers) {
+            self.world_helpers_visible = !self.world_helpers_visible;
         }
 
         if is_key_pressed(kb.play_pause) {
@@ -68,8 +73,11 @@ impl DebugOverlay {
         self.scrub_bar.update(clock);
     }
 
-    /// Draw world-space debug helpers. Call while 3D camera is active.
+    /// Draw world-space debug helpers (toggle: F4). Call while 3D camera is active.
     pub fn draw_world(&self) {
+        if !self.world_helpers_visible {
+            return;
+        }
         self.draw_grid(20, 1.0);
         self.draw_origin_axes(2.0);
     }

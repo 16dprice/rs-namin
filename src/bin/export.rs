@@ -109,7 +109,17 @@ async fn main() {
         };
         set_camera(&export_cam);
         clear_background(BLACK);
-        scene.draw_all();
+        scene.draw_world();
+
+        // Screen-space pass: render text/overlay objects into the same render target.
+        let screen_cam = Camera2D {
+            zoom: vec2(2.0 / WIDTH as f32, -2.0 / HEIGHT as f32),
+            target: vec2(WIDTH as f32 / 2.0, HEIGHT as f32 / 2.0),
+            render_target: Some(rt.clone()),
+            ..Default::default()
+        };
+        set_camera(&screen_cam);
+        scene.draw_screen();
 
         pending_frame = Some(frame);
 

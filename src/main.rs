@@ -41,10 +41,11 @@ async fn main() {
         // 3D scene pass
         set_camera(&camera.to_macroquad());
         debug_overlay.draw_world();
-        scene.draw_all();
+        scene.draw_world();
 
         // Screen-space UI pass
         set_default_camera();
+        scene.draw_screen();
         debug_overlay.draw(&clock, &scene, &camera);
         debug_overlay.scrub_bar.draw_ticks(&timeline, clock.duration);
 

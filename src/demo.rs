@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 use crate::animation::easing::{quad_in, quad_out};
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
-use crate::scene::objects::{Circle, Line, Polygon, Rectangle};
+use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Text};
 use crate::scene::value::AnimValue;
 use crate::scene::Scene;
 
@@ -77,6 +77,15 @@ pub fn build() -> (Scene, Timeline) {
         AnimValue::Float(std::f32::consts::TAU),
     ));
     timeline.add_track(hex_track);
+
+    // Text: typewriter-reveal a label over the first half of the animation
+    let mut label = Text::new("rs-namin demo", vec2(40.0, 40.0), 48.0, WHITE);
+    label.percentage_shown = 0.0;
+    let text_id = scene.add(label);
+    let mut text_track = Track::new(text_id, "percentage_shown");
+    text_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+    text_track.add_keyframe(Keyframe::new(duration / 2.0, AnimValue::Float(1.0)));
+    timeline.add_track(text_track);
 
     (scene, timeline)
 }

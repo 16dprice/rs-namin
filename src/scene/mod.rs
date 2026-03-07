@@ -61,9 +61,21 @@ impl Scene {
         self.objects.iter().all(|o| o.is_none())
     }
 
-    pub fn draw_all(&self) {
+    /// Draw all world-space objects (called during the 3D camera pass).
+    pub fn draw_world(&self) {
         for object in self.objects.iter().flatten() {
-            object.draw();
+            if !object.is_screen_space() {
+                object.draw();
+            }
+        }
+    }
+
+    /// Draw all screen-space objects (called after set_default_camera).
+    pub fn draw_screen(&self) {
+        for object in self.objects.iter().flatten() {
+            if object.is_screen_space() {
+                object.draw();
+            }
         }
     }
 }
