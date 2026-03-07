@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::objects::{Circle, Line};
+use crate::scene::objects::{Circle, Line, Polygon, Rectangle};
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
 use crate::scene::Scene;
@@ -139,4 +139,108 @@ fn line_property_names_match_getters() {
             name
         );
     }
+}
+
+// -- Rectangle property round-trip tests --
+
+#[test]
+fn rectangle_property_roundtrip_position() {
+    let mut rect = Rectangle::new(vec3(0.0, 0.0, 0.0), vec2(2.0, 3.0), GREEN);
+    let new_pos = AnimValue::Vec3(vec3(1.0, 2.0, 3.0));
+    rect.set("position", new_pos.clone());
+    assert_eq!(rect.get("position"), Some(new_pos));
+}
+
+#[test]
+fn rectangle_property_roundtrip_size() {
+    let mut rect = Rectangle::new(vec3(0.0, 0.0, 0.0), vec2(2.0, 3.0), GREEN);
+    let new_size = AnimValue::Vec2(vec2(5.0, 10.0));
+    rect.set("size", new_size.clone());
+    assert_eq!(rect.get("size"), Some(new_size));
+}
+
+#[test]
+fn rectangle_property_roundtrip_color() {
+    let mut rect = Rectangle::new(vec3(0.0, 0.0, 0.0), vec2(2.0, 3.0), GREEN);
+    let new_color = AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0));
+    rect.set("color", new_color.clone());
+    assert_eq!(rect.get("color"), Some(new_color));
+}
+
+#[test]
+fn rectangle_property_names_match_getters() {
+    let rect = Rectangle::new(vec3(0.0, 0.0, 0.0), vec2(2.0, 3.0), GREEN);
+    for name in rect.property_names() {
+        assert!(
+            rect.get(name).is_some(),
+            "property '{}' returned None",
+            name
+        );
+    }
+}
+
+// -- Polygon property round-trip tests --
+
+#[test]
+fn polygon_property_roundtrip_position() {
+    let mut poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    let new_pos = AnimValue::Vec3(vec3(5.0, 5.0, 0.0));
+    poly.set("position", new_pos.clone());
+    assert_eq!(poly.get("position"), Some(new_pos));
+}
+
+#[test]
+fn polygon_property_roundtrip_radius() {
+    let mut poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    let new_radius = AnimValue::Float(3.0);
+    poly.set("radius", new_radius.clone());
+    assert_eq!(poly.get("radius"), Some(new_radius));
+}
+
+#[test]
+fn polygon_property_roundtrip_sides() {
+    let mut poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    poly.set("sides", AnimValue::Float(5.0));
+    assert_eq!(poly.get("sides"), Some(AnimValue::Float(5.0)));
+}
+
+#[test]
+fn polygon_sides_clamps_to_minimum_3() {
+    let mut poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    poly.set("sides", AnimValue::Float(1.0));
+    assert_eq!(poly.get("sides"), Some(AnimValue::Float(3.0)));
+}
+
+#[test]
+fn polygon_property_roundtrip_rotation() {
+    let mut poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    let new_rot = AnimValue::Float(1.5);
+    poly.set("rotation", new_rot.clone());
+    assert_eq!(poly.get("rotation"), Some(new_rot));
+}
+
+#[test]
+fn polygon_property_roundtrip_color() {
+    let mut poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    let new_color = AnimValue::Vec4(vec4(0.0, 0.0, 1.0, 1.0));
+    poly.set("color", new_color.clone());
+    assert_eq!(poly.get("color"), Some(new_color));
+}
+
+#[test]
+fn polygon_property_names_match_getters() {
+    let poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
+    for name in poly.property_names() {
+        assert!(
+            poly.get(name).is_some(),
+            "property '{}' returned None",
+            name
+        );
+    }
+}
+
+#[test]
+fn polygon_new_clamps_sides() {
+    let poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 2, RED);
+    assert_eq!(poly.get("sides"), Some(AnimValue::Float(3.0)));
 }

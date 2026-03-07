@@ -10,6 +10,7 @@ pub struct Keybindings {
     pub step_backward: KeyCode,
     pub speed_up: KeyCode,
     pub speed_down: KeyCode,
+    pub export: KeyCode,
 }
 
 impl Default for Keybindings {
@@ -23,6 +24,7 @@ impl Default for Keybindings {
             step_backward: KeyCode::Left,
             speed_up: KeyCode::Up,
             speed_down: KeyCode::Down,
+            export: KeyCode::F5,
         }
     }
 }

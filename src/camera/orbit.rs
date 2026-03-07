@@ -54,15 +54,15 @@ impl OrbitController {
         let raw_delta = mouse_delta_position();
         let delta = vec2(raw_delta.x * screen_width(), raw_delta.y * screen_height());
 
-        // Right-click drag: orbit
-        if is_mouse_button_down(MouseButton::Right) {
+        // Middle-click drag: orbit
+        if is_mouse_button_down(MouseButton::Middle) {
             self.azimuth += delta.x * self.orbit_speed;
             self.elevation -= delta.y * self.orbit_speed;
             self.elevation = self.elevation.clamp(-1.5, 1.5); // ~86 degrees
         }
 
-        // Middle-click drag: pan (1:1 with mouse — point under cursor stays under cursor)
-        if is_mouse_button_down(MouseButton::Middle) {
+        // Right-click drag: pan (1:1 with mouse — point under cursor stays under cursor)
+        if is_mouse_button_down(MouseButton::Right) {
             let right = self.right_vector();
             let up = camera.up;
             // Convert pixel movement to world units at the target's depth.
