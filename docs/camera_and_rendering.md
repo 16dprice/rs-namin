@@ -28,13 +28,19 @@ The camera implements `Animatable` with properties: `position`, `target`, `up`, 
 
 Implemented in `src/camera/orbit.rs`. Uses spherical coordinates (azimuth, elevation, distance) around a target point.
 
-- **Right-click drag**: orbit (rotate around target)
-- **Middle-click drag**: pan (move target and camera)
+- **Middle-click drag**: orbit (rotate around target)
+- **Right-click drag**: pan (move target and camera). Pan speed is derived from the camera's FOV and distance for 1:1 mouse tracking.
 - **Scroll wheel**: zoom (change distance, clamped to min/max)
+- **WASD**: move target along the ground plane (camera follows)
+- **Q/E**: move target down/up along the Y axis
 - `from_camera(&Camera)` — derive orbit state from an existing camera.
 - `apply_to_camera(&Camera)` — write spherical position back to camera.
 
-Configurable: `orbit_speed`, `zoom_speed`, `min_distance`, `max_distance`. Pan speed is derived from the camera's FOV and screen height for 1:1 mouse tracking.
+Configurable: `orbit_speed`, `zoom_speed`, `move_speed`, `min_distance`, `max_distance`.
+
+### Mouse delta coordinate space
+
+`mouse_delta_position()` returns coordinates in the -2..2 range (internally `pixel / screen * 2 - 1`). The orbit controller multiplies by `screen / 2` to recover pixel deltas.
 
 ## Runtime Modes
 
@@ -50,19 +56,23 @@ Camera would be fully driven by the timeline — no manual input. The main loop 
 
 ## Scene Objects
 
-Objects use macroquad's 3D primitives:
-- `Circle` draws with `draw_sphere`
-- `Line` draws with `draw_line_3d`
+Objects are flat custom meshes rendered on the XY plane using `draw_mesh`. See `docs/scene_and_properties.md` for the rendering pattern.
 
 Coordinates are in world space (Y-up).
 
-## Offline Export Pipeline (not yet implemented)
+## CLI Export
 
-Planned approach:
-1. Drive time synthetically at fixed `1/fps` steps.
-2. Render each frame to a macroquad `render_target`.
-3. Write each frame as PNG.
-4. Stitch with ffmpeg.
+Implemented in `src/bin/export.rs`. Run with `cargo run --bin export`.
+
+- Opens a macroquad window with **vsync disabled** (`swap_interval: Some(0)`) for max speed.
+- Drives time synthetically at `1/fps` steps.
+- Renders each frame to a `render_target`, flushes via `next_frame()`, then reads back pixels.
+- Pipes raw RGB directly to ffmpeg's stdin — no intermediate files.
+- Outputs to `export_frames/<timestamp>.mp4`.
+
+### Why a separate binary?
+
+macroquad batches GPU draw commands and only flushes on `next_frame().await`. This means readback (`get_texture_data`) requires a flush between render and read. An in-app export was limited to display framerate. The separate binary disables vsync so `next_frame()` returns immediately after flushing, running as fast as the GPU allows.
 
 ## Module Location
 
@@ -70,4 +80,7 @@ Planned approach:
 src/camera/
   mod.rs        Camera struct, to_macroquad(), Animatable impl, helpers
   orbit.rs      OrbitController (spherical coords, mouse input)
+src/bin/
+  export.rs     CLI export binary
+src/demo.rs     Shared demo scene definition
 ```

@@ -34,14 +34,18 @@
 - Frame-step: advances by exactly `1/fps` in either direction.
 - Scrub clamping: setting time outside `[0, duration]` clamps to bounds.
 
-## Scene Builder Validation Tests
+## Orbit Controller Tests
 
-- Correct object and track counts after building.
-- Rejection of invalid property names (names that don't exist on the target object).
-- Rejection of tracks targeting non-existent objects.
+- `compute_position` at zero angles, with azimuth, with elevation, with offset target.
+- `apply_to_camera` sets position and target correctly.
+- `from_camera` round-trip: deriving orbit state from a camera and recomputing position matches the original.
 
-## Visual Regression Tests
+## Export Tests
 
-- Render the scene to a texture at specific known times.
-- Compare the rendered frame against golden PNG images.
-- Use a pixel-diff threshold to allow for minor rendering differences across platforms.
+- `rgba_to_rgb_flipped` correctly strips alpha and flips rows.
+- Frame count math: `(duration * fps).ceil()` produces the expected number of frames.
+
+## Not Yet Implemented
+
+- **Scene Builder validation tests** — once `SceneBuilder` is implemented.
+- **Visual regression tests** — render to texture and compare against golden images.

@@ -2,6 +2,15 @@
 name = "rs-namin"
 version = "0.1.0"
 edition = "2024"
+default-run = "rs-namin"
 
 [dependencies]
 macroquad = "0.4"
+
+[[bin]]
+name = "rs-namin"
+path = "src/main.rs"
+
+[[bin]]
+name = "export"
+path = "src/bin/export.rs"

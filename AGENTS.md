@@ -9,7 +9,7 @@ Architecture docs live in `docs/`. Start with [docs/overview.md](docs/overview.m
 | [overview.md](docs/overview.md) | Project summary, scope, design decisions |
 | [scene_and_properties.md](docs/scene_and_properties.md) | Scene graph, traits, property system |
 | [animation_and_clock.md](docs/animation_and_clock.md) | Keyframes, tracks, timeline, easing, clock |
-| [camera_and_rendering.md](docs/camera_and_rendering.md) | Camera, orbit controller, export pipeline |
+| [camera_and_rendering.md](docs/camera_and_rendering.md) | Camera, orbit controller, CLI export |
 | [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay, scrub bar, value inspector |
 | [module_layout.md](docs/module_layout.md) | Directory structure, main loop |
 | [testing.md](docs/testing.md) | Testing strategy |

@@ -4,14 +4,15 @@
 
 ```
 src/
-  main.rs                 macroquad entry point, mode switching, main loop
+  lib.rs                  Library crate root (re-exports all modules)
+  main.rs                 macroquad entry point, main loop
   scene/
     mod.rs                Scene struct, ObjectId, SceneNode supertrait, add/remove/iterate
-    objects/              Circle, Line, Axes, Text, etc.
+    objects/              Circle, Line, Rectangle, Polygon
     traits.rs             SceneObject trait (draw, bounding_box) + Animatable trait
+    value.rs              AnimValue enum + lerp implementation
   animation/
     mod.rs
-    value.rs              AnimValue enum + lerp implementation
     track.rs              Track, Keyframe, evaluate()
     timeline.rs           Timeline (collection of tracks), apply()
     easing.rs             Easing functions (linear, quad, cubic, etc.)
@@ -24,11 +25,13 @@ src/
     keybindings.rs        Keybindings struct (all configurable key mappings)
     scrub_bar.rs          ScrubBar (visual timeline + drag-to-scrub)
     value_inspector.rs    ValueInspector (per-object property viewer)
-  render/
-    mod.rs                RenderContext, draw dispatch
-    export.rs             Offline frame capture, PNG export, ffmpeg invocation
-  script/
-    mod.rs                SceneBuilder DSL, validation
+  demo.rs                 Shared demo scene definition (used by main and export binaries)
+  tests/
+    mod.rs                Integration test registration
+    timeline_integration.rs  Timeline + scene integration tests
+    scene_integration.rs     Scene graph integration tests
+  bin/
+    export.rs             CLI export binary (headless, vsync-off, pipes to ffmpeg)
 ```
 
 ## Main Loop Structure
@@ -41,19 +44,15 @@ each frame:
     clock.tick(real_dt)                          // no-op if paused
     timeline.apply(clock.current_time, &mut scene)  // always runs
 
-    match mode:
-        Interactive => orbit_controller.update(&mut camera)
-        Playback    => (camera already set by timeline.apply)
-
     set_camera(camera.to_macroquad())
-    debug.draw_world(...)                        // grid, axes, bounding boxes
+    debug.draw_world(...)                        // grid, axes
     scene.draw_all()
 
     set_default_camera()                         // switch to screen space
     debug.draw_hud(...)                          // camera info, value inspector
     scrub_bar.draw(...)
 
-    if exporting: capture framebuffer to PNG
+    orbit_controller.update(&mut camera)         // runs last to avoid consuming UI input
 ```
 
 ### Frame Ordering Notes
@@ -63,12 +62,8 @@ each frame:
 - The timeline always applies, even when paused — this is what makes scrubbing work.
 - World-space debug draws happen after `set_camera` but before screen-space UI.
 - Screen-space UI (HUD, scrub bar) draws after `set_default_camera()`.
-- Export capture happens last, after all drawing is complete.
+- Orbit controller runs last so it doesn't consume mouse input before UI elements (e.g., scrub bar dragging).
 
-## Scene Builder DSL
+## Demo Scene
 
-The `SceneBuilder` provides a builder-pattern API for defining scenes in Rust:
-
-- Collects objects, animation tracks, and camera keyframes.
-- Produces a `(Scene, Timeline)` pair.
-- **Validates property names at build time** — if a track references a property that doesn't exist on its target object, the builder returns an error instead of silently creating a broken animation.
+The `demo::build()` function in `src/demo.rs` constructs a shared demo scene used by both the interactive viewer and the CLI export binary. It returns a `(Scene, Timeline)` tuple with example objects and animations (bouncing ball, pulsing rectangle, spinning hexagon).

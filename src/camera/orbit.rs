@@ -52,7 +52,12 @@ impl OrbitController {
         let (_, scroll_y) = mouse_wheel();
         // mouse_delta_position returns normalized coords (-1..1), scale to pixels
         let raw_delta = mouse_delta_position();
-        let delta = vec2(raw_delta.x * screen_width(), raw_delta.y * screen_height());
+        // mouse_delta_position() returns coords in -2..2 range (normalized * 2 - 1).
+        // Multiply by screen/2 to get pixel deltas.
+        let delta = vec2(
+            raw_delta.x * screen_width() * 0.5,
+            raw_delta.y * screen_height() * 0.5,
+        );
 
         // Middle-click drag: orbit
         if is_mouse_button_down(MouseButton::Middle) {

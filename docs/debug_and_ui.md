@@ -10,7 +10,7 @@ Screen-space overlay (toggle: F1) showing:
 - Current time / duration, playback state, playback speed.
 - Loop mode.
 
-Camera info will be added once the camera system is implemented.
+- Camera position, target, forward vector, distance, FOV.
 
 ## Scrub Bar
 
@@ -37,11 +37,19 @@ Keybindings for playback (all configurable in `Keybindings`):
 - Step forward/backward one frame (default: Right/Left arrows). Auto-pauses.
 - Speed up/down by 2x (default: Up/Down arrows). Clamped to 0.125x–8x range.
 
+## World-Space Debug Draws
+
+Drawn while the 3D camera is active (`draw_world()`):
+
+- **Ground grid** — 20×20 grid on the XZ plane at Y=0.
+- **Origin axes** — RGB axes (X=red, Y=green, Z=blue) at the origin.
+
 ## Not Yet Implemented
 
-- **World-space debug draws** — ground grid, origin axes, orbit-target crosshair, per-object bounding boxes. Requires camera system.
-- **Snap-to-view keys** — Blender-style numpad views. Requires camera system.
-- **Camera state log** — ring buffer of camera snapshots. Requires camera system.
+- **Orbit-target crosshair** — visual indicator of the orbit controller's target point.
+- **Per-object bounding boxes** — wireframe boxes around scene objects.
+- **Snap-to-view keys** — Blender-style numpad views.
+- **Camera state log** — ring buffer of camera snapshots.
 
 ## Module Location
 
