@@ -1,4 +1,4 @@
-use macroquad::prelude::{Vec2, Vec3, Vec4};
+use macroquad::prelude::{Mat4, Quat, Vec2, Vec3, Vec4};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transform2D {
@@ -15,6 +15,7 @@ pub enum AnimValue {
     Vec4(Vec4),
     Bool(bool),
     Transform2D(Transform2D),
+    Mat4(Mat4),
 }
 
 impl AnimValue {
@@ -34,6 +35,14 @@ impl AnimValue {
                     rotation: a.rotation + (b.rotation - a.rotation) * t,
                     scale: a.scale.lerp(b.scale, t),
                 })
+            }
+            (AnimValue::Mat4(a), AnimValue::Mat4(b)) => {
+                let (s_a, r_a, t_a) = a.to_scale_rotation_translation();
+                let (s_b, r_b, t_b) = b.to_scale_rotation_translation();
+                let r = Quat::slerp(r_a, r_b, t);
+                let tr = t_a.lerp(t_b, t);
+                let s = s_a.lerp(s_b, t);
+                AnimValue::Mat4(Mat4::from_scale_rotation_translation(s, r, tr))
             }
             _ => panic!("Cannot lerp between different AnimValue variants"),
         }
@@ -107,6 +116,43 @@ mod tests {
                 assert_eq!(t.scale, vec2(1.5, 1.5));
             }
             _ => panic!("Expected Transform2D"),
+        }
+    }
+
+    #[test]
+    fn lerp_mat4_boundaries() {
+        let a = AnimValue::Mat4(Mat4::IDENTITY);
+        let b = AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2));
+        assert_eq!(AnimValue::lerp(&a, &b, 0.0), a);
+        // t=1.0: compare element-wise with tolerance (floating point slerp)
+        let result = AnimValue::lerp(&a, &b, 1.0);
+        if let (AnimValue::Mat4(r), AnimValue::Mat4(expected)) = (&result, &b) {
+            for i in 0..16 {
+                assert!(
+                    (r.to_cols_array()[i] - expected.to_cols_array()[i]).abs() < 1e-5,
+                    "Mat4 lerp t=1.0 mismatch at index {i}"
+                );
+            }
+        } else {
+            panic!("expected Mat4");
+        }
+    }
+
+    #[test]
+    fn lerp_mat4_midpoint_rotation() {
+        let a = AnimValue::Mat4(Mat4::IDENTITY);
+        let b = AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2));
+        let result = AnimValue::lerp(&a, &b, 0.5);
+        let expected = Mat4::from_rotation_z(std::f32::consts::FRAC_PI_4);
+        if let AnimValue::Mat4(r) = result {
+            for i in 0..16 {
+                assert!(
+                    (r.to_cols_array()[i] - expected.to_cols_array()[i]).abs() < 1e-5,
+                    "Mat4 lerp midpoint mismatch at index {i}"
+                );
+            }
+        } else {
+            panic!("expected Mat4");
         }
     }
 

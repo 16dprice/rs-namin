@@ -183,17 +183,18 @@ fn variant_name(v: &AnimValue) -> &'static str {
         AnimValue::Vec4(_) => "Vec4",
         AnimValue::Bool(_) => "Bool",
         AnimValue::Transform2D(_) => "Transform2D",
+        AnimValue::Mat4(_) => "Mat4",
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use macroquad::prelude::{vec2, vec3, vec4, Vec3, WHITE, RED};
+    use macroquad::prelude::{vec2, vec3, vec4, Mat4, Vec3, WHITE, RED};
 
     use super::*;
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
-    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Text};
+    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Text, Torus};
 
     #[test]
     fn build_scene_with_object() {
@@ -349,9 +350,10 @@ mod tests {
         let _arc = sb.add(Arc::new(Vec3::ZERO, 0.5, 1.0, 0.0, std::f32::consts::PI, WHITE));
         let _arrow = sb.add(Arrow::new(Vec3::ZERO, Vec3::X, WHITE));
         let _text = sb.add(Text::new("hello", vec2(10.0, 20.0), 16.0, WHITE));
+        let _torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
 
         let (scene, _timeline, _camera) = sb.build();
-        assert_eq!(scene.len(), 7);
+        assert_eq!(scene.len(), 8);
     }
 
     #[test]
@@ -387,6 +389,41 @@ mod tests {
         let sb = SceneBuilder::new();
         let (_scene, _timeline, camera) = sb.build();
         assert_eq!(camera.projection, ProjectionMode::Perspective);
+    }
+
+    #[test]
+    fn animate_torus_rotation() {
+        let mut sb = SceneBuilder::new();
+        let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
+        sb.animate(&torus, "rotation", |tb| {
+            tb.keyframe(0.0, AnimValue::Mat4(Mat4::IDENTITY))
+                .keyframe(2.0, AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)))
+        });
+        let (mut scene, timeline, mut camera) = sb.build();
+        timeline.apply(1.0, &mut scene, &mut camera);
+
+        let obj = scene.get(torus.id).unwrap();
+        let AnimValue::Mat4(rot) = obj.get("rotation").unwrap() else {
+            panic!("expected Mat4");
+        };
+        // At t=1.0 (midpoint), should be ~45 degrees
+        let expected = Mat4::from_rotation_z(std::f32::consts::FRAC_PI_4);
+        for i in 0..16 {
+            assert!(
+                (rot.to_cols_array()[i] - expected.to_cols_array()[i]).abs() < 1e-4,
+                "rotation mismatch at index {i}"
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "keyframe value type mismatch")]
+    fn animate_torus_rotation_wrong_type_panics() {
+        let mut sb = SceneBuilder::new();
+        let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
+        sb.animate(&torus, "rotation", |tb| {
+            tb.keyframe(0.0, AnimValue::Float(0.0))
+        });
     }
 
     #[test]

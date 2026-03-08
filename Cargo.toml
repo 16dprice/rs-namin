@@ -21,3 +21,7 @@ path = "src/bin/export.rs"
 [[bin]]
 name = "snapshot"
 path = "src/bin/snapshot.rs"
+
+[[bin]]
+name = "example"
+path = "src/bin/example.rs"

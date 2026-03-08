@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::objects::{Circle, Line, Polygon, Rectangle};
+use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Torus};
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
 use crate::scene::Scene;
@@ -243,4 +243,58 @@ fn polygon_property_names_match_getters() {
 fn polygon_new_clamps_sides() {
     let poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 2, RED);
     assert_eq!(poly.get("sides"), Some(AnimValue::Float(3.0)));
+}
+
+// -- Torus property round-trip tests --
+
+#[test]
+fn torus_property_roundtrip_position() {
+    let mut torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
+    let new_pos = AnimValue::Vec3(vec3(10.0, 20.0, 30.0));
+    torus.set("position", new_pos.clone());
+    assert_eq!(torus.get("position"), Some(new_pos));
+}
+
+#[test]
+fn torus_property_roundtrip_major_radius() {
+    let mut torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
+    let new_val = AnimValue::Float(5.0);
+    torus.set("major_radius", new_val.clone());
+    assert_eq!(torus.get("major_radius"), Some(new_val));
+}
+
+#[test]
+fn torus_property_roundtrip_minor_radius() {
+    let mut torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
+    let new_val = AnimValue::Float(1.0);
+    torus.set("minor_radius", new_val.clone());
+    assert_eq!(torus.get("minor_radius"), Some(new_val));
+}
+
+#[test]
+fn torus_property_roundtrip_rotation() {
+    let mut torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
+    let new_rot = AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_4));
+    torus.set("rotation", new_rot.clone());
+    assert_eq!(torus.get("rotation"), Some(new_rot));
+}
+
+#[test]
+fn torus_property_roundtrip_color() {
+    let mut torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
+    let new_color = AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0));
+    torus.set("color", new_color.clone());
+    assert_eq!(torus.get("color"), Some(new_color));
+}
+
+#[test]
+fn torus_property_names_match_getters() {
+    let torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
+    for name in torus.property_names() {
+        assert!(
+            torus.get(name).is_some(),
+            "property '{}' returned None",
+            name
+        );
+    }
 }

@@ -6,6 +6,7 @@ pub mod polygon;
 pub mod rectangle;
 pub mod spiral;
 pub mod text;
+pub mod torus;
 
 pub use arc::Arc;
 pub use arrow::Arrow;
@@ -15,3 +16,4 @@ pub use polygon::Polygon;
 pub use rectangle::Rectangle;
 pub use spiral::Spiral;
 pub use text::Text;
+pub use torus::Torus;

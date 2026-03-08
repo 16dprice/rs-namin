@@ -1,8 +1,8 @@
 use macroquad::prelude::*;
 use std::fmt::Write;
 
-use crate::scene::value::AnimValue;
 use crate::scene::Scene;
+use crate::scene::value::AnimValue;
 
 const PANEL_COLOR: Color = Color::new(0.1, 0.1, 0.1, 0.85);
 const TITLE_COLOR: Color = YELLOW;
@@ -70,7 +70,11 @@ impl ValueInspector {
                     panel_x,
                     y,
                     font_size,
-                    if !name.is_empty() { LABEL_COLOR } else { VALUE_COLOR },
+                    if !name.is_empty() {
+                        LABEL_COLOR
+                    } else {
+                        VALUE_COLOR
+                    },
                 );
                 y += line_h;
             }
@@ -100,6 +104,13 @@ fn format_value(value: &AnimValue) -> String {
                 t.position.x, t.position.y, t.rotation, t.scale.x, t.scale.y
             );
             s
+        }
+        AnimValue::Mat4(m) => {
+            let cols = m.to_cols_array();
+            format!(
+                "[{:.1},{:.1},{:.1},{:.1}; ...]",
+                cols[0], cols[1], cols[2], cols[3]
+            )
         }
     }
 }
@@ -144,9 +155,6 @@ mod tests {
             rotation: 45.0,
             scale: vec2(1.0, 1.0),
         });
-        assert_eq!(
-            format_value(&t),
-            "pos(1.0,2.0) rot=45.0 scl(1.0,1.0)"
-        );
+        assert_eq!(format_value(&t), "pos(1.0,2.0) rot=45.0 scl(1.0,1.0)");
     }
 }
