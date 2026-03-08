@@ -7,6 +7,7 @@ use inquire::{CustomType, InquireError, Select};
 use macroquad::prelude::*;
 
 use rs_namin::my_scene;
+use rs_namin::render_util::rgba_to_rgb_flipped;
 
 const FPS: f32 = 60.0;
 
@@ -20,19 +21,6 @@ struct QualityPreset {
 impl fmt::Display for QualityPreset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} ({}×{})", self.label, self.width, self.height)
-    }
-}
-
-/// Convert RGBA pixel data to RGB with Y-flip (OpenGL render targets are upside-down).
-fn rgba_to_rgb_flipped(rgba: &[[u8; 4]], width: usize, height: usize, out: &mut Vec<u8>) {
-    out.clear();
-    for y in (0..height).rev() {
-        for x in 0..width {
-            let pixel = rgba[y * width + x];
-            out.push(pixel[0]);
-            out.push(pixel[1]);
-            out.push(pixel[2]);
-        }
     }
 }
 
@@ -148,48 +136,6 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn rgba_to_rgb_flipped_strips_alpha_and_flips() {
-        // 2×2 image, top-left red, top-right green, bottom-left blue, bottom-right white
-        let rgba: Vec<[u8; 4]> = vec![
-            [255, 0, 0, 255],   // (0,0) top-left
-            [0, 255, 0, 255],   // (1,0) top-right
-            [0, 0, 255, 255],   // (0,1) bottom-left
-            [255, 255, 255, 128], // (1,1) bottom-right (alpha stripped)
-        ];
-        let mut out = Vec::new();
-        rgba_to_rgb_flipped(&rgba, 2, 2, &mut out);
-
-        // Flipped: bottom row first, then top row. Alpha stripped.
-        assert_eq!(
-            out,
-            vec![
-                0, 0, 255,       // (0,1) blue
-                255, 255, 255,   // (1,1) white
-                255, 0, 0,       // (0,0) red
-                0, 255, 0,       // (1,0) green
-            ]
-        );
-    }
-
-    #[test]
-    fn rgba_to_rgb_flipped_single_pixel() {
-        let rgba: Vec<[u8; 4]> = vec![[42, 99, 200, 128]];
-        let mut out = Vec::new();
-        rgba_to_rgb_flipped(&rgba, 1, 1, &mut out);
-        assert_eq!(out, vec![42, 99, 200]);
-    }
-
-    #[test]
-    fn rgba_to_rgb_flipped_reuses_buffer() {
-        let rgba: Vec<[u8; 4]> = vec![[1, 2, 3, 4]];
-        let mut out = vec![99, 99, 99, 99, 99]; // pre-filled
-        rgba_to_rgb_flipped(&rgba, 1, 1, &mut out);
-        assert_eq!(out, vec![1, 2, 3]); // cleared and rewritten
-    }
-
     #[test]
     fn frame_count_whole_duration() {
         let fps: f32 = 60.0;

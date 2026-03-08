@@ -13,6 +13,7 @@ Architecture docs live in `docs/`. These focus on gotchas, design rationale, and
 | [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay gotchas, roadmap |
 | [module_layout.md](docs/module_layout.md) | Main loop ordering and why it matters |
 | [testing.md](docs/testing.md) | Testing strategy |
+| [agent_testing.md](docs/agent_testing.md) | Input abstraction, snapshot capture, scenario runner |
 
 ## General Expectations
 
@@ -51,6 +52,14 @@ Documentation in `docs/` describes what needs to be built. Once code has been wr
 - Keep high-level architectural context and rationale — remove step-by-step instructions that the code already embodies.
 
 The goal is to prevent docs from drifting into stale "plans" that contradict the actual codebase.
+
+### Verifying Visual and Interactive Behavior
+
+This project is visual — many bugs only manifest on screen. Use the tools in [docs/agent_testing.md](docs/agent_testing.md) to verify your work:
+
+- **Input-handling changes** (orbit controls, keybindings, mouse interactions): Write tests using `ScriptedInput` from `src/input.rs`. All code that reads mouse/keyboard input must accept `&dyn InputProvider` — never call macroquad input functions directly. See existing tests in `src/camera/orbit.rs` for patterns.
+- **Rendering changes** (new scene objects, visual tweaks, camera changes): Run `cargo run --bin snapshot -- --time <T> --output snapshot.png` and read the resulting PNG to verify the scene looks correct. Use multiple `--times` to check different points in the animation.
+- **Any change you're unsure about visually**: Take a snapshot before and after your change to confirm nothing broke.
 
 ### Code Style
 

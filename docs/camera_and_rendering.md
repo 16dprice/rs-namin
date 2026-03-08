@@ -13,6 +13,19 @@ See `src/camera/mod.rs` for the Camera struct and `src/camera/orbit.rs` for the 
 
 Toggled with F5 (`camera_follow_timeline` flag on `DebugOverlay`). When active, the camera resets to its initial state each frame and is fully driven by timeline tracks — orbit input is ignored. When toggled off, orbit mode resumes and `apply_scene_only()` is used so camera tracks don't conflict with manual control. See `src/main.rs`.
 
+## Input Abstraction
+
+The orbit controller and debug overlay accept `&dyn InputProvider` (defined in `src/input.rs`) instead of calling macroquad input functions directly. This enables scripted input injection in tests via `ScriptedInput`. See [agent_testing.md](agent_testing.md) Tier 1.
+
+## CLI Snapshot
+
+Run with `cargo run --bin snapshot`. Renders single frames to PNG for visual inspection. See `src/bin/snapshot.rs`.
+
+```sh
+cargo run --bin snapshot -- --time 1.5 --output frame.png
+cargo run --bin snapshot -- --times 0,0.5,1.0 --output frames/
+```
+
 ## CLI Export
 
 Run with `cargo run --bin export`. See `src/bin/export.rs`.

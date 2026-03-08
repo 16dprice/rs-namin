@@ -38,13 +38,27 @@
 - `compute_position` at zero angles, with azimuth, with elevation, with offset target.
 - `apply_to_camera` sets position and target correctly.
 - `from_camera` round-trip: deriving orbit state from a camera and recomputing position matches the original.
+- Input-driven tests via `ScriptedInput`: orbit direction, elevation clamping, zoom direction/clamping, pan direction, WASD movement, no-input stability. See `src/camera/orbit.rs`.
+
+## Debug Overlay Tests
+
+- Key toggle tests via `ScriptedInput`: play/pause, HUD visibility, camera follow, speed adjustment, step-forward-pauses. See `src/debug/mod.rs`.
+
+## Render Utility Tests
+
+- `rgba_to_rgb_flipped` correctly strips alpha and flips rows. See `src/render_util.rs`.
+- `rgba_flipped` preserves alpha and flips rows.
 
 ## Export Tests
 
-- `rgba_to_rgb_flipped` correctly strips alpha and flips rows. Inline tests in `src/bin/export.rs`.
-- Frame count math: `floor(start * fps)` to `ceil(end * fps)` produces the expected frame range.
+- Frame count math: `floor(start * fps)` to `ceil(end * fps)` produces the expected frame range. See `src/bin/export.rs`.
+
+## Snapshot Tests
+
+- `output_path` logic for single vs. multiple frame output. See `src/bin/snapshot.rs`.
+- Rendering pipeline is verified manually via `cargo run --bin snapshot`. See [agent_testing.md](agent_testing.md) for usage.
 
 ## Not Yet Implemented
 
+- **Scenario-based integration tests** — multi-frame input sequences with state assertions. See [agent_testing.md](agent_testing.md) Tier 3.
 - **Scene Builder validation tests** — once `SceneBuilder` is implemented.
-- **Visual regression tests** — render to texture and compare against golden images.

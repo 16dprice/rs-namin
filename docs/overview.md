@@ -16,6 +16,7 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 - **Debug overlay** with HUD, world-space helpers, value inspector, scrub bar.
 - **CLI export tool** (`cargo run --bin export`) renders the animation to MP4 via ffmpeg.
 - **Automated testing** covering math, animation, properties, clock, orbit controller, and export.
+- **Agent testing infrastructure** — input abstraction (`InputProvider` trait + `ScriptedInput`), headless snapshot capture (`cargo run --bin snapshot`), and a scenario runner (planned) for multi-frame integration tests. See [agent_testing.md](agent_testing.md).
 
 ## Out of Scope (For Now)
 

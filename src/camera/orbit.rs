@@ -1,9 +1,7 @@
-use macroquad::prelude::{
-    KeyCode, MouseButton, Vec3, get_frame_time, is_key_down, is_mouse_button_down,
-    mouse_delta_position, mouse_wheel, screen_height, screen_width, vec2, vec3,
-};
+use macroquad::prelude::{KeyCode, MouseButton, Vec3, vec2, vec3};
 
 use super::Camera;
+use crate::input::InputProvider;
 
 pub struct OrbitController {
     pub target: Vec3,
@@ -51,31 +49,32 @@ impl OrbitController {
     }
 
     /// Process mouse input and update the camera.
-    pub fn update(&mut self, camera: &mut Camera) {
-        let (_, scroll_y) = mouse_wheel();
-        let raw_delta = mouse_delta_position();
+    pub fn update(&mut self, camera: &mut Camera, input: &dyn InputProvider) {
+        let (_, scroll_y) = input.mouse_wheel();
+        let raw_delta = input.mouse_delta();
         // mouse_delta_position() returns coords in -2..2 range (normalized * 2 - 1).
         // Multiply by screen/2 to get pixel deltas.
         let delta = vec2(
-            raw_delta.x * screen_width() * 0.5,
-            raw_delta.y * screen_height() * 0.5,
+            raw_delta.x * input.screen_width() * 0.5,
+            raw_delta.y * input.screen_height() * 0.5,
         );
 
         // Middle-click drag: orbit
-        if is_mouse_button_down(MouseButton::Middle) {
+        if input.is_mouse_button_down(MouseButton::Middle) {
             self.azimuth += delta.x * self.orbit_speed;
             self.elevation -= delta.y * self.orbit_speed;
             self.elevation = self.elevation.clamp(-1.5, 1.5); // ~86 degrees
         }
 
         // Right-click drag: pan (1:1 with mouse — point under cursor stays under cursor)
-        if is_mouse_button_down(MouseButton::Right) {
+        if input.is_mouse_button_down(MouseButton::Right) {
             let right = self.right_vector();
             let up = camera.up;
             // Convert pixel movement to world units at the target's depth.
             // For perspective: world_per_pixel = 2 * distance * tan(fov/2) / screen_height
             let fov_rad = camera.fov.to_radians();
-            let world_per_pixel = 2.0 * self.distance * (fov_rad / 2.0).tan() / screen_height();
+            let world_per_pixel =
+                2.0 * self.distance * (fov_rad / 2.0).tan() / input.screen_height();
             self.target += (delta.x * right - delta.y * up) * world_per_pixel;
         }
 
@@ -86,27 +85,27 @@ impl OrbitController {
         }
 
         // WASD + Q/E: move target (camera follows)
-        let dt = get_frame_time();
+        let dt = input.frame_time();
         let speed = self.move_speed * dt;
         let forward = self.forward_vector();
         let right = self.right_vector();
 
-        if is_key_down(KeyCode::W) {
+        if input.is_key_down(KeyCode::W) {
             self.target += forward * speed;
         }
-        if is_key_down(KeyCode::S) {
+        if input.is_key_down(KeyCode::S) {
             self.target -= forward * speed;
         }
-        if is_key_down(KeyCode::A) {
+        if input.is_key_down(KeyCode::A) {
             self.target -= right * speed;
         }
-        if is_key_down(KeyCode::D) {
+        if input.is_key_down(KeyCode::D) {
             self.target += right * speed;
         }
-        if is_key_down(KeyCode::Q) {
+        if input.is_key_down(KeyCode::Q) {
             self.target -= Vec3::Y * speed;
         }
-        if is_key_down(KeyCode::E) {
+        if input.is_key_down(KeyCode::E) {
             self.target += Vec3::Y * speed;
         }
 
@@ -142,6 +141,120 @@ impl OrbitController {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::ScriptedInput;
+    use macroquad::prelude::vec2;
+
+    #[test]
+    fn middle_drag_right_increases_azimuth() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_azimuth = orbit.azimuth;
+
+        let input = ScriptedInput::default()
+            .with_mouse_button(MouseButton::Middle)
+            .with_mouse_delta(vec2(0.01, 0.0));
+
+        orbit.update(&mut cam, &input);
+        assert!(orbit.azimuth > initial_azimuth);
+    }
+
+    #[test]
+    fn middle_drag_up_increases_elevation() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_elevation = orbit.elevation;
+
+        // Negative Y delta = upward (screen coords are Y-down)
+        let input = ScriptedInput::default()
+            .with_mouse_button(MouseButton::Middle)
+            .with_mouse_delta(vec2(0.0, -0.01));
+
+        orbit.update(&mut cam, &input);
+        assert!(orbit.elevation > initial_elevation);
+    }
+
+    #[test]
+    fn elevation_clamps_at_extremes() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        orbit.elevation = 1.4;
+
+        let input = ScriptedInput::default()
+            .with_mouse_button(MouseButton::Middle)
+            .with_mouse_delta(vec2(0.0, -1.0));
+
+        orbit.update(&mut cam, &input);
+        assert!(orbit.elevation <= 1.5);
+    }
+
+    #[test]
+    fn scroll_up_decreases_distance() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_distance = orbit.distance;
+
+        let input = ScriptedInput::default().with_mouse_wheel(1.0);
+
+        orbit.update(&mut cam, &input);
+        assert!(orbit.distance < initial_distance);
+    }
+
+    #[test]
+    fn zoom_clamps_to_min_distance() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        orbit.distance = 0.6;
+
+        let input = ScriptedInput::default().with_mouse_wheel(100.0);
+
+        orbit.update(&mut cam, &input);
+        assert!(orbit.distance >= orbit.min_distance);
+    }
+
+    #[test]
+    fn right_drag_right_moves_target_right() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_target_x = orbit.target.x;
+
+        let input = ScriptedInput::default()
+            .with_mouse_button(MouseButton::Right)
+            .with_mouse_delta(vec2(0.01, 0.0));
+
+        orbit.update(&mut cam, &input);
+        assert!(orbit.target.x > initial_target_x);
+    }
+
+    #[test]
+    fn wasd_w_moves_target_forward() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_z = orbit.target.z;
+
+        let input = ScriptedInput::default().with_key_down(KeyCode::W);
+
+        orbit.update(&mut cam, &input);
+        // Forward at azimuth=0 is -Z
+        assert!(orbit.target.z < initial_z);
+    }
+
+    #[test]
+    fn no_input_does_not_change_orbit_state() {
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_azimuth = orbit.azimuth;
+        let initial_elevation = orbit.elevation;
+        let initial_distance = orbit.distance;
+        let initial_target = orbit.target;
+
+        let input = ScriptedInput::default();
+        orbit.update(&mut cam, &input);
+
+        assert_eq!(orbit.azimuth, initial_azimuth);
+        assert_eq!(orbit.elevation, initial_elevation);
+        assert_eq!(orbit.distance, initial_distance);
+        assert_eq!(orbit.target, initial_target);
+    }
 
     #[test]
     fn compute_position_at_zero_angles() {

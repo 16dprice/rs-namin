@@ -5,6 +5,7 @@ edition = "2024"
 default-run = "rs-namin"
 
 [dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
 indicatif = "0.18.4"
 inquire = "0.9.4"
 macroquad = "0.4"
@@ -16,3 +17,7 @@ path = "src/main.rs"
 [[bin]]
 name = "export"
 path = "src/bin/export.rs"
+
+[[bin]]
+name = "snapshot"
+path = "src/bin/snapshot.rs"

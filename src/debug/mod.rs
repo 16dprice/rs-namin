@@ -6,6 +6,7 @@ use macroquad::prelude::*;
 
 use crate::camera::Camera;
 use crate::clock::{Clock, LoopMode, PlaybackState};
+use crate::input::InputProvider;
 use crate::scene::Scene;
 
 use keybindings::Keybindings;
@@ -36,40 +37,40 @@ impl DebugOverlay {
 
     /// Handle keybindings for toggling overlays and transport controls.
     /// Call this at the start of each frame, before clock.tick().
-    pub fn handle_input(&mut self, clock: &mut Clock) {
+    pub fn handle_input(&mut self, clock: &mut Clock, input: &dyn InputProvider) {
         let kb = &self.keybindings;
 
-        if is_key_pressed(kb.toggle_hud) {
+        if input.is_key_pressed(kb.toggle_hud) {
             self.hud_visible = !self.hud_visible;
         }
-        if is_key_pressed(kb.toggle_scrub_bar) {
+        if input.is_key_pressed(kb.toggle_scrub_bar) {
             self.scrub_bar.visible = !self.scrub_bar.visible;
         }
-        if is_key_pressed(kb.toggle_value_inspector) {
+        if input.is_key_pressed(kb.toggle_value_inspector) {
             self.value_inspector.visible = !self.value_inspector.visible;
         }
-        if is_key_pressed(kb.toggle_world_helpers) {
+        if input.is_key_pressed(kb.toggle_world_helpers) {
             self.world_helpers_visible = !self.world_helpers_visible;
         }
-        if is_key_pressed(kb.toggle_camera_follow) {
+        if input.is_key_pressed(kb.toggle_camera_follow) {
             self.camera_follow_timeline = !self.camera_follow_timeline;
         }
 
-        if is_key_pressed(kb.play_pause) {
+        if input.is_key_pressed(kb.play_pause) {
             clock.toggle();
         }
-        if is_key_pressed(kb.step_forward) {
+        if input.is_key_pressed(kb.step_forward) {
             clock.pause();
             clock.step_forward();
         }
-        if is_key_pressed(kb.step_backward) {
+        if input.is_key_pressed(kb.step_backward) {
             clock.pause();
             clock.step_backward();
         }
-        if is_key_pressed(kb.speed_up) {
+        if input.is_key_pressed(kb.speed_up) {
             clock.set_speed((clock.playback_speed * 2.0).min(8.0));
         }
-        if is_key_pressed(kb.speed_down) {
+        if input.is_key_pressed(kb.speed_down) {
             clock.set_speed((clock.playback_speed * 0.5).max(0.125));
         }
     }
@@ -172,5 +173,76 @@ impl DebugOverlay {
 impl Default for DebugOverlay {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input::ScriptedInput;
+
+    #[test]
+    fn play_pause_toggle() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+        clock.pause();
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.play_pause);
+
+        overlay.handle_input(&mut clock, &input);
+        assert!(matches!(clock.playback_state, PlaybackState::Playing));
+    }
+
+    #[test]
+    fn toggle_hud() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+        assert!(overlay.hud_visible);
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.toggle_hud);
+
+        overlay.handle_input(&mut clock, &input);
+        assert!(!overlay.hud_visible);
+    }
+
+    #[test]
+    fn toggle_camera_follow() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+        assert!(!overlay.camera_follow_timeline);
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.toggle_camera_follow);
+
+        overlay.handle_input(&mut clock, &input);
+        assert!(overlay.camera_follow_timeline);
+    }
+
+    #[test]
+    fn speed_up() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.speed_up);
+
+        overlay.handle_input(&mut clock, &input);
+        assert!((clock.playback_speed - 2.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn step_forward_pauses() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+        clock.play();
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.step_forward);
+
+        overlay.handle_input(&mut clock, &input);
+        assert!(matches!(clock.playback_state, PlaybackState::Paused));
+        assert!(clock.current_time > 0.0);
     }
 }

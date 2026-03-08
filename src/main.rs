@@ -5,6 +5,7 @@ use macroquad::prelude::{
 use rs_namin::camera::orbit::OrbitController;
 use rs_namin::clock::{self, Clock};
 use rs_namin::debug::DebugOverlay;
+use rs_namin::input::MacroquadInput;
 use rs_namin::my_scene;
 
 fn window_conf() -> Conf {
@@ -32,7 +33,8 @@ async fn main() {
     loop {
         clear_background(BLACK);
 
-        debug_overlay.handle_input(&mut clock);
+        let input = MacroquadInput;
+        debug_overlay.handle_input(&mut clock, &input);
         debug_overlay.update(&mut clock);
 
         clock.tick(get_frame_time());
@@ -63,7 +65,7 @@ async fn main() {
         if debug_overlay.camera_follow_timeline {
             orbit = OrbitController::from_camera(&camera);
         } else {
-            orbit.update(&mut camera);
+            orbit.update(&mut camera, &input);
         }
 
         next_frame().await;
