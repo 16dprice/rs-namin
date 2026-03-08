@@ -58,7 +58,10 @@
 - `output_path` logic for single vs. multiple frame output. See `src/bin/snapshot.rs`.
 - Rendering pipeline is verified manually via `cargo run --bin snapshot`. See [agent_testing.md](agent_testing.md) for usage.
 
+## Scenario Integration Tests
+
+- Multi-frame orbit accumulation, zoom clamping, pan-then-orbit composition, idle timeline playback, camera stability, WASD movement. See `src/tests/scenarios.rs`.
+
 ## Not Yet Implemented
 
-- **Scenario-based integration tests** — multi-frame input sequences with state assertions. See [agent_testing.md](agent_testing.md) Tier 3.
 - **Scene Builder validation tests** — once `SceneBuilder` is implemented.
