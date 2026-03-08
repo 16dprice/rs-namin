@@ -6,6 +6,7 @@ default-run = "rs-namin"
 
 [dependencies]
 indicatif = "0.18.4"
+inquire = "0.9.4"
 macroquad = "0.4"
 
 [[bin]]
