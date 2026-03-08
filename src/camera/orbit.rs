@@ -127,6 +127,24 @@ impl OrbitController {
         self.target + vec3(x, y, z)
     }
 
+    /// Snap to a standard view while preserving target and distance.
+    pub fn snap_front(&mut self) {
+        self.azimuth = 0.0;
+        self.elevation = 0.0;
+    }
+
+    /// Snap to right view (looking from +X toward origin).
+    pub fn snap_right(&mut self) {
+        self.azimuth = std::f32::consts::FRAC_PI_2;
+        self.elevation = 0.0;
+    }
+
+    /// Snap to top view (looking from +Y down).
+    pub fn snap_top(&mut self) {
+        self.azimuth = 0.0;
+        self.elevation = std::f32::consts::FRAC_PI_2 - 0.001; // Near-vertical, avoid gimbal lock
+    }
+
     /// Forward direction projected onto the XZ ground plane (based on azimuth).
     fn forward_vector(&self) -> Vec3 {
         vec3(-self.azimuth.sin(), 0.0, -self.azimuth.cos())
@@ -341,6 +359,51 @@ mod tests {
         let pos = orbit.compute_position();
         assert!((pos - cam.position).length() < 1e-4);
         assert_eq!(orbit.target, cam.target);
+    }
+
+    #[test]
+    fn snap_front_sets_azimuth_and_elevation() {
+        let mut orbit = OrbitController::new(Vec3::ZERO, 10.0);
+        orbit.azimuth = 1.0;
+        orbit.elevation = 0.5;
+        orbit.snap_front();
+        assert_eq!(orbit.azimuth, 0.0);
+        assert_eq!(orbit.elevation, 0.0);
+    }
+
+    #[test]
+    fn snap_right_sets_azimuth_pi_over_2() {
+        let mut orbit = OrbitController::new(Vec3::ZERO, 10.0);
+        orbit.snap_right();
+        assert!((orbit.azimuth - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        assert_eq!(orbit.elevation, 0.0);
+    }
+
+    #[test]
+    fn snap_top_sets_near_vertical_elevation() {
+        let mut orbit = OrbitController::new(Vec3::ZERO, 10.0);
+        orbit.snap_top();
+        assert_eq!(orbit.azimuth, 0.0);
+        assert!(orbit.elevation > 1.5);
+    }
+
+    #[test]
+    fn snap_preserves_target_and_distance() {
+        let mut orbit = OrbitController::new(vec3(5.0, 3.0, 1.0), 20.0);
+        orbit.snap_front();
+        assert_eq!(orbit.target, vec3(5.0, 3.0, 1.0));
+        assert_eq!(orbit.distance, 20.0);
+    }
+
+    #[test]
+    fn snap_front_camera_position() {
+        let mut orbit = OrbitController::new(Vec3::ZERO, 10.0);
+        orbit.snap_front();
+        let pos = orbit.compute_position();
+        // Front view: camera at (0, 0, 10)
+        assert!((pos.x).abs() < 1e-5);
+        assert!((pos.y).abs() < 1e-5);
+        assert!((pos.z - 10.0).abs() < 1e-5);
     }
 
     #[test]

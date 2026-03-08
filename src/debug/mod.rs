@@ -1,14 +1,17 @@
+pub mod camera_log;
 pub mod keybindings;
 pub mod scrub_bar;
 pub mod value_inspector;
 
 use macroquad::prelude::*;
 
+use crate::camera::orbit::OrbitController;
 use crate::camera::Camera;
 use crate::clock::{Clock, LoopMode, PlaybackState};
 use crate::input::InputProvider;
 use crate::scene::Scene;
 
+use camera_log::CameraLog;
 use keybindings::Keybindings;
 use scrub_bar::ScrubBar;
 use value_inspector::ValueInspector;
@@ -21,6 +24,16 @@ pub struct DebugOverlay {
     pub camera_follow_timeline: bool,
     pub scrub_bar: ScrubBar,
     pub value_inspector: ValueInspector,
+    pub camera_log: CameraLog,
+    pub bounding_boxes_visible: bool,
+}
+
+/// Result of snap-to-view input handling. The caller uses this to set the orbit state.
+pub enum SnapView {
+    None,
+    Front,
+    Right,
+    Top,
 }
 
 impl DebugOverlay {
@@ -32,12 +45,15 @@ impl DebugOverlay {
             camera_follow_timeline: false,
             scrub_bar: ScrubBar::new(),
             value_inspector: ValueInspector::new(),
+            camera_log: CameraLog::new(256),
+            bounding_boxes_visible: false,
         }
     }
 
     /// Handle keybindings for toggling overlays and transport controls.
     /// Call this at the start of each frame, before clock.tick().
-    pub fn handle_input(&mut self, clock: &mut Clock, input: &dyn InputProvider) {
+    /// Returns a `SnapView` if a snap-to-view key was pressed.
+    pub fn handle_input(&mut self, clock: &mut Clock, input: &dyn InputProvider) -> SnapView {
         let kb = &self.keybindings;
 
         if input.is_key_pressed(kb.toggle_hud) {
@@ -73,6 +89,19 @@ impl DebugOverlay {
         if input.is_key_pressed(kb.speed_down) {
             clock.set_speed((clock.playback_speed * 0.5).max(0.125));
         }
+
+        // Snap-to-view
+        if input.is_key_pressed(kb.snap_front) {
+            return SnapView::Front;
+        }
+        if input.is_key_pressed(kb.snap_right) {
+            return SnapView::Right;
+        }
+        if input.is_key_pressed(kb.snap_top) {
+            return SnapView::Top;
+        }
+
+        SnapView::None
     }
 
     /// Update interactive elements (scrub bar dragging). Call after handle_input.
@@ -80,13 +109,23 @@ impl DebugOverlay {
         self.scrub_bar.update(clock);
     }
 
+    /// Record the current camera state in the log.
+    pub fn record_camera(&mut self, camera: &Camera, time: f32) {
+        self.camera_log.record(camera, time);
+    }
+
     /// Draw world-space debug helpers (toggle: F4). Call while 3D camera is active.
-    pub fn draw_world(&self) {
+    pub fn draw_world(&self, orbit: &OrbitController, scene: &Scene) {
         if !self.world_helpers_visible {
             return;
         }
         self.draw_grid(20, 1.0);
         self.draw_origin_axes(2.0);
+        self.draw_orbit_crosshair(orbit);
+
+        if self.bounding_boxes_visible {
+            self.draw_bounding_boxes(scene);
+        }
     }
 
     /// Draw all visible screen-space overlays. Call after set_default_camera().
@@ -168,6 +207,50 @@ impl DebugOverlay {
         draw_line_3d(Vec3::ZERO, vec3(0.0, length, 0.0), GREEN); // Y
         draw_line_3d(Vec3::ZERO, vec3(0.0, 0.0, length), BLUE);  // Z
     }
+
+    /// Draw a small crosshair at the orbit controller's target point.
+    fn draw_orbit_crosshair(&self, orbit: &OrbitController) {
+        let t = orbit.target;
+        let size = orbit.distance * 0.02; // Scale with distance so it stays visible
+        let color = YELLOW;
+
+        draw_line_3d(t - vec3(size, 0.0, 0.0), t + vec3(size, 0.0, 0.0), color);
+        draw_line_3d(t - vec3(0.0, size, 0.0), t + vec3(0.0, size, 0.0), color);
+        draw_line_3d(t - vec3(0.0, 0.0, size), t + vec3(0.0, 0.0, size), color);
+    }
+
+    /// Draw wireframe bounding boxes for all scene objects.
+    fn draw_bounding_boxes(&self, scene: &Scene) {
+        let color = Color::new(0.0, 1.0, 0.0, 0.4);
+        for (_id, obj) in scene.iter() {
+            if obj.is_screen_space() {
+                continue;
+            }
+            let bb = obj.bounding_box();
+            draw_aabb(bb.min, bb.max, color);
+        }
+    }
+}
+
+/// Draw an axis-aligned bounding box as 12 wireframe edges.
+fn draw_aabb(min: Vec3, max: Vec3, color: Color) {
+    // Bottom face (y = min.y)
+    draw_line_3d(vec3(min.x, min.y, min.z), vec3(max.x, min.y, min.z), color);
+    draw_line_3d(vec3(max.x, min.y, min.z), vec3(max.x, min.y, max.z), color);
+    draw_line_3d(vec3(max.x, min.y, max.z), vec3(min.x, min.y, max.z), color);
+    draw_line_3d(vec3(min.x, min.y, max.z), vec3(min.x, min.y, min.z), color);
+
+    // Top face (y = max.y)
+    draw_line_3d(vec3(min.x, max.y, min.z), vec3(max.x, max.y, min.z), color);
+    draw_line_3d(vec3(max.x, max.y, min.z), vec3(max.x, max.y, max.z), color);
+    draw_line_3d(vec3(max.x, max.y, max.z), vec3(min.x, max.y, max.z), color);
+    draw_line_3d(vec3(min.x, max.y, max.z), vec3(min.x, max.y, min.z), color);
+
+    // Vertical edges
+    draw_line_3d(vec3(min.x, min.y, min.z), vec3(min.x, max.y, min.z), color);
+    draw_line_3d(vec3(max.x, min.y, min.z), vec3(max.x, max.y, min.z), color);
+    draw_line_3d(vec3(max.x, min.y, max.z), vec3(max.x, max.y, max.z), color);
+    draw_line_3d(vec3(min.x, min.y, max.z), vec3(min.x, max.y, max.z), color);
 }
 
 impl Default for DebugOverlay {
@@ -244,5 +327,51 @@ mod tests {
         overlay.handle_input(&mut clock, &input);
         assert!(matches!(clock.playback_state, PlaybackState::Paused));
         assert!(clock.current_time > 0.0);
+    }
+
+    #[test]
+    fn snap_front_returns_snap_view() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.snap_front);
+
+        let result = overlay.handle_input(&mut clock, &input);
+        assert!(matches!(result, SnapView::Front));
+    }
+
+    #[test]
+    fn snap_right_returns_snap_view() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.snap_right);
+
+        let result = overlay.handle_input(&mut clock, &input);
+        assert!(matches!(result, SnapView::Right));
+    }
+
+    #[test]
+    fn snap_top_returns_snap_view() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+
+        let input = ScriptedInput::default()
+            .with_key_pressed(overlay.keybindings.snap_top);
+
+        let result = overlay.handle_input(&mut clock, &input);
+        assert!(matches!(result, SnapView::Top));
+    }
+
+    #[test]
+    fn no_snap_key_returns_none() {
+        let mut overlay = DebugOverlay::new();
+        let mut clock = Clock::new(10.0, 60.0);
+
+        let input = ScriptedInput::default();
+        let result = overlay.handle_input(&mut clock, &input);
+        assert!(matches!(result, SnapView::None));
     }
 }

@@ -12,6 +12,10 @@ pub struct Keybindings {
     pub step_backward: KeyCode,
     pub speed_up: KeyCode,
     pub speed_down: KeyCode,
+    // Snap-to-view keys (Blender-style numpad)
+    pub snap_front: KeyCode,
+    pub snap_right: KeyCode,
+    pub snap_top: KeyCode,
 }
 
 impl Default for Keybindings {
@@ -27,6 +31,9 @@ impl Default for Keybindings {
             step_backward: KeyCode::Left,
             speed_up: KeyCode::Up,
             speed_down: KeyCode::Down,
+            snap_front: KeyCode::Kp1,
+            snap_right: KeyCode::Kp3,
+            snap_top: KeyCode::Kp7,
         }
     }
 }

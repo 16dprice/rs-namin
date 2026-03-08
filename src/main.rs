@@ -4,7 +4,7 @@ use macroquad::prelude::{
 
 use rs_namin::camera::orbit::OrbitController;
 use rs_namin::clock::{self, Clock};
-use rs_namin::debug::DebugOverlay;
+use rs_namin::debug::{DebugOverlay, SnapView};
 use rs_namin::input::MacroquadInput;
 use rs_namin::my_scene;
 
@@ -34,8 +34,16 @@ async fn main() {
         clear_background(BLACK);
 
         let input = MacroquadInput;
-        debug_overlay.handle_input(&mut clock, &input);
+        let snap = debug_overlay.handle_input(&mut clock, &input);
         debug_overlay.update(&mut clock);
+
+        // Apply snap-to-view if requested
+        match snap {
+            SnapView::Front => orbit.snap_front(),
+            SnapView::Right => orbit.snap_right(),
+            SnapView::Top => orbit.snap_top(),
+            SnapView::None => {}
+        }
 
         clock.tick(get_frame_time());
 
@@ -50,7 +58,7 @@ async fn main() {
 
         // 3D scene pass
         set_camera(&camera.to_macroquad());
-        debug_overlay.draw_world();
+        debug_overlay.draw_world(&orbit, &scene);
         scene.draw_world();
 
         // Screen-space UI pass
@@ -67,6 +75,9 @@ async fn main() {
         } else {
             orbit.update(&mut camera, &input);
         }
+
+        // Record camera state for debugging
+        debug_overlay.record_camera(&camera, clock.current_time);
 
         next_frame().await;
     }
