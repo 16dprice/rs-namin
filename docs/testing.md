@@ -39,10 +39,12 @@
 - `apply_to_camera` sets position and target correctly.
 - `from_camera` round-trip: deriving orbit state from a camera and recomputing position matches the original.
 - Input-driven tests via `ScriptedInput`: orbit direction, elevation clamping, zoom direction/clamping, pan direction, WASD movement, no-input stability. See `src/camera/orbit.rs`.
+- Snap-to-view: `snap_front`, `snap_right`, `snap_top` set correct azimuth/elevation, preserve target/distance. See `src/camera/orbit.rs`.
 
 ## Debug Overlay Tests
 
-- Key toggle tests via `ScriptedInput`: play/pause, HUD visibility, camera follow, speed adjustment, step-forward-pauses. See `src/debug/mod.rs`.
+- Key toggle tests via `ScriptedInput`: play/pause, HUD visibility, camera follow, speed adjustment, step-forward-pauses, snap-to-view returns. See `src/debug/mod.rs`.
+- Camera state log: ring buffer wrap, deduplication, iteration order. See `src/debug/camera_log.rs`.
 
 ## Render Utility Tests
 
@@ -62,6 +64,9 @@
 
 - Multi-frame orbit accumulation, zoom clamping, pan-then-orbit composition, idle timeline playback, camera stability, WASD movement. See `src/tests/scenarios.rs`.
 
-## Not Yet Implemented
+## SceneBuilder Validation Tests
 
-- **Scene Builder validation tests** — once `SceneBuilder` is implemented.
+- Property name validation: invalid names panic with descriptive error. See `src/scene_builder.rs`.
+- Type validation: wrong AnimValue variant panics.
+- End-to-end: `build()` then `timeline.apply()` produces correct interpolated values.
+- Coverage for all object types (Circle, Line, Rectangle, Polygon, Arc, Arrow, Text) and camera properties.

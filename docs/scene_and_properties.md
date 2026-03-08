@@ -33,5 +33,5 @@ macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A s
 
 ## Design Notes
 
-- **String-keyed properties** allow the animation engine to work generically without compile-time coupling. Typos are runtime errors — a `SceneBuilder` with build-time validation is planned.
+- **String-keyed properties** allow the animation engine to work generically without compile-time coupling. Typos are caught at scene construction time by `SceneBuilder` (see `src/scene_builder.rs`), which validates property names and AnimValue types.
 - **Round-trip invariant:** `set(name, value)` then `get(name)` returns the same value. Enforced by tests.
