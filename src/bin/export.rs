@@ -146,6 +146,88 @@ fn main() {
     );
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rgba_to_rgb_flipped_strips_alpha_and_flips() {
+        // 2×2 image, top-left red, top-right green, bottom-left blue, bottom-right white
+        let rgba: Vec<[u8; 4]> = vec![
+            [255, 0, 0, 255],   // (0,0) top-left
+            [0, 255, 0, 255],   // (1,0) top-right
+            [0, 0, 255, 255],   // (0,1) bottom-left
+            [255, 255, 255, 128], // (1,1) bottom-right (alpha stripped)
+        ];
+        let mut out = Vec::new();
+        rgba_to_rgb_flipped(&rgba, 2, 2, &mut out);
+
+        // Flipped: bottom row first, then top row. Alpha stripped.
+        assert_eq!(
+            out,
+            vec![
+                0, 0, 255,       // (0,1) blue
+                255, 255, 255,   // (1,1) white
+                255, 0, 0,       // (0,0) red
+                0, 255, 0,       // (1,0) green
+            ]
+        );
+    }
+
+    #[test]
+    fn rgba_to_rgb_flipped_single_pixel() {
+        let rgba: Vec<[u8; 4]> = vec![[42, 99, 200, 128]];
+        let mut out = Vec::new();
+        rgba_to_rgb_flipped(&rgba, 1, 1, &mut out);
+        assert_eq!(out, vec![42, 99, 200]);
+    }
+
+    #[test]
+    fn rgba_to_rgb_flipped_reuses_buffer() {
+        let rgba: Vec<[u8; 4]> = vec![[1, 2, 3, 4]];
+        let mut out = vec![99, 99, 99, 99, 99]; // pre-filled
+        rgba_to_rgb_flipped(&rgba, 1, 1, &mut out);
+        assert_eq!(out, vec![1, 2, 3]); // cleared and rewritten
+    }
+
+    #[test]
+    fn frame_count_whole_duration() {
+        let fps: f32 = 60.0;
+        let start_time: f32 = 0.0;
+        let end_time: f32 = 1.0;
+        let start_frame = (start_time * fps).floor() as u32;
+        let end_frame = (end_time * fps).ceil() as u32;
+        assert_eq!(start_frame, 0);
+        assert_eq!(end_frame, 60);
+        assert_eq!(end_frame - start_frame, 60);
+    }
+
+    #[test]
+    fn frame_count_fractional_times() {
+        let fps: f32 = 60.0;
+        let start_time: f32 = 0.5;
+        let end_time: f32 = 2.5;
+        let start_frame = (start_time * fps).floor() as u32;
+        let end_frame = (end_time * fps).ceil() as u32;
+        // 0.5 * 60 = 30.0 → floor = 30
+        // 2.5 * 60 = 150.0 → ceil = 150
+        assert_eq!(start_frame, 30);
+        assert_eq!(end_frame, 150);
+        assert_eq!(end_frame - start_frame, 120);
+    }
+
+    #[test]
+    fn frame_count_non_aligned_end() {
+        let fps: f32 = 60.0;
+        let start_time: f32 = 0.0;
+        let end_time: f32 = 1.01;
+        let _start_frame = (start_time * fps).floor() as u32;
+        let end_frame = (end_time * fps).ceil() as u32;
+        // 1.01 * 60 = 60.6 → ceil = 61 (captures the partial frame)
+        assert_eq!(end_frame, 61);
+    }
+}
+
 async fn export_render(
     mut scene: rs_namin::scene::Scene,
     timeline: rs_namin::animation::timeline::Timeline,

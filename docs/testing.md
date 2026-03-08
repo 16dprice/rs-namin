@@ -21,8 +21,7 @@
 
 ## Timeline Integration Tests
 
-- Build a scene + timeline using `SceneBuilder`.
-- Apply the timeline at known times.
+- Build a scene + timeline, apply at known times.
 - Assert that object properties have the expected interpolated values.
 - Verify that multiple tracks on the same object compose correctly.
 
@@ -42,8 +41,8 @@
 
 ## Export Tests
 
-- `rgba_to_rgb_flipped` correctly strips alpha and flips rows.
-- Frame count math: `(duration * fps).ceil()` produces the expected number of frames.
+- `rgba_to_rgb_flipped` correctly strips alpha and flips rows. Inline tests in `src/bin/export.rs`.
+- Frame count math: `floor(start * fps)` to `ceil(end * fps)` produces the expected frame range.
 
 ## Not Yet Implemented
 

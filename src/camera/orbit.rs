@@ -53,7 +53,6 @@ impl OrbitController {
     /// Process mouse input and update the camera.
     pub fn update(&mut self, camera: &mut Camera) {
         let (_, scroll_y) = mouse_wheel();
-        // mouse_delta_position returns normalized coords (-1..1), scale to pixels
         let raw_delta = mouse_delta_position();
         // mouse_delta_position() returns coords in -2..2 range (normalized * 2 - 1).
         // Multiply by screen/2 to get pixel deltas.

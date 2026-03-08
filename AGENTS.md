@@ -2,16 +2,16 @@
 
 ## Project Documentation
 
-Architecture docs live in `docs/`. Start with [docs/overview.md](docs/overview.md) for project summary, scope, and links to all other docs.
+Architecture docs live in `docs/`. These focus on gotchas, design rationale, and things not obvious from reading the code. For API details, read the source directly.
 
 | Doc | Covers |
 |-----|--------|
 | [overview.md](docs/overview.md) | Project summary, scope, design decisions |
-| [scene_and_properties.md](docs/scene_and_properties.md) | Scene graph, traits, property system |
-| [animation_and_clock.md](docs/animation_and_clock.md) | Keyframes, tracks, timeline, easing, clock |
-| [camera_and_rendering.md](docs/camera_and_rendering.md) | Camera, orbit controller, CLI export |
-| [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay, scrub bar, value inspector |
-| [module_layout.md](docs/module_layout.md) | Directory structure, main loop |
+| [scene_and_properties.md](docs/scene_and_properties.md) | Rendering gotchas (flat meshes, draw call limits) |
+| [animation_and_clock.md](docs/animation_and_clock.md) | Animation gotchas, clock design notes |
+| [camera_and_rendering.md](docs/camera_and_rendering.md) | Camera/macroquad gotchas, CLI export rationale |
+| [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay gotchas, roadmap |
+| [module_layout.md](docs/module_layout.md) | Main loop ordering and why it matters |
 | [testing.md](docs/testing.md) | Testing strategy |
 
 ## General Expectations

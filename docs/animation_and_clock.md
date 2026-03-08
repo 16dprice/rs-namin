@@ -1,22 +1,15 @@
 # Animation Engine & Clock
 
-Implemented in `src/animation/` and `src/clock.rs`.
+See `src/animation/` and `src/clock.rs` for implementations.
 
-## Keyframe Animation
+## Gotchas
 
-- **Keyframe** (`src/animation/track.rs`): time + `AnimValue` + easing function. Constructors: `Keyframe::new` (linear easing) and `Keyframe::with_easing`.
-- **Track**: sequence of keyframes for one property on one object. `evaluate(time) -> Option<AnimValue>` clamps at boundaries, lerps between keyframes with easing applied. Empty tracks return `None`. Easing is applied from the *starting* keyframe of each segment.
-- **Timeline** (`src/animation/timeline.rs`): collection of tracks. `apply(time, &mut scene)` evaluates all tracks and writes values into the scene. `duration()` returns max time across all tracks. Runs every frame regardless of pause state.
-- **Easing** (`src/animation/easing.rs`): `EasingFn = fn(f32) -> f32`. Built-in: `linear`, `quad_in/out/in_out`, `cubic_in/out/in_out`.
-
-## Clock (`src/clock.rs`)
-
-Single source of truth for time. Fields: `current_time`, `playback_state` (Playing/Paused), `playback_speed`, `loop_mode` (Once/Loop/PingPong), `duration`, `fps`.
-
-Transport: `play()`, `pause()`, `toggle()`, `tick(dt)`, `step_forward()`, `step_backward()`, `scrub(time)`, `set_speed(speed)`.
+- **Easing is per-segment, applied from the starting keyframe.** The easing function on keyframe N controls the curve from keyframe N to N+1 — not the arrival at N.
+- **Timeline runs every frame regardless of pause state.** This is what makes scrubbing work — the clock position changes, and the next `timeline.apply()` picks it up.
+- **`apply` vs `apply_scene_only`:** `apply(time, &mut scene, &mut camera)` drives both scene objects and camera. `apply_scene_only(time, &mut scene)` skips camera tracks, used when the orbit controller drives the camera instead.
 
 ## Design Notes
 
-- Paused is a distinct state, not speed=0.
+- Paused is a distinct state, not speed=0. See `PlaybackState` enum.
 - Once mode auto-pauses at end. Loop wraps. PingPong reverses direction at boundaries.
 - Scrubbing and stepping directly mutate `current_time`; timeline re-evaluates next frame.

@@ -11,18 +11,17 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 - **Keyframe animation engine.** Tracks, timelines, easing functions, pure evaluation.
 - **Clock / transport controls.** Play, pause, frame-step, scrub, variable speed, loop modes.
 - **Scene objects:** Circle, Line, Rectangle, Polygon, Spiral — flat custom meshes on the XY plane. Text — screen-space overlay.
-- **Two runtime modes:** Interactive (free camera) and Playback (timeline-driven camera, not yet implemented).
+- **Two runtime modes:** Interactive (free orbit camera) and Timeline (keyframe-driven camera, toggled with F5).
 - **Camera wrapper** converting to macroquad's `Camera3D` in one place. Camera is animatable.
-- **Debug overlay** with HUD, world-space helpers, camera log, snap-to-view, value inspector.
-- **Scrub bar UI** at the bottom of the screen.
-- **CLI export tool** (`cargo run --bin export`) renders the animation to MP4 via ffmpeg with vsync disabled for maximum speed.
-- **Automated testing** covering math, animation, properties, clock, and orbit controller.
+- **Debug overlay** with HUD, world-space helpers, value inspector, scrub bar.
+- **CLI export tool** (`cargo run --bin export`) renders the animation to MP4 via ffmpeg.
+- **Automated testing** covering math, animation, properties, clock, orbit controller, and export.
 
 ## Out of Scope (For Now)
 
 - LaTeX rendering or rich math typesetting.
-- Hot-reloadable scripting language (Lua, Rhai, etc.) — start with the Rust DSL, add scripting later if needed.
-- Derive macro for `Animatable` — writing impls by hand for now (6 object types + Camera).
+- Hot-reloadable scripting language (Lua, Rhai, etc.).
+- Derive macro for `Animatable` — writing impls by hand for now.
 - GPU-accelerated or shader-based rendering beyond what macroquad provides.
 - Audio synchronization.
 - GUI editor for authoring keyframes (debug tools only, not an authoring UI).
@@ -32,18 +31,8 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 
 ## Key Design Decisions
 
-- **Property system is string-keyed.** Flexible and generic, but typos are runtime errors. Will be mitigated by validating property names in a `SceneBuilder` at scene construction time.
+- **Property system is string-keyed.** Flexible and generic, but typos are runtime errors. Will be mitigated by a `SceneBuilder` with build-time validation.
 - **Everything is 3D from day one.** Camera, transforms, and positions are all `Vec3` even if early objects are flat. Retrofitting 3D later is much harder.
-- **Clock is the single source of truth for time.** Paused state is a distinct code path (not speed=0). Scrubbing and frame-stepping directly mutate `clock.current_time`. `timeline.apply` runs every frame regardless of play state.
-- **Camera wraps macroquad.** The system owns a `Camera` struct with clean semantics. Conversion to macroquad's `Camera3D` happens in one function.
-- **CLI export decouples from real time.** A separate binary (`src/bin/export.rs`) drives time synthetically at `1/fps` with vsync disabled. Pipes raw RGB frames directly to ffmpeg's stdin — no intermediate files.
-- **Library + binary crate structure.** Shared code lives in `src/lib.rs`. The interactive viewer (`src/main.rs`) and CLI exporter (`src/bin/export.rs`) are separate binaries that import from the library.
-
-## Related Docs
-
-- [Scene & Properties](scene_and_properties.md) — scene graph, traits, property system
-- [Animation & Clock](animation_and_clock.md) — keyframes, tracks, timeline, easing, clock
-- [Camera & Rendering](camera_and_rendering.md) — camera, orbit controller, CLI export
-- [Debug & UI](debug_and_ui.md) — debug overlay, scrub bar, value inspector
-- [Module Layout](module_layout.md) — directory structure, main loop
-- [Testing](testing.md) — testing strategy
+- **Clock is the single source of truth for time.** Paused state is a distinct code path (not speed=0). `timeline.apply` runs every frame regardless of play state.
+- **CLI export decouples from real time.** A separate binary drives time synthetically with vsync disabled. See [camera_and_rendering.md](camera_and_rendering.md) for why.
+- **Library + binary crate structure.** Shared code lives in `src/lib.rs`. The interactive viewer (`src/main.rs`) and CLI exporter (`src/bin/export.rs`) are separate binaries.
