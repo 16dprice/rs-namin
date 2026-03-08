@@ -1,6 +1,6 @@
 use macroquad::prelude::Conf;
 
-use rs_namin::my_scene;
+use rs_namin::videos;
 use rs_namin::viewer;
 
 fn window_conf() -> Conf {
@@ -15,6 +15,6 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let (scene, timeline, camera) = my_scene::build();
+    let (scene, timeline, camera) = videos::bouncing_ball::build();
     viewer::run(scene, timeline, camera).await;
 }

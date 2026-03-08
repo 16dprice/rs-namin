@@ -11,6 +11,7 @@ pub mod render_util;
 pub mod scenario;
 pub mod scene;
 pub mod scene_builder;
+pub mod videos;
 pub mod viewer;
 
 #[cfg(test)]

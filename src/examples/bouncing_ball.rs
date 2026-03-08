@@ -4,9 +4,9 @@ use crate::animation::easing::{quad_in, quad_out};
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
+use crate::scene::Scene;
 use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Text};
 use crate::scene::value::AnimValue;
-use crate::scene::Scene;
 
 pub fn build() -> (Scene, Timeline, Camera) {
     let mut scene = Scene::new();
@@ -63,7 +63,10 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let duration = t;
     let mut rect_track = Track::new(rect_id, "size");
     rect_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec2(vec2(2.0, 3.0))));
-    rect_track.add_keyframe(Keyframe::new(duration / 2.0, AnimValue::Vec2(vec2(3.0, 1.5))));
+    rect_track.add_keyframe(Keyframe::new(
+        duration / 2.0,
+        AnimValue::Vec2(vec2(3.0, 1.5)),
+    ));
     rect_track.add_keyframe(Keyframe::new(duration, AnimValue::Vec2(vec2(2.0, 3.0))));
     timeline.add_track(rect_track);
 

@@ -1,4 +1,5 @@
 /target
-/export_frames
+/renders
+*.mp4
 snapshot.png
 /snapshots
