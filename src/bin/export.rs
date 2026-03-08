@@ -23,19 +23,6 @@ impl fmt::Display for QualityPreset {
     }
 }
 
-fn window_conf() -> Conf {
-    Conf {
-        window_title: "rs-namin export (see terminal)".to_owned(),
-        window_width: 320,
-        window_height: 180,
-        platform: miniquad::conf::Platform {
-            swap_interval: Some(0),
-            ..Default::default()
-        },
-        ..Default::default()
-    }
-}
-
 /// Convert RGBA pixel data to RGB with Y-flip (OpenGL render targets are upside-down).
 fn rgba_to_rgb_flipped(rgba: &[[u8; 4]], width: usize, height: usize, out: &mut Vec<u8>) {
     out.clear();
@@ -56,14 +43,13 @@ fn prompt_cancelled(err: &InquireError) -> bool {
     )
 }
 
-#[macroquad::main(window_conf)]
-async fn main() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
-    let initial_camera = camera.clone();
-    let duration = timeline.duration();
+struct ExportConfig {
+    quality: QualityPreset,
+    start_time: f32,
+    end_time: f32,
+}
 
-    // --- Interactive prompts (in the terminal) ---
-
+fn prompt_config(duration: f32) -> Option<ExportConfig> {
     let presets = vec![
         QualityPreset {
             label: "720p",
@@ -89,11 +75,9 @@ async fn main() {
 
     let quality = match Select::new("Quality", presets).with_starting_cursor(3).prompt() {
         Ok(q) => q,
-        Err(e) if prompt_cancelled(&e) => return,
+        Err(e) if prompt_cancelled(&e) => return None,
         Err(e) => panic!("{e}"),
     };
-
-    let (width, height) = (quality.width, quality.height);
 
     println!("Scene duration: {duration:.2}s");
 
@@ -103,7 +87,7 @@ async fn main() {
         .prompt()
     {
         Ok(t) => t.clamp(0.0, duration),
-        Err(e) if prompt_cancelled(&e) => return,
+        Err(e) if prompt_cancelled(&e) => return None,
         Err(e) => panic!("{e}"),
     };
 
@@ -113,14 +97,31 @@ async fn main() {
         .prompt()
     {
         Ok(t) => t.clamp(start_time, duration),
-        Err(e) if prompt_cancelled(&e) => return,
+        Err(e) if prompt_cancelled(&e) => return None,
         Err(e) => panic!("{e}"),
     };
 
-    // --- Compute frame range ---
+    Some(ExportConfig {
+        quality,
+        start_time,
+        end_time,
+    })
+}
 
-    let start_frame = (start_time * FPS).floor() as u32;
-    let end_frame = (end_time * FPS).ceil() as u32;
+fn main() {
+    // Build scene and collect config BEFORE opening the macroquad window.
+    let (scene, timeline, camera) = my_scene::build();
+    let duration = timeline.duration();
+
+    let config = match prompt_config(duration) {
+        Some(c) => c,
+        None => return,
+    };
+
+    let (width, height) = (config.quality.width, config.quality.height);
+
+    let start_frame = (config.start_time * FPS).floor() as u32;
+    let end_frame = (config.end_time * FPS).ceil() as u32;
     let total_frames = end_frame - start_frame;
 
     if total_frames == 0 {
@@ -128,7 +129,34 @@ async fn main() {
         return;
     }
 
-    // --- Set up render target & ffmpeg ---
+    let conf = Conf {
+        window_title: "rs-namin export".to_owned(),
+        window_width: width.min(1280) as i32,
+        window_height: height.min(720) as i32,
+        platform: miniquad::conf::Platform {
+            swap_interval: Some(0),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    macroquad::Window::from_config(
+        conf,
+        export_render(scene, timeline, camera, config, start_frame, end_frame, total_frames),
+    );
+}
+
+async fn export_render(
+    mut scene: rs_namin::scene::Scene,
+    timeline: rs_namin::animation::timeline::Timeline,
+    camera: rs_namin::camera::Camera,
+    config: ExportConfig,
+    start_frame: u32,
+    end_frame: u32,
+    total_frames: u32,
+) {
+    let initial_camera = camera;
+    let (width, height) = (config.quality.width, config.quality.height);
 
     let rt = render_target(width, height);
     rt.texture.set_filter(FilterMode::Nearest);
@@ -173,7 +201,7 @@ async fn main() {
     let stdin = ffmpeg.stdin.as_mut().unwrap();
     let mut rgb_buf = Vec::with_capacity((width * height * 3) as usize);
 
-    let render_duration = end_time - start_time;
+    let render_duration = config.end_time - config.start_time;
     let pb = ProgressBar::new(total_frames as u64);
     pb.set_style(
         ProgressStyle::with_template(
@@ -184,7 +212,7 @@ async fn main() {
     );
     pb.set_message(format!(
         "{render_duration:.1}s @ {FPS}fps {} → {output_path}",
-        quality.label,
+        config.quality.label,
     ));
 
     // --- Render loop ---
@@ -206,7 +234,7 @@ async fn main() {
 
         // Render this frame to the render target
         let t = frame as f32 / FPS;
-        camera = initial_camera.clone();
+        let mut camera = initial_camera.clone();
         timeline.apply(t, &mut scene, &mut camera);
 
         let mut cam3d = camera.to_macroquad();
