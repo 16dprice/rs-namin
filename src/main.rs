@@ -1,4 +1,6 @@
-use macroquad::prelude::*;
+use macroquad::prelude::{
+    BLACK, Conf, clear_background, get_frame_time, next_frame, set_camera, set_default_camera,
+};
 
 use rs_namin::camera::orbit::OrbitController;
 use rs_namin::clock::{self, Clock};

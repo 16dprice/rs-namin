@@ -5,6 +5,7 @@ edition = "2024"
 default-run = "rs-namin"
 
 [dependencies]
+indicatif = "0.18.4"
 macroquad = "0.4"
 
 [[bin]]

@@ -178,11 +178,7 @@ mod tests {
     fn property_names_all_gettable() {
         let cam = Camera::default();
         for name in cam.property_names() {
-            assert!(
-                cam.get(name).is_some(),
-                "property '{}' returned None",
-                name
-            );
+            assert!(cam.get(name).is_some(), "property '{}' returned None", name);
         }
     }
 

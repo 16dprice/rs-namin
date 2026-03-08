@@ -1,4 +1,7 @@
-use macroquad::prelude::*;
+use macroquad::prelude::{
+    KeyCode, MouseButton, Vec3, get_frame_time, is_key_down, is_mouse_button_down,
+    mouse_delta_position, mouse_wheel, screen_height, screen_width, vec2, vec3,
+};
 
 use super::Camera;
 

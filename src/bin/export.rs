@@ -1,12 +1,13 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+use indicatif::{ProgressBar, ProgressStyle};
 use macroquad::prelude::*;
 
 use rs_namin::my_scene;
 
-const WIDTH: u32 = 1280;
-const HEIGHT: u32 = 720;
+const WIDTH: u32 = 3840;
+const HEIGHT: u32 = 2160;
 const FPS: f32 = 60.0;
 
 fn window_conf() -> Conf {
@@ -56,14 +57,22 @@ async fn main() {
     let mut ffmpeg = Command::new("ffmpeg")
         .args([
             "-y",
-            "-f", "rawvideo",
-            "-pixel_format", "rgb24",
-            "-video_size", &format!("{}x{}", WIDTH, HEIGHT),
-            "-framerate", &format!("{}", FPS),
-            "-i", "-",
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-preset", "fast",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            "rgb24",
+            "-video_size",
+            &format!("{}x{}", WIDTH, HEIGHT),
+            "-framerate",
+            &format!("{}", FPS),
+            "-i",
+            "-",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-preset",
+            "fast",
             &output_path,
         ])
         .stdin(Stdio::piped())
@@ -75,10 +84,15 @@ async fn main() {
     let stdin = ffmpeg.stdin.as_mut().unwrap();
     let mut rgb_buf = Vec::with_capacity((WIDTH * HEIGHT * 3) as usize);
 
-    eprintln!(
-        "Exporting {} frames ({:.2}s at {}fps) to {}",
-        total_frames, duration, FPS, output_path
+    let pb = ProgressBar::new(total_frames as u64);
+    pb.set_style(
+        ProgressStyle::with_template(
+            "{msg} [{bar:40.cyan/blue}] {pos}/{len} ({eta} remaining)",
+        )
+        .unwrap()
+        .progress_chars("█▉▊▋▌▍▎▏ "),
     );
+    pb.set_message(format!("{:.1}s @ {FPS}fps → {output_path}", duration));
 
     // Frame 0 needs to be rendered first, then flushed via next_frame().
     // We render frame N, flush, then read back frame N on the next iteration.
@@ -91,9 +105,10 @@ async fn main() {
             let data = image.get_image_data();
             rgba_to_rgb_flipped(data, WIDTH as usize, HEIGHT as usize, &mut rgb_buf);
             if stdin.write_all(&rgb_buf).is_err() {
-                eprintln!("ffmpeg pipe broken, aborting");
+                pb.abandon_with_message("ffmpeg pipe broken, aborting");
                 break;
             }
+            pb.inc(1);
         }
 
         // Render this frame to the render target
@@ -132,9 +147,12 @@ async fn main() {
         let _ = stdin.write_all(&rgb_buf);
     }
 
+    // Count the final frame
+    pb.inc(1);
+
     // Close stdin and wait for ffmpeg to finish
     drop(ffmpeg.stdin.take());
     let _ = ffmpeg.wait();
 
-    eprintln!("Export complete: {}", output_path);
+    pb.finish_with_message(format!("Done: {output_path}"));
 }

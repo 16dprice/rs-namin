@@ -21,11 +21,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     let spiral_id = scene.add(Spiral::new(
         vec3(0.0, 0.0, 0.0),
-        0.001,
+        0.0001,
         1.0 / PI,
         BLUE,
-        1_000,
-        0.01,
+        10_000,
+        0.002,
     ));
 
     let mut delta_theta_track = Track::new(spiral_id, "delta_theta");
