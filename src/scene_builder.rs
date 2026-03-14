@@ -194,7 +194,7 @@ mod tests {
     use super::*;
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
-    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Text, Torus};
+    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Spiral, Text, Torus};
 
     #[test]
     fn build_scene_with_object() {
@@ -349,11 +349,12 @@ mod tests {
         let _poly = sb.add(Polygon::new(Vec3::ZERO, 1.0, 6, WHITE));
         let _arc = sb.add(Arc::new(Vec3::ZERO, 0.5, 1.0, 0.0, std::f32::consts::PI, WHITE));
         let _arrow = sb.add(Arrow::new(Vec3::ZERO, Vec3::X, WHITE));
+        let _spiral = sb.add(Spiral::new(Vec3::ZERO, 0.001, 0.1, WHITE, 100, 0.01));
         let _text = sb.add(Text::new("hello", vec2(10.0, 20.0), 16.0, WHITE));
         let _torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
 
         let (scene, _timeline, _camera) = sb.build();
-        assert_eq!(scene.len(), 8);
+        assert_eq!(scene.len(), 9);
     }
 
     #[test]

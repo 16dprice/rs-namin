@@ -69,4 +69,4 @@
 - Property name validation: invalid names panic with descriptive error. See `src/scene_builder.rs`.
 - Type validation: wrong AnimValue variant panics.
 - End-to-end: `build()` then `timeline.apply()` produces correct interpolated values.
-- Coverage for all object types (Circle, Line, Rectangle, Polygon, Arc, Arrow, Text) and camera properties.
+- Coverage for all object types (Circle, Line, Rectangle, Polygon, Spiral, Arc, Arrow, Text, Torus) and camera properties.

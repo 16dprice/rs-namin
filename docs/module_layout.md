@@ -36,6 +36,11 @@ each frame:
 - Two-pass rendering: world-space objects draw after `set_camera`, screen-space UI draws after `set_default_camera()`.
 - Orbit controller runs last so it doesn't consume mouse input before UI elements (e.g., scrub bar dragging).
 
-## Demo Scene
+## Scene Organization
 
-`my_scene::build()` in `src/my_scene.rs` is the active scene used by both the interactive viewer and CLI export. Returns `(Scene, Timeline, Camera)`. The original demo is preserved in `src/demo.rs` for reference.
+Scenes are `fn() -> (Scene, Timeline, Camera)`. Two registries organize them:
+
+- **`src/videos/`** — `Video` struct + `VIDEOS` registry. Used by the interactive viewer (`src/main.rs`) and CLI export (`src/bin/export.rs`).
+- **`src/examples/`** — `Example` struct + `EXAMPLES` registry. Used by the example picker (`src/bin/example.rs`).
+
+`src/my_scene.rs` is a scratchpad — not wired into any binary.
