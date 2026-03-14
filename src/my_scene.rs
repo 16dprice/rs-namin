@@ -1,62 +1,82 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
-#[allow(unused_imports)]
 use macroquad::prelude::*;
 
-#[allow(unused_imports)]
-use crate::animation::easing::{cubic_in, cubic_in_out, cubic_out, quad_in, quad_in_out, quad_out};
-#[allow(unused_imports)]
+use crate::animation::easing::cubic_in_out;
+use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
 use crate::scene::Scene;
-#[allow(unused_imports)]
-use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Spiral, Text};
+use crate::scene::objects::Tube;
 use crate::scene::value::AnimValue;
-use crate::{animation::timeline::Timeline, camera::ProjectionMode};
 
 #[allow(unused_variables, unused_mut)]
 pub fn build() -> (Scene, Timeline, Camera) {
     let mut scene = Scene::new();
     let mut timeline = Timeline::new();
 
-    let spiral_id = scene.add(Spiral::new(
-        vec3(0.0, 0.0, 0.0),
-        0.0001,
-        1.0 / PI,
-        BLUE,
-        10_000,
-        0.002,
+    let p = 5;
+    let q = 7;
+    let c = 3.0; // distance from center of tube to center of torus
+    let a = 1.0; // radius of the torus cross-section
+
+    let num_points = 8_000;
+    let points: Vec<Vec3> = (0..num_points)
+        .map(|i| {
+            let t = i as f32 / num_points as f32 * TAU;
+            let x = (p as f32 * t).cos() * (c + a * (q as f32 * t).cos());
+            let y = (p as f32 * t).sin() * (c + a * (q as f32 * t).cos());
+            let z = a * (q as f32 * t).sin();
+            vec3(x, y, z)
+        })
+        .collect();
+
+    let mut knot = Tube::new(points, 0.15, BLUE);
+    knot.closed = true;
+    let knot_id = scene.add(knot);
+
+    // Animate color shift
+    let mut color_track = Track::new(knot_id, "color");
+    color_track.add_keyframe(Keyframe::with_easing(
+        0.0,
+        AnimValue::Vec4(vec4(0.2, 0.5, 1.0, 1.0)),
+        cubic_in_out,
     ));
+    color_track.add_keyframe(Keyframe::with_easing(
+        3.0,
+        AnimValue::Vec4(vec4(1.0, 0.3, 0.6, 1.0)),
+        cubic_in_out,
+    ));
+    color_track.add_keyframe(Keyframe::new(
+        6.0,
+        AnimValue::Vec4(vec4(0.2, 0.5, 1.0, 1.0)),
+    ));
+    timeline.add_track(color_track);
 
-    let mut delta_theta_track = Track::new(spiral_id, "delta_theta");
-    delta_theta_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.001)));
-    delta_theta_track.add_keyframe(Keyframe::new(360.0, AnimValue::Float(1.0 / PI)));
-
-    let phi = (1.0 + f32::sqrt(5.0)) / 2.0;
-    delta_theta_track.add_keyframe(Keyframe::new(600.0, AnimValue::Float(phi)));
-    timeline.add_track(delta_theta_track);
-
-    let mut camera = Camera::new(vec3(0.0, 0.0, 15.0), vec3(0.0, 0.0, 0.0));
-    camera.projection = ProjectionMode::Orthographic;
-    camera.fov = 100.0;
-
+    // Camera orbits around the knot
+    let cam_radius = 10.0_f32;
     let mut cam_pos_track = Track::camera("position");
     let mut cam_target_track = Track::camera("target");
 
-    cam_pos_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec3(vec3(0.0, 0.0, 15.0))));
-    cam_target_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec3(vec3(0.0, 0.0, 0.0))));
-
-    cam_pos_track.add_keyframe(Keyframe::new(20.0, AnimValue::Vec3(vec3(1.0, 0.0, 15.0))));
-    cam_target_track.add_keyframe(Keyframe::new(20.0, AnimValue::Vec3(vec3(1.0, 0.0, 0.0))));
-
-    cam_pos_track.add_keyframe(Keyframe::new(40.0, AnimValue::Vec3(vec3(1.0, 1.0, 15.0))));
-    cam_target_track.add_keyframe(Keyframe::new(40.0, AnimValue::Vec3(vec3(1.0, 1.0, 0.0))));
-
-    cam_pos_track.add_keyframe(Keyframe::new(60.0, AnimValue::Vec3(vec3(0.0, 0.0, 15.0))));
-    cam_target_track.add_keyframe(Keyframe::new(60.0, AnimValue::Vec3(vec3(0.0, 0.0, 0.0))));
-
+    let num_keys = 8;
+    for i in 0..=num_keys {
+        let frac = i as f32 / num_keys as f32;
+        let angle = frac * PI * 2.0;
+        let t = frac * 6.0;
+        cam_pos_track.add_keyframe(Keyframe::new(
+            t,
+            AnimValue::Vec3(vec3(
+                cam_radius * angle.sin(),
+                4.0,
+                cam_radius * angle.cos(),
+            )),
+        ));
+        cam_target_track.add_keyframe(Keyframe::new(t, AnimValue::Vec3(Vec3::ZERO)));
+    }
     timeline.add_track(cam_pos_track);
     timeline.add_track(cam_target_track);
+
+    let camera = Camera::new(vec3(0.0, 4.0, cam_radius), Vec3::ZERO);
 
     (scene, timeline, camera)
 }

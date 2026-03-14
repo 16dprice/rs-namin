@@ -54,9 +54,8 @@ impl Tube {
         (self.points[next] - self.points[prev]).normalize_or_zero()
     }
 
-    /// Compute a perpendicular frame (normal, binormal) for a given tangent
-    /// using a fixed up-vector approach.
-    fn perp_frame(tangent: Vec3) -> (Vec3, Vec3) {
+    /// Compute an initial perpendicular frame for a given tangent.
+    fn initial_frame(tangent: Vec3) -> (Vec3, Vec3) {
         let up = if tangent.dot(Vec3::Y).abs() > 0.9 {
             Vec3::X
         } else {
@@ -65,6 +64,60 @@ impl Tube {
         let normal = tangent.cross(up).normalize_or_zero();
         let binormal = tangent.cross(normal).normalize_or_zero();
         (normal, binormal)
+    }
+
+    /// Propagate a frame from one tangent to the next, keeping it smooth.
+    /// Rotates (prev_normal, prev_binormal) so they stay perpendicular to new_tangent.
+    fn propagate_frame(
+        prev_tangent: Vec3,
+        prev_normal: Vec3,
+        _prev_binormal: Vec3,
+        new_tangent: Vec3,
+    ) -> (Vec3, Vec3) {
+        let dot = prev_tangent.dot(new_tangent).clamp(-1.0, 1.0);
+        let rotated_normal = if dot > 0.9999 {
+            // Tangents nearly identical — start from previous normal
+            prev_normal
+        } else {
+            let axis = prev_tangent.cross(new_tangent);
+            let axis_len = axis.length();
+            if axis_len < 1e-8 {
+                // Tangents are opposite — fall back to fresh frame
+                return Self::initial_frame(new_tangent);
+            }
+            let axis = axis / axis_len;
+            let angle = dot.acos();
+            let rot = Quat::from_axis_angle(axis, angle);
+            rot.mul_vec3(prev_normal)
+        };
+        // Always re-orthogonalize against the new tangent
+        let normal = (rotated_normal - new_tangent * rotated_normal.dot(new_tangent)).normalize();
+        let binormal = new_tangent.cross(normal).normalize();
+        (normal, binormal)
+    }
+
+    /// Compute propagated frames for all rings, ensuring smooth transitions.
+    fn compute_frames(&self) -> Vec<(Vec3, Vec3, Vec3)> {
+        let n = self.points.len();
+        let num_rings = if self.closed { n + 1 } else { n };
+        let mut frames = Vec::with_capacity(num_rings);
+
+        for ring in 0..num_rings {
+            let point_idx = ring % n;
+            let tangent = self.tangent_at(point_idx);
+
+            if ring == 0 {
+                let (normal, binormal) = Self::initial_frame(tangent);
+                frames.push((tangent, normal, binormal));
+            } else {
+                let (prev_t, prev_n, prev_b) = frames[ring - 1];
+                let (normal, binormal) =
+                    Self::propagate_frame(prev_t, prev_n, prev_b, tangent);
+                frames.push((tangent, normal, binormal));
+            }
+        }
+
+        frames
     }
 
     /// Build meshes for the tube, chunked to stay within draw call limits.
@@ -77,9 +130,8 @@ impl Tube {
         let color: [u8; 4] =
             Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
 
-        // Total number of rings. For closed paths, we add one extra ring that
-        // duplicates ring 0 so the final segment connects back.
-        let num_rings = if self.closed { n + 1 } else { n };
+        let frames = self.compute_frames();
+        let num_rings = frames.len();
 
         let mut meshes = Vec::new();
 
@@ -91,11 +143,13 @@ impl Tube {
             let mut vertices = Vec::with_capacity(chunk_rings * verts_per_ring);
             let mut indices = Vec::with_capacity((chunk_rings - 1) * RING_SEGMENTS * 6);
 
-            for ring in chunk_start..chunk_end {
-                // For closed paths, the extra ring wraps back to point 0
+            for (ring, &(_tangent, normal, binormal)) in frames
+                .iter()
+                .enumerate()
+                .take(chunk_end)
+                .skip(chunk_start)
+            {
                 let point_idx = ring % n;
-                let tangent = self.tangent_at(point_idx);
-                let (normal, binormal) = Self::perp_frame(tangent);
 
                 let u = ring as f32 / (num_rings - 1) as f32;
 
