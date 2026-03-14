@@ -16,19 +16,32 @@ pub struct Tube {
     pub position: Vec3,
     pub points: Vec<Vec3>,
     pub radius: f32,
-    pub color: Vec4,
+    pub colors: Vec<Vec4>,
     pub closed: bool,
 }
 
 impl Tube {
-    const PROPERTY_NAMES: &[&str] = &["position", "radius", "color", "closed"];
+    const PROPERTY_NAMES: &[&str] = &["position", "radius", "closed"];
 
     pub fn new(points: Vec<Vec3>, radius: f32, color: Color) -> Self {
         Self {
             position: Vec3::ZERO,
             points,
             radius,
-            color: vec4(color.r, color.g, color.b, color.a),
+            colors: vec![vec4(color.r, color.g, color.b, color.a)],
+            closed: false,
+        }
+    }
+
+    pub fn with_colors(points: Vec<Vec3>, radius: f32, colors: Vec<Color>) -> Self {
+        Self {
+            position: Vec3::ZERO,
+            points,
+            radius,
+            colors: colors
+                .iter()
+                .map(|c| vec4(c.r, c.g, c.b, c.a))
+                .collect(),
             closed: false,
         }
     }
@@ -36,6 +49,27 @@ impl Tube {
     pub fn closed(mut self, val: bool) -> Self {
         self.closed = val;
         self
+    }
+
+    /// Sample the gradient color at position `u` (0..1 along the tube).
+    /// Colors are evenly spaced and wrap back to the first color.
+    fn sample_color(&self, u: f32) -> [u8; 4] {
+        let n = self.colors.len();
+        if n == 1 {
+            return Color::new(
+                self.colors[0].x,
+                self.colors[0].y,
+                self.colors[0].z,
+                self.colors[0].w,
+            )
+            .into();
+        }
+        let scaled = u * n as f32;
+        let idx = (scaled.floor() as usize) % n;
+        let frac = scaled.fract();
+        let next = (idx + 1) % n;
+        let c = self.colors[idx].lerp(self.colors[next], frac);
+        Color::new(c.x, c.y, c.z, c.w).into()
     }
 
     /// Compute tangent at point `i`, using central differences for interior
@@ -127,9 +161,6 @@ impl Tube {
             return vec![];
         }
 
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
-
         let frames = self.compute_frames();
         let num_rings = frames.len();
 
@@ -152,6 +183,7 @@ impl Tube {
                 let point_idx = ring % n;
 
                 let u = ring as f32 / (num_rings - 1) as f32;
+                let color = self.sample_color(u);
 
                 for j in 0..=RING_SEGMENTS {
                     let angle = (j as f32 / RING_SEGMENTS as f32) * TAU;
@@ -230,7 +262,6 @@ impl Animatable for Tube {
         match property_name {
             "position" => Some(AnimValue::Vec3(self.position)),
             "radius" => Some(AnimValue::Float(self.radius)),
-            "color" => Some(AnimValue::Vec4(self.color)),
             "closed" => Some(AnimValue::Bool(self.closed)),
             _ => None,
         }
@@ -240,7 +271,6 @@ impl Animatable for Tube {
         match (property_name, value) {
             ("position", AnimValue::Vec3(v)) => self.position = v,
             ("radius", AnimValue::Float(v)) => self.radius = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
             ("closed", AnimValue::Bool(v)) => self.closed = v,
             _ => {}
         }
@@ -319,10 +349,9 @@ mod tests {
     fn property_names_complete() {
         let tube = make_straight_tube();
         let names = tube.property_names();
-        assert_eq!(names.len(), 4);
+        assert_eq!(names.len(), 3);
         assert!(names.contains(&"position"));
         assert!(names.contains(&"radius"));
-        assert!(names.contains(&"color"));
         assert!(names.contains(&"closed"));
     }
 

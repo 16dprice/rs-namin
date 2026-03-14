@@ -2,7 +2,6 @@ use std::f32::consts::{PI, TAU};
 
 use macroquad::prelude::*;
 
-use crate::animation::easing::cubic_in_out;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
@@ -20,7 +19,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let c = 3.0; // distance from center of tube to center of torus
     let a = 1.0; // radius of the torus cross-section
 
-    let num_points = 8_000;
+    let num_points = 1_000;
     let points: Vec<Vec3> = (0..num_points)
         .map(|i| {
             let t = i as f32 / num_points as f32 * TAU;
@@ -31,27 +30,21 @@ pub fn build() -> (Scene, Timeline, Camera) {
         })
         .collect();
 
-    let mut knot = Tube::new(points, 0.15, BLUE);
+    let mut knot = Tube::with_colors(
+        points,
+        0.15,
+        vec![
+            RED,                              // red
+            ORANGE,                           // orange
+            YELLOW,                           // yellow
+            GREEN,                            // green
+            BLUE,                             // blue
+            Color::new(0.29, 0.0, 0.51, 1.0), // indigo
+            Color::new(0.56, 0.0, 1.0, 1.0),  // violet
+        ],
+    );
     knot.closed = true;
-    let knot_id = scene.add(knot);
-
-    // Animate color shift
-    let mut color_track = Track::new(knot_id, "color");
-    color_track.add_keyframe(Keyframe::with_easing(
-        0.0,
-        AnimValue::Vec4(vec4(0.2, 0.5, 1.0, 1.0)),
-        cubic_in_out,
-    ));
-    color_track.add_keyframe(Keyframe::with_easing(
-        3.0,
-        AnimValue::Vec4(vec4(1.0, 0.3, 0.6, 1.0)),
-        cubic_in_out,
-    ));
-    color_track.add_keyframe(Keyframe::new(
-        6.0,
-        AnimValue::Vec4(vec4(0.2, 0.5, 1.0, 1.0)),
-    ));
-    timeline.add_track(color_track);
+    scene.add(knot);
 
     // Camera orbits around the knot
     let cam_radius = 10.0_f32;

@@ -51,28 +51,10 @@ pub fn build() -> (Scene, Timeline, Camera) {
         })
         .collect();
 
-    let mut knot = Tube::new(knot_points, 0.1, RED);
+    let mut knot = Tube::with_colors(knot_points, 0.1, vec![RED, GREEN, BLUE]);
     knot.position = vec3(6.0, 0.0, 0.0);
     knot.closed = true;
-    let knot_id = scene.add(knot);
-
-    // Animate knot color from red to green and back
-    let mut color_track = Track::new(knot_id, "color");
-    color_track.add_keyframe(Keyframe::with_easing(
-        0.0,
-        AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0)),
-        cubic_in_out,
-    ));
-    color_track.add_keyframe(Keyframe::with_easing(
-        3.0,
-        AnimValue::Vec4(vec4(0.0, 1.0, 0.3, 1.0)),
-        cubic_in_out,
-    ));
-    color_track.add_keyframe(Keyframe::new(
-        6.0,
-        AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0)),
-    ));
-    timeline.add_track(color_track);
+    scene.add(knot);
 
     // A simple L-shaped path
     let l_points = vec![
