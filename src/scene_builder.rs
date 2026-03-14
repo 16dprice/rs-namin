@@ -194,7 +194,7 @@ mod tests {
     use super::*;
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
-    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Spiral, Text, Torus};
+    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube};
 
     #[test]
     fn build_scene_with_object() {
@@ -352,9 +352,10 @@ mod tests {
         let _spiral = sb.add(Spiral::new(Vec3::ZERO, 0.001, 0.1, WHITE, 100, 0.01));
         let _text = sb.add(Text::new("hello", vec2(10.0, 20.0), 16.0, WHITE));
         let _torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
+        let _tube = sb.add(Tube::new(vec![Vec3::ZERO, Vec3::X], 0.5, WHITE));
 
         let (scene, _timeline, _camera) = sb.build();
-        assert_eq!(scene.len(), 9);
+        assert_eq!(scene.len(), 10);
     }
 
     #[test]
@@ -425,6 +426,22 @@ mod tests {
         sb.animate(&torus, "rotation", |tb| {
             tb.keyframe(0.0, AnimValue::Float(0.0))
         });
+    }
+
+    #[test]
+    fn animate_tube_specific_properties() {
+        let mut sb = SceneBuilder::new();
+        let tube = sb.add(Tube::new(vec![Vec3::ZERO, Vec3::X, vec3(2.0, 1.0, 0.0)], 0.5, WHITE));
+        sb.animate(&tube, "radius", |tb| {
+            tb.keyframe(0.0, AnimValue::Float(0.5))
+                .keyframe(2.0, AnimValue::Float(2.0))
+        });
+        sb.animate(&tube, "closed", |tb| {
+            tb.keyframe(0.0, AnimValue::Bool(false))
+                .keyframe(1.0, AnimValue::Bool(true))
+        });
+        let (_scene, timeline, _camera) = sb.build();
+        assert_eq!(timeline.tracks.len(), 2);
     }
 
     #[test]

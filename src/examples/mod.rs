@@ -1,6 +1,7 @@
 pub mod bouncing_ball;
 pub mod spiral;
 pub mod torus;
+pub mod tube;
 
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
@@ -29,6 +30,11 @@ pub const EXAMPLES: &[Example] = &[
         name: "torus",
         description: "Rotating torus with animated Mat4 rotation matrix",
         build: torus::build,
+    },
+    Example {
+        name: "tube",
+        description: "Helix, trefoil knot, and L-bend tubes with animated radius and color",
+        build: tube::build,
     },
 ];
 

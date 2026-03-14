@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use macroquad::prelude::*;
 
+use rs_namin::examples;
 use rs_namin::my_scene;
 use rs_namin::render_util::rgba_flipped;
 
@@ -10,6 +11,7 @@ struct SnapshotConfig {
     width: u32,
     height: u32,
     output: PathBuf,
+    scene: Option<String>,
 }
 
 fn parse_args() -> SnapshotConfig {
@@ -18,6 +20,7 @@ fn parse_args() -> SnapshotConfig {
     let mut width: u32 = 1280;
     let mut height: u32 = 720;
     let mut output = PathBuf::from("snapshot.png");
+    let mut scene_name: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -47,9 +50,14 @@ fn parse_args() -> SnapshotConfig {
                 i += 1;
                 output = PathBuf::from(&args[i]);
             }
+            "--scene" => {
+                i += 1;
+                scene_name = Some(args[i].clone());
+            }
             other => {
                 eprintln!("Unknown argument: {other}");
-                eprintln!("Usage: snapshot [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]");
+                eprintln!("Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]");
+                eprintln!("Available scenes: {}", examples::names().join(", "));
                 std::process::exit(1);
             }
         }
@@ -61,12 +69,23 @@ fn parse_args() -> SnapshotConfig {
         width,
         height,
         output,
+        scene: scene_name,
     }
 }
 
 fn main() {
-    let (scene, timeline, camera) = my_scene::build();
     let config = parse_args();
+
+    let (scene, timeline, camera) = if let Some(ref name) = config.scene {
+        let example = examples::find(name).unwrap_or_else(|| {
+            eprintln!("Unknown scene: {name}");
+            eprintln!("Available: {}", examples::names().join(", "));
+            std::process::exit(1);
+        });
+        (example.build)()
+    } else {
+        my_scene::build()
+    };
 
     // Clamp times to scene duration
     let duration = timeline.duration();
