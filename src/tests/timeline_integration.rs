@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
-use crate::scene::objects::Circle;
+use crate::scene::objects::Disk;
 use crate::scene::value::AnimValue;
 use crate::scene::ObjectId;
 use crate::scene::Scene;
@@ -11,7 +11,7 @@ use crate::scene::Scene;
 #[test]
 fn apply_sets_property_at_time() {
     let mut scene = Scene::new();
-    let id = scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 10.0, WHITE));
+    let id = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 10.0, WHITE));
 
     let mut track = Track::new(id, "radius");
     track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(10.0)));
@@ -29,7 +29,7 @@ fn apply_sets_property_at_time() {
 #[test]
 fn apply_multiple_tracks_same_object() {
     let mut scene = Scene::new();
-    let id = scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 10.0, WHITE));
+    let id = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 10.0, WHITE));
 
     let mut radius_track = Track::new(id, "radius");
     radius_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(10.0)));

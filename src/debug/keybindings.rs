@@ -12,6 +12,7 @@ pub struct Keybindings {
     pub step_backward: KeyCode,
     pub speed_up: KeyCode,
     pub speed_down: KeyCode,
+    pub toggle_mouse_coords: KeyCode,
     // Snap-to-view keys (Blender-style numpad)
     pub snap_front: KeyCode,
     pub snap_right: KeyCode,
@@ -26,6 +27,7 @@ impl Default for Keybindings {
             toggle_value_inspector: KeyCode::F3,
             toggle_world_helpers: KeyCode::F4,
             toggle_camera_follow: KeyCode::F5,
+            toggle_mouse_coords: KeyCode::F6,
             play_pause: KeyCode::Space,
             step_forward: KeyCode::Right,
             step_backward: KeyCode::Left,

@@ -20,6 +20,9 @@ pub struct Camera {
     pub near: f32,
     pub far: f32,
     pub projection: ProjectionMode,
+    pub rotation_x: f32, // radians — pitch around X axis
+    pub rotation_y: f32, // radians — yaw around Y axis
+    pub rotation_z: f32, // radians — roll around Z axis
 }
 
 impl Camera {
@@ -32,12 +35,23 @@ impl Camera {
             near: 0.1,
             far: 1000.0,
             projection: ProjectionMode::Perspective,
+            rotation_x: 0.0,
+            rotation_y: 0.0,
+            rotation_z: 0.0,
         }
     }
 
+    /// Apply rotation fields to the base position offset from target.
+    fn rotated_position(&self) -> Vec3 {
+        let offset = self.position - self.target;
+        let rot = Quat::from_euler(EulerRot::YXZ, self.rotation_y, self.rotation_x, self.rotation_z);
+        self.target + rot.mul_vec3(offset)
+    }
+
     pub fn to_macroquad(&self) -> Camera3D {
+        let position = self.rotated_position();
         Camera3D {
-            position: self.position,
+            position,
             target: self.target,
             up: self.up,
             fovy: self.fov.to_radians(),
@@ -54,7 +68,7 @@ impl Camera {
     }
 
     pub fn forward(&self) -> Vec3 {
-        (self.target - self.position).normalize()
+        (self.target - self.rotated_position()).normalize()
     }
 
     pub fn distance(&self) -> f32 {
@@ -77,6 +91,9 @@ impl Animatable for Camera {
             "fov" => Some(AnimValue::Float(self.fov)),
             "near" => Some(AnimValue::Float(self.near)),
             "far" => Some(AnimValue::Float(self.far)),
+            "rotation_x" => Some(AnimValue::Float(self.rotation_x)),
+            "rotation_y" => Some(AnimValue::Float(self.rotation_y)),
+            "rotation_z" => Some(AnimValue::Float(self.rotation_z)),
             _ => None,
         }
     }
@@ -89,12 +106,15 @@ impl Animatable for Camera {
             ("fov", AnimValue::Float(v)) => self.fov = v,
             ("near", AnimValue::Float(v)) => self.near = v,
             ("far", AnimValue::Float(v)) => self.far = v,
+            ("rotation_x", AnimValue::Float(v)) => self.rotation_x = v,
+            ("rotation_y", AnimValue::Float(v)) => self.rotation_y = v,
+            ("rotation_z", AnimValue::Float(v)) => self.rotation_z = v,
             _ => {}
         }
     }
 
     fn property_names(&self) -> &[&str] {
-        &["position", "target", "up", "fov", "near", "far"]
+        &["position", "target", "up", "fov", "near", "far", "rotation_x", "rotation_y", "rotation_z"]
     }
 }
 

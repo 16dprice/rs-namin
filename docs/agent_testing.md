@@ -38,7 +38,10 @@ cargo run --bin snapshot                                           # t=0, defaul
 cargo run --bin snapshot -- --time 1.5 --output frame.png          # specific time
 cargo run --bin snapshot -- --times 0,0.5,1.0,2.0 --output frames/ # multiple frames
 cargo run --bin snapshot -- --width 640 --height 360               # custom resolution
+cargo run --bin snapshot -- --scene torus --time 1.0               # specific example scene
 ```
+
+By default, snapshot renders `my_scene`. Use `--scene NAME` to render a named example from `src/examples/`.
 
 The binary renders to an offscreen target and saves PNGs. Read the resulting PNG to visually inspect the output. Output defaults to `snapshot.png`; for multiple times, pass a directory path to `--output`.
 

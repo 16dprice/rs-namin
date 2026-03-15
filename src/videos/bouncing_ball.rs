@@ -6,9 +6,9 @@ use crate::animation::easing::{quad_in, quad_out};
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
-use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Text};
-use crate::scene::value::AnimValue;
 use crate::scene::Scene;
+use crate::scene::objects::{Disk, Line, Polygon, Rectangle, Text};
+use crate::scene::value::AnimValue;
 
 const DURATION: f32 = 20.0;
 
@@ -19,7 +19,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let radius = 0.5_f32;
     let rest_y = radius;
 
-    let circle_id = scene.add(Circle::new(vec3(0.0, rest_y, 0.0), radius, BLUE));
+    let circle_id = scene.add(Disk::new(vec3(0.0, rest_y, 0.0), radius, BLUE));
     scene.add(Line::new(
         vec3(-10.0, 0.0, 0.0),
         vec3(10.0, 0.0, 0.0),
@@ -68,7 +68,10 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // Rectangle pulses over the full duration
     let mut rect_track = Track::new(rect_id, "size");
     rect_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec2(vec2(2.0, 3.0))));
-    rect_track.add_keyframe(Keyframe::new(DURATION / 2.0, AnimValue::Vec2(vec2(3.0, 1.5))));
+    rect_track.add_keyframe(Keyframe::new(
+        DURATION / 2.0,
+        AnimValue::Vec2(vec2(3.0, 1.5)),
+    ));
     rect_track.add_keyframe(Keyframe::new(DURATION, AnimValue::Vec2(vec2(2.0, 3.0))));
     timeline.add_track(rect_track);
 
@@ -100,11 +103,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     for i in 0..=num_cam_keys {
         let frac = i as f32 / num_cam_keys as f32;
         let angle = frac * TAU * 0.4; // ~144 degrees over 20s — slow partial orbit
-        let cam_pos = vec3(
-            cam_radius * angle.sin(),
-            cam_y,
-            cam_radius * angle.cos(),
-        );
+        let cam_pos = vec3(cam_radius * angle.sin(), cam_y, cam_radius * angle.cos());
         let time = frac * DURATION;
 
         // Slight target drift to keep it interesting

@@ -194,12 +194,12 @@ mod tests {
     use super::*;
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
-    use crate::scene::objects::{Arc, Arrow, Circle, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube};
+    use crate::scene::objects::{Arc, Arrow, Disk, Line, Polygon, Rectangle, Ring, Spiral, Text, Torus, Tube};
 
     #[test]
     fn build_scene_with_object() {
         let mut sb = SceneBuilder::new();
-        let _circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let _circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         let (scene, timeline, _camera) = sb.build();
         assert_eq!(scene.len(), 1);
         assert_eq!(timeline.duration(), 0.0);
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn animate_valid_property() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))
                 .keyframe(2.0, AnimValue::Float(5.0))
@@ -221,7 +221,7 @@ mod tests {
     #[should_panic(expected = "property \"raidus\" not found")]
     fn animate_invalid_property_name_panics() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "raidus", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))
         });
@@ -231,7 +231,7 @@ mod tests {
     #[should_panic(expected = "keyframe value type mismatch")]
     fn animate_wrong_type_panics() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
             // radius is Float, passing Vec3
             tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO))
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn multiple_objects_and_tracks() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         let rect = sb.add(Rectangle::new(Vec3::ZERO, vec2(2.0, 1.0), RED));
 
         sb.animate(&circle, "radius", |tb| {
@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn keyframe_with_easing() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
             // Easing is on k0 (the segment start keyframe)
             tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), quad_out)
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn build_applies_correctly() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.camera(Camera::new(vec3(0.0, 0.0, 10.0), Vec3::ZERO));
         sb.animate(&circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))
@@ -329,7 +329,7 @@ mod tests {
         let (mut scene, timeline, mut camera) = sb.build();
         timeline.apply(1.0, &mut scene, &mut camera);
 
-        // Circle radius should be 3.0 (midpoint of 1.0 and 5.0)
+        // Disk radius should be 3.0 (midpoint of 1.0 and 5.0)
         let obj = scene.get(circle.id).unwrap();
         let AnimValue::Float(radius) = obj.get("radius").unwrap() else {
             panic!("expected Float");
@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn all_object_types_work() {
         let mut sb = SceneBuilder::new();
-        let _circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let _circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         let _line = sb.add(Line::new(Vec3::ZERO, Vec3::X, 1.0, WHITE));
         let _rect = sb.add(Rectangle::new(Vec3::ZERO, vec2(1.0, 1.0), WHITE));
         let _poly = sb.add(Polygon::new(Vec3::ZERO, 1.0, 6, WHITE));
@@ -447,7 +447,7 @@ mod tests {
     #[test]
     fn obj_ref_is_copyable() {
         let mut sb = SceneBuilder::new();
-        let circle = sb.add(Circle::new(Vec3::ZERO, 1.0, WHITE));
+        let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         let circle2 = circle; // Copy
         sb.animate(&circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))

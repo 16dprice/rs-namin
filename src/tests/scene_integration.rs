@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Torus};
+use crate::scene::objects::{Disk, Line, Polygon, Rectangle, Torus};
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
 use crate::scene::Scene;
@@ -8,7 +8,7 @@ use crate::scene::Scene;
 #[test]
 fn add_and_get_object() {
     let mut scene = Scene::new();
-    let id = scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let id = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
     assert!(scene.get(id).is_some());
     assert_eq!(scene.len(), 1);
 }
@@ -16,7 +16,7 @@ fn add_and_get_object() {
 #[test]
 fn remove_object() {
     let mut scene = Scene::new();
-    let id = scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let id = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
     assert!(scene.remove(id).is_some());
     assert!(scene.get(id).is_none());
     assert_eq!(scene.len(), 0);
@@ -25,7 +25,7 @@ fn remove_object() {
 #[test]
 fn remove_nonexistent_returns_none() {
     let mut scene = Scene::new();
-    let id = scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let id = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
     scene.remove(id);
     assert!(scene.remove(id).is_none());
 }
@@ -33,7 +33,7 @@ fn remove_nonexistent_returns_none() {
 #[test]
 fn multiple_objects() {
     let mut scene = Scene::new();
-    let id1 = scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let id1 = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
     let id2 = scene.add(Line::new(
         vec3(0.0, 0.0, 0.0),
         vec3(100.0, 100.0, 0.0),
@@ -47,8 +47,8 @@ fn multiple_objects() {
 #[test]
 fn iter_returns_all_objects() {
     let mut scene = Scene::new();
-    scene.add(Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
-    scene.add(Circle::new(vec3(100.0, 100.0, 0.0), 30.0, RED));
+    scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    scene.add(Disk::new(vec3(100.0, 100.0, 0.0), 30.0, RED));
     let count = scene.iter().count();
     assert_eq!(count, 2);
 }
@@ -59,11 +59,11 @@ fn is_empty() {
     assert!(scene.is_empty());
 }
 
-// -- Circle property round-trip tests --
+// -- Disk property round-trip tests --
 
 #[test]
 fn circle_property_roundtrip_position() {
-    let mut circle = Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
+    let mut circle = Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
     let new_pos = AnimValue::Vec3(vec3(10.0, 20.0, 30.0));
     circle.set("position", new_pos.clone());
     assert_eq!(circle.get("position"), Some(new_pos));
@@ -71,7 +71,7 @@ fn circle_property_roundtrip_position() {
 
 #[test]
 fn circle_property_roundtrip_radius() {
-    let mut circle = Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
+    let mut circle = Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
     let new_radius = AnimValue::Float(75.0);
     circle.set("radius", new_radius.clone());
     assert_eq!(circle.get("radius"), Some(new_radius));
@@ -79,7 +79,7 @@ fn circle_property_roundtrip_radius() {
 
 #[test]
 fn circle_property_roundtrip_color() {
-    let mut circle = Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
+    let mut circle = Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
     let new_color = AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0));
     circle.set("color", new_color.clone());
     assert_eq!(circle.get("color"), Some(new_color));
@@ -87,13 +87,13 @@ fn circle_property_roundtrip_color() {
 
 #[test]
 fn circle_get_unknown_property_returns_none() {
-    let circle = Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
+    let circle = Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
     assert_eq!(circle.get("nonexistent"), None);
 }
 
 #[test]
 fn circle_property_names_match_getters() {
-    let circle = Circle::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
+    let circle = Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
     for name in circle.property_names() {
         assert!(
             circle.get(name).is_some(),

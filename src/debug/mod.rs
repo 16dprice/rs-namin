@@ -26,6 +26,7 @@ pub struct DebugOverlay {
     pub value_inspector: ValueInspector,
     pub camera_log: CameraLog,
     pub bounding_boxes_visible: bool,
+    pub mouse_coords_visible: bool,
 }
 
 /// Result of snap-to-view input handling. The caller uses this to set the orbit state.
@@ -47,6 +48,7 @@ impl DebugOverlay {
             value_inspector: ValueInspector::new(),
             camera_log: CameraLog::new(256),
             bounding_boxes_visible: false,
+            mouse_coords_visible: false,
         }
     }
 
@@ -70,6 +72,9 @@ impl DebugOverlay {
         }
         if input.is_key_pressed(kb.toggle_camera_follow) {
             self.camera_follow_timeline = !self.camera_follow_timeline;
+        }
+        if input.is_key_pressed(kb.toggle_mouse_coords) {
+            self.mouse_coords_visible = !self.mouse_coords_visible;
         }
 
         if input.is_key_pressed(kb.play_pause) {
@@ -132,6 +137,9 @@ impl DebugOverlay {
     pub fn draw(&self, clock: &Clock, scene: &Scene, camera: &Camera) {
         if self.hud_visible {
             self.draw_hud(clock, scene, camera);
+        }
+        if self.mouse_coords_visible {
+            self.draw_mouse_coords(camera);
         }
         self.scrub_bar.draw(clock);
         self.value_inspector.draw(scene);
@@ -217,6 +225,47 @@ impl DebugOverlay {
         draw_line_3d(t - vec3(size, 0.0, 0.0), t + vec3(size, 0.0, 0.0), color);
         draw_line_3d(t - vec3(0.0, size, 0.0), t + vec3(0.0, size, 0.0), color);
         draw_line_3d(t - vec3(0.0, 0.0, size), t + vec3(0.0, 0.0, size), color);
+    }
+
+    /// Draw mouse cursor world coordinates (raycast onto Y=0 ground plane).
+    fn draw_mouse_coords(&self, camera: &Camera) {
+        let (mx, my) = mouse_position();
+        let sw = screen_width();
+        let sh = screen_height();
+
+        // Convert mouse to NDC (-1..1)
+        let ndc_x = (mx / sw) * 2.0 - 1.0;
+        let ndc_y = 1.0 - (my / sh) * 2.0; // flip Y
+
+        let mq_cam = camera.to_macroquad();
+        let aspect = sw / sh;
+
+        // Build view and projection matrices
+        let view = Mat4::look_at_rh(mq_cam.position, mq_cam.target, mq_cam.up);
+        let proj = Mat4::perspective_rh_gl(mq_cam.fovy, aspect, mq_cam.z_near, mq_cam.z_far);
+        let inv_vp = (proj * view).inverse();
+
+        // Unproject near and far points
+        let near_pt = inv_vp.project_point3(vec3(ndc_x, ndc_y, -1.0));
+        let far_pt = inv_vp.project_point3(vec3(ndc_x, ndc_y, 1.0));
+        let ray_dir = (far_pt - near_pt).normalize();
+
+        // Intersect with Z=0 plane (XY scene plane)
+        let label = if ray_dir.z.abs() > 1e-6 {
+            let t = -near_pt.z / ray_dir.z;
+            if t > 0.0 {
+                let hit = near_pt + ray_dir * t;
+                format!("({:.2}, {:.2})", hit.x, hit.y)
+            } else {
+                "no hit".to_string()
+            }
+        } else {
+            "parallel to plane".to_string()
+        };
+
+        // Draw near cursor with slight offset
+        let font_size = 16.0;
+        draw_text(&label, mx + 15.0, my - 10.0, font_size, YELLOW);
     }
 
     /// Draw wireframe bounding boxes for all scene objects.

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use macroquad::prelude::*;
+use macroquad::texture::{render_target_ex, RenderTargetParams};
 
 use rs_namin::examples;
 use rs_namin::my_scene;
@@ -122,7 +123,14 @@ async fn snapshot_render(
     height: u32,
     output: PathBuf,
 ) {
-    let rt = render_target(width, height);
+    let rt = render_target_ex(
+        width,
+        height,
+        RenderTargetParams {
+            depth: true,
+            ..Default::default()
+        },
+    );
     rt.texture.set_filter(FilterMode::Nearest);
 
     let multiple = times.len() > 1;
@@ -153,6 +161,7 @@ async fn snapshot_render(
 
         let mut cam3d = camera.to_macroquad();
         cam3d.render_target = Some(rt.clone());
+        cam3d.viewport = Some((0, 0, width as i32, height as i32));
         set_camera(&cam3d);
         clear_background(BLACK);
         scene.draw_world();

@@ -5,7 +5,7 @@ use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
 use crate::scene::Scene;
-use crate::scene::objects::{Circle, Line, Polygon, Rectangle, Text};
+use crate::scene::objects::{Disk, Line, Polygon, Rectangle, Text};
 use crate::scene::value::AnimValue;
 
 pub fn build() -> (Scene, Timeline, Camera) {
@@ -14,7 +14,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let radius = 0.5_f32;
     let rest_y = radius;
 
-    let circle_id = scene.add(Circle::new(vec3(0.0, rest_y, 0.0), radius, BLUE));
+    let circle_id = scene.add(Disk::new(vec3(0.0, rest_y, 0.0), radius, BLUE));
     scene.add(Line::new(
         vec3(-10.0, 0.0, 0.0),
         vec3(10.0, 0.0, 0.0),

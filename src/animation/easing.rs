@@ -234,10 +234,7 @@ mod tests {
     #[test]
     fn all_easings_return_zero_at_zero() {
         for (name, easing) in EASINGS {
-            assert!(
-                (easing(0.0)).abs() < f32::EPSILON,
-                "{name} failed at t=0.0"
-            );
+            assert!((easing(0.0)).abs() < f32::EPSILON, "{name} failed at t=0.0");
         }
     }
 

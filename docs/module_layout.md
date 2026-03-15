@@ -2,7 +2,7 @@
 
 ## Main Loop Structure
 
-See `src/main.rs` for the full implementation. The ordering below is load-bearing:
+See `src/viewer.rs` for the full implementation. The ordering below is load-bearing:
 
 ```
 each frame:
@@ -40,7 +40,7 @@ each frame:
 
 Scenes are `fn() -> (Scene, Timeline, Camera)`. Two registries organize them:
 
-- **`src/videos/`** — `Video` struct + `VIDEOS` registry. Used by the interactive viewer (`src/main.rs`) and CLI export (`src/bin/export.rs`).
-- **`src/examples/`** — `Example` struct + `EXAMPLES` registry. Used by the example picker (`src/bin/example.rs`).
+- **`src/videos/`** — `Video` struct + `VIDEOS` registry. Used by CLI export (`src/bin/export.rs`).
+- **`src/examples/`** — `Example` struct + `EXAMPLES` registry. Used by the example picker (`src/bin/example.rs`) and snapshot tool (`src/bin/snapshot.rs` via `--scene`).
 
-`src/my_scene.rs` is a scratchpad — not wired into any binary.
+`src/my_scene.rs` is the active user scene — used by the interactive viewer (`src/main.rs`) as the default scene.

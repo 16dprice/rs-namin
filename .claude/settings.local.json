@@ -9,7 +9,8 @@
       "Bash(grep -E \"\\\\.rs$|^d\")",
       "Bash(cargo test animation::easing)",
       "Bash(cargo test scene_builder)",
-      "Bash(cargo run --bin snapshot -- --times 0,1,2,3 --output /tmp/torus_rot2)"
+      "Bash(cargo run --bin snapshot -- --times 0,1,2,3 --output /tmp/torus_rot2)",
+      "Bash(cargo run:*)"
     ]
   }
 }

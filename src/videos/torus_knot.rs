@@ -10,7 +10,6 @@ use crate::scene::Scene;
 use crate::scene::objects::{Ring, Tube};
 use crate::scene::value::AnimValue;
 
-#[allow(unused_variables, unused_mut)]
 pub fn build() -> (Scene, Timeline, Camera) {
     let mut scene = Scene::new();
     let mut timeline = Timeline::new();
@@ -131,10 +130,36 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // CAMERA FOV TRACK
     // --------------------------------
 
+    // --------------------------------
+    // CAMERA NEAR TRACK
+    // --------------------------------
+    // Scale near plane with distance to avoid z-fighting during dolly zoom.
+    // Subject radius ~5 units, so near = max(0.1, distance - 10)
+    let mut cam_near_track = Track::camera("near");
+    cam_near_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.1)));
+    cam_near_track.add_keyframe(Keyframe::new(dolly_start, AnimValue::Float(0.1)));
+    for i in 0..=dolly_steps {
+        let frac = i as f32 / dolly_steps as f32;
+        let t = dolly_start + frac * (dolly_end - dolly_start);
+        let fov = fov_start + frac * (fov_end - fov_start);
+        let d =
+            cam_radius * (fov_start / 2.0).to_radians().tan() / (fov / 2.0).to_radians().tan();
+        let near = (d - 10.0).max(0.1);
+        cam_near_track.add_keyframe(Keyframe::new(t, AnimValue::Float(near)));
+    }
+    cam_near_track.add_keyframe(Keyframe::new(
+        dolly_end + 5.0,
+        AnimValue::Float((dolly_distance - 10.0).max(0.1)),
+    ));
+    // --------------------------------
+    // CAMERA NEAR TRACK
+    // --------------------------------
+
     timeline.add_track(cam_rot_track);
     timeline.add_track(cam_pos_track);
     timeline.add_track(cam_target_track);
     timeline.add_track(cam_fov_track);
+    timeline.add_track(cam_near_track);
 
     let camera = Camera::new(vec3(0.0, 4.0, cam_radius), Vec3::ZERO);
 

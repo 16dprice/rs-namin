@@ -7,13 +7,13 @@ use crate::scene::value::AnimValue;
 
 const DISK_SEGMENTS: usize = 32;
 
-pub struct Circle {
+pub struct Disk {
     pub position: Vec3,
     pub radius: f32,
     pub color: Vec4,
 }
 
-impl Circle {
+impl Disk {
     const PROPERTY_NAMES: &[&str] = &["position", "radius", "color"];
 
     pub fn new(position: Vec3, radius: f32, color: Color) -> Self {
@@ -68,7 +68,7 @@ impl Circle {
     }
 }
 
-impl SceneObject for Circle {
+impl SceneObject for Disk {
     fn draw(&self) {
         draw_mesh(&self.build_mesh());
     }
@@ -89,7 +89,7 @@ impl SceneObject for Circle {
     }
 }
 
-impl Animatable for Circle {
+impl Animatable for Disk {
     fn get(&self, property_name: &str) -> Option<AnimValue> {
         match property_name {
             "position" => Some(AnimValue::Vec3(self.position)),

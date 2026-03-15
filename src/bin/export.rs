@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 use indicatif::{ProgressBar, ProgressStyle};
 use inquire::{CustomType, InquireError, Select, Text};
 use macroquad::prelude::*;
+use macroquad::texture::{render_target_ex, RenderTargetParams};
 
 use rs_namin::render_util::rgba_to_rgb_flipped;
 use rs_namin::videos::{self, Video};
@@ -466,7 +467,14 @@ async fn export_render(
     let (width, height) = (config.resolution.width, config.resolution.height);
     let fps = config.fps;
 
-    let rt = render_target(width, height);
+    let rt = render_target_ex(
+        width,
+        height,
+        RenderTargetParams {
+            depth: true,
+            ..Default::default()
+        },
+    );
     rt.texture.set_filter(FilterMode::Nearest);
 
     let timestamp = std::time::SystemTime::now()
@@ -531,6 +539,7 @@ async fn export_render(
 
         let mut cam3d = camera.to_macroquad();
         cam3d.render_target = Some(rt.clone());
+        cam3d.viewport = Some((0, 0, width as i32, height as i32));
         set_camera(&cam3d);
         clear_background(BLACK);
         scene.draw_world();

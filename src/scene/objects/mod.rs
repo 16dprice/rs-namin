@@ -1,6 +1,7 @@
 pub mod arc;
 pub mod arrow;
-pub mod circle;
+pub mod disk;
+pub mod ring;
 pub mod line;
 pub mod polygon;
 pub mod rectangle;
@@ -11,7 +12,8 @@ pub mod tube;
 
 pub use arc::Arc;
 pub use arrow::Arrow;
-pub use circle::Circle;
+pub use disk::Disk;
+pub use ring::Ring;
 pub use line::Line;
 pub use polygon::Polygon;
 pub use rectangle::Rectangle;

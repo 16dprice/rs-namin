@@ -17,11 +17,11 @@ Build flat meshes using `draw_mesh` with macroquad's `Vertex` struct. Each verte
 
 **Pattern for new objects:**
 1. Define a `build_mesh(&self) -> Mesh` method that generates vertices and triangle indices.
-2. Use a triangle fan for radial shapes (Circle), triangle strips or quads for rectangular shapes.
+2. Use a triangle fan for radial shapes (Disk), triangle strips or quads for rectangular shapes.
 3. All vertices share the same Z coordinate (`self.position.z`) and normal (`vec4(0, 0, 1, 0)`).
 4. Call `draw_mesh(&self.build_mesh())` from the `SceneObject::draw()` impl.
 
-**Reference implementation:** `Circle` in `src/scene/objects/circle.rs`.
+**Reference implementation:** `Disk` in `src/scene/objects/disk.rs`.
 
 ### macroquad draw call limits
 
