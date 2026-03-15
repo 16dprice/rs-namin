@@ -6,9 +6,8 @@ See `src/viewer.rs` for the full implementation. The ordering below is load-bear
 
 ```
 each frame:
-    handle debug keybindings (toggle overlay, snap views)
-    handle transport keys (play/pause, step, speed)
-    scrub_bar.update(&mut clock)
+    debug.handle_input(&mut clock, &input)       // keybindings, snap-to-view, transport keys
+    debug.update(&mut clock)                     // scrub bar drag state
     clock.tick(real_dt)                          // no-op if paused
     if camera_follow_timeline:
         camera = initial_camera.clone()
@@ -22,10 +21,9 @@ each frame:
 
     set_default_camera()                         // switch to screen space
     scene.draw_screen()                          // screen-space objects (Text)
-    debug.draw_hud(...)                          // camera info, value inspector
-    scrub_bar.draw(...)
+    debug.draw(...)                              // HUD, mouse coords, value inspector, scrub bar
 
-    orbit_controller.update(&mut camera)         // runs last to avoid consuming UI input
+    orbit_controller.update(&mut camera, &input)  // runs last to avoid consuming UI input
 ```
 
 ### Why this order matters
