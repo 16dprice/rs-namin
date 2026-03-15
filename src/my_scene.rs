@@ -4,17 +4,16 @@ use macroquad::prelude::*;
 
 use crate::animation::easing;
 use crate::animation::timeline::Timeline;
-use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
 use crate::scene::Scene;
 use crate::scene::objects::{Ring, Tube};
 use crate::scene::value::AnimValue;
+use crate::scene_builder::SceneBuilder;
 
-#[allow(unused_variables, unused_mut)]
 pub fn build() -> (Scene, Timeline, Camera) {
-    let mut scene = Scene::new();
-    let mut timeline = Timeline::new();
+    let mut sb = SceneBuilder::new();
 
+    // Torus knot geometry
     let p = 2;
     let q = 3;
     let c = 3.0; // distance from center of tube to center of torus
@@ -45,42 +44,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
         ],
     );
     knot.closed = true;
-    scene.add(knot);
+    sb.add(knot);
 
-    // Camera orbits around the knot
+    // Camera setup
     let cam_radius = 10.0_f32;
-    let mut cam_pos_track = Track::camera("position");
-
     let camera_rotation_time = 30.0;
-
-    // --------------------------------
-    // CAMERA ROTATION TRACK
-    // --------------------------------
-    let mut cam_rot_track = Track::camera("rotation_y");
-    cam_rot_track.add_keyframe(Keyframe::with_easing(
-        0.0,
-        AnimValue::Float(0.0),
-        easing::sine_in_out,
-    ));
-    cam_rot_track.add_keyframe(Keyframe::new(camera_rotation_time, AnimValue::Float(TAU)));
-    // --------------------------------
-    // CAMERA ROTATION TRACK
-    // --------------------------------
-
-    // --------------------------------
-    // CAMERA POSITION TRACK
-    // --------------------------------
-    cam_pos_track.add_keyframe(Keyframe::new(
-        0.0,
-        AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
-    ));
-    cam_pos_track.add_keyframe(Keyframe::new(
-        camera_rotation_time,
-        AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
-    ));
-
-    // Dolly zoom: shrink FOV while pulling camera back to keep subject same size.
-    // d * tan(fov/2) = constant
     let fov_start: f32 = 60.0;
     let fov_end: f32 = 2.0;
     let dolly_start = camera_rotation_time;
@@ -88,90 +56,64 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let dolly_distance =
         cam_radius * (fov_start / 2.0).to_radians().tan() / (fov_end / 2.0).to_radians().tan();
 
-    // Use multiple keyframes to approximate the nonlinear distance curve
-    let dolly_steps = 500;
-    for i in 0..=dolly_steps {
-        let frac = i as f32 / dolly_steps as f32;
-        let t = dolly_start + frac * (dolly_end - dolly_start);
-        let fov = fov_start + frac * (fov_end - fov_start);
-        let d = cam_radius * (fov_start / 2.0).to_radians().tan() / (fov / 2.0).to_radians().tan();
-        cam_pos_track.add_keyframe(Keyframe::new(
-            t,
-            AnimValue::Vec3(vec3(0.0, 4.0 - 4.0 * frac, d)),
-        ));
-    }
+    sb.camera(Camera::new(vec3(0.0, 4.0, cam_radius), Vec3::ZERO));
 
-    cam_pos_track.add_keyframe(Keyframe::new(
-        dolly_end,
-        AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)),
-    ));
-    // --------------------------------
-    // CAMERA POSITION TRACK
-    // --------------------------------
+    // Camera rotation
+    sb.animate_camera("rotation_y", |tb| {
+        tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out)
+            .keyframe(camera_rotation_time, AnimValue::Float(TAU))
+    });
 
-    // --------------------------------
-    // CAMERA TARGET TRACK
-    // --------------------------------
-    let mut cam_target_track = Track::camera("target");
-    cam_target_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec3(Vec3::ZERO)));
-    // --------------------------------
-    // CAMERA TARGET TRACK
-    // --------------------------------
+    // Camera position (with dolly zoom)
+    sb.animate_camera("position", |tb| {
+        let mut tb = tb
+            .keyframe(0.0, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
+            .keyframe(
+                camera_rotation_time,
+                AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
+            );
 
-    // --------------------------------
-    // CAMERA FOV TRACK
-    // --------------------------------
-    let mut cam_fov_track = Track::camera("fov");
-    cam_fov_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(fov_start)));
-    cam_fov_track.add_keyframe(Keyframe::new(dolly_start, AnimValue::Float(fov_start)));
-    cam_fov_track.add_keyframe(Keyframe::new(dolly_end, AnimValue::Float(fov_end)));
-    // --------------------------------
-    // CAMERA FOV TRACK
-    // --------------------------------
+        // Approximate the nonlinear distance curve with many keyframes
+        let dolly_steps = 500;
+        for i in 0..=dolly_steps {
+            let frac = i as f32 / dolly_steps as f32;
+            let t = dolly_start + frac * (dolly_end - dolly_start);
+            let fov = fov_start + frac * (fov_end - fov_start);
+            let d =
+                cam_radius * (fov_start / 2.0).to_radians().tan() / (fov / 2.0).to_radians().tan();
+            tb = tb.keyframe(t, AnimValue::Vec3(vec3(0.0, 4.0 - 4.0 * frac, d)));
+        }
 
-    timeline.add_track(cam_rot_track);
-    timeline.add_track(cam_pos_track);
-    timeline.add_track(cam_target_track);
-    timeline.add_track(cam_fov_track);
+        tb.keyframe(dolly_end, AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)))
+    });
 
-    let camera = Camera::new(vec3(0.0, 4.0, cam_radius), Vec3::ZERO);
+    // Camera target
+    sb.animate_camera("target", |tb| tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO)));
 
-    let ring1_id = scene.add(Ring::new(vec3(1.54, 2.61, 2.0), 0.5, WHITE, 0.0));
-    let ring2_id = scene.add(Ring::new(vec3(-3.0, 0.0, 2.0), 0.5, WHITE, 0.0));
-    let ring3_id = scene.add(Ring::new(vec3(1.54, -2.61, 2.0), 0.5, WHITE, 0.0));
-    // --------------------------------
-    // RING SWEEP TRACK
-    // --------------------------------
-    let mut ring1_sweep_track = Track::new(ring1_id, "sweep");
-    ring1_sweep_track.add_keyframe(Keyframe::with_easing(
-        dolly_end + 1.0,
-        AnimValue::Float(0.0),
-        easing::quart_out,
-    ));
-    ring1_sweep_track.add_keyframe(Keyframe::new(dolly_end + 3.0, AnimValue::Float(1.0)));
+    // Camera FOV
+    sb.animate_camera("fov", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(fov_start))
+            .keyframe(dolly_start, AnimValue::Float(fov_start))
+            .keyframe(dolly_end, AnimValue::Float(fov_end))
+    });
 
-    let mut ring2_sweep_track = Track::new(ring2_id, "sweep");
-    ring2_sweep_track.add_keyframe(Keyframe::with_easing(
-        dolly_end + 2.0,
-        AnimValue::Float(0.0),
-        easing::quart_out,
-    ));
-    ring2_sweep_track.add_keyframe(Keyframe::new(dolly_end + 4.0, AnimValue::Float(1.0)));
+    // Rings with staggered sweep animations
+    let ring1 = sb.add(Ring::new(vec3(1.54, 2.61, 2.0), 0.5, WHITE, 0.0));
+    let ring2 = sb.add(Ring::new(vec3(-3.0, 0.0, 2.0), 0.5, WHITE, 0.0));
+    let ring3 = sb.add(Ring::new(vec3(1.54, -2.61, 2.0), 0.5, WHITE, 0.0));
 
-    let mut ring3_sweep_track = Track::new(ring3_id, "sweep");
-    ring3_sweep_track.add_keyframe(Keyframe::with_easing(
-        dolly_end + 3.0,
-        AnimValue::Float(0.0),
-        easing::quart_out,
-    ));
-    ring3_sweep_track.add_keyframe(Keyframe::new(dolly_end + 5.0, AnimValue::Float(1.0)));
-    // --------------------------------
-    // RING SWEEP TRACK
-    // --------------------------------
+    sb.animate(&ring1, "sweep", |tb| {
+        tb.keyframe_with_easing(dolly_end + 1.0, AnimValue::Float(0.0), easing::quart_out)
+            .keyframe(dolly_end + 3.0, AnimValue::Float(1.0))
+    });
+    sb.animate(&ring2, "sweep", |tb| {
+        tb.keyframe_with_easing(dolly_end + 2.0, AnimValue::Float(0.0), easing::quart_out)
+            .keyframe(dolly_end + 4.0, AnimValue::Float(1.0))
+    });
+    sb.animate(&ring3, "sweep", |tb| {
+        tb.keyframe_with_easing(dolly_end + 3.0, AnimValue::Float(0.0), easing::quart_out)
+            .keyframe(dolly_end + 5.0, AnimValue::Float(1.0))
+    });
 
-    timeline.add_track(ring1_sweep_track);
-    timeline.add_track(ring2_sweep_track);
-    timeline.add_track(ring3_sweep_track);
-
-    (scene, timeline, camera)
+    sb.build()
 }
