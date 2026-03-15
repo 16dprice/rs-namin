@@ -36,12 +36,16 @@ Every code change must include corresponding tests. See [docs/testing.md](docs/t
 Before considering any task complete, run:
 
 ```sh
-cargo build
-cargo test
-cargo clippy -- -D warnings
+./scripts/validate.sh
 ```
 
-All three must pass. Do not mark work as done with failing builds, tests, or lint warnings.
+This runs `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test` with a clean pass/fail summary. All checks must pass. Do not mark work as done with failing builds, tests, or lint warnings.
+
+A pre-commit hook in `.githooks/pre-commit` runs this automatically on every commit. New clones must activate it once:
+
+```sh
+git config core.hooksPath .githooks
+```
 
 ### Keep Docs in Sync with Code
 
