@@ -74,37 +74,35 @@ pub fn build() -> (Scene, Timeline, Camera) {
         0.0,
         AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
     ));
-    cam_pos_track.add_keyframe(Keyframe::with_easing(
+    cam_pos_track.add_keyframe(Keyframe::new(
         camera_rotation_time,
         AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
-        easing::sine_in_out,
-    ));
-    cam_pos_track.add_keyframe(Keyframe::new(
-        camera_rotation_time + 5.0,
-        AnimValue::Vec3(vec3(0.0, 0.0, cam_radius)),
     ));
 
     // Dolly zoom: shrink FOV while pulling camera back to keep subject same size.
     // d * tan(fov/2) = constant
     let fov_start: f32 = 60.0;
     let fov_end: f32 = 2.0;
-    let dolly_start = camera_rotation_time + 5.0;
-    let dolly_end = dolly_start + 2.0;
+    let dolly_start = camera_rotation_time;
+    let dolly_end = dolly_start + 4.0;
     let dolly_distance =
         cam_radius * (fov_start / 2.0).to_radians().tan() / (fov_end / 2.0).to_radians().tan();
 
     // Use multiple keyframes to approximate the nonlinear distance curve
-    let dolly_steps = 200;
+    let dolly_steps = 500;
     for i in 0..=dolly_steps {
         let frac = i as f32 / dolly_steps as f32;
         let t = dolly_start + frac * (dolly_end - dolly_start);
         let fov = fov_start + frac * (fov_end - fov_start);
         let d = cam_radius * (fov_start / 2.0).to_radians().tan() / (fov / 2.0).to_radians().tan();
-        cam_pos_track.add_keyframe(Keyframe::new(t, AnimValue::Vec3(vec3(0.0, 0.0, d))));
+        cam_pos_track.add_keyframe(Keyframe::new(
+            t,
+            AnimValue::Vec3(vec3(0.0, 4.0 - 4.0 * frac, d)),
+        ));
     }
 
     cam_pos_track.add_keyframe(Keyframe::new(
-        dolly_end + 5.0,
+        dolly_end,
         AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)),
     ));
     // --------------------------------
@@ -146,27 +144,27 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // --------------------------------
     let mut ring1_sweep_track = Track::new(ring1_id, "sweep");
     ring1_sweep_track.add_keyframe(Keyframe::with_easing(
-        dolly_end + 6.0,
+        dolly_end + 1.0,
         AnimValue::Float(0.0),
         easing::quart_out,
     ));
-    ring1_sweep_track.add_keyframe(Keyframe::new(dolly_end + 8.0, AnimValue::Float(1.0)));
+    ring1_sweep_track.add_keyframe(Keyframe::new(dolly_end + 3.0, AnimValue::Float(1.0)));
 
     let mut ring2_sweep_track = Track::new(ring2_id, "sweep");
     ring2_sweep_track.add_keyframe(Keyframe::with_easing(
-        dolly_end + 7.0,
+        dolly_end + 2.0,
         AnimValue::Float(0.0),
         easing::quart_out,
     ));
-    ring2_sweep_track.add_keyframe(Keyframe::new(dolly_end + 9.0, AnimValue::Float(1.0)));
+    ring2_sweep_track.add_keyframe(Keyframe::new(dolly_end + 4.0, AnimValue::Float(1.0)));
 
     let mut ring3_sweep_track = Track::new(ring3_id, "sweep");
     ring3_sweep_track.add_keyframe(Keyframe::with_easing(
-        dolly_end + 8.0,
+        dolly_end + 3.0,
         AnimValue::Float(0.0),
         easing::quart_out,
     ));
-    ring3_sweep_track.add_keyframe(Keyframe::new(dolly_end + 10.0, AnimValue::Float(1.0)));
+    ring3_sweep_track.add_keyframe(Keyframe::new(dolly_end + 5.0, AnimValue::Float(1.0)));
     // --------------------------------
     // RING SWEEP TRACK
     // --------------------------------

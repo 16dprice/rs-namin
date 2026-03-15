@@ -1,4 +1,4 @@
-use macroquad::prelude::{vec2, KeyCode, MouseButton};
+use macroquad::prelude::{KeyCode, MouseButton, vec2};
 
 use crate::input::ScriptedInput;
 use crate::my_scene;
@@ -91,6 +91,8 @@ fn wasd_movement_accumulates() {
 
     Scenario::new()
         .run_frames(60, move_forward)
-        .assert_orbit("target should have moved forward (-Z)", |o| o.target.z < 0.0)
+        .assert_orbit("target should have moved forward (-Z)", |o| {
+            o.target.z < 0.0
+        })
         .run(&mut scene, &timeline, &mut camera);
 }

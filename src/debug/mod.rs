@@ -5,8 +5,8 @@ pub mod value_inspector;
 
 use macroquad::prelude::*;
 
-use crate::camera::orbit::OrbitController;
 use crate::camera::Camera;
+use crate::camera::orbit::OrbitController;
 use crate::clock::{Clock, LoopMode, PlaybackState};
 use crate::input::InputProvider;
 use crate::scene::Scene;
@@ -174,10 +174,7 @@ impl DebugOverlay {
         };
 
         let hud_lines = [
-            format!(
-                "Time: {:.2} / {:.2}s",
-                clock.current_time, clock.duration
-            ),
+            format!("Time: {:.2} / {:.2}s", clock.current_time, clock.duration),
             format!("State: {}  Speed: {:.2}x", state_str, clock.playback_speed),
             format!("Loop: {}  Camera: {} (F5)", loop_str, cam_mode),
             format!("Objects: {}", scene.len()),
@@ -187,7 +184,11 @@ impl DebugOverlay {
             ),
             format!(
                 "Fwd: ({:.2}, {:.2}, {:.2})  Dist: {:.1}  FOV: {:.0}",
-                fwd.x, fwd.y, fwd.z, camera.distance(), camera.fov
+                fwd.x,
+                fwd.y,
+                fwd.z,
+                camera.distance(),
+                camera.fov
             ),
         ];
 
@@ -211,9 +212,9 @@ impl DebugOverlay {
     }
 
     fn draw_origin_axes(&self, length: f32) {
-        draw_line_3d(Vec3::ZERO, vec3(length, 0.0, 0.0), RED);   // X
+        draw_line_3d(Vec3::ZERO, vec3(length, 0.0, 0.0), RED); // X
         draw_line_3d(Vec3::ZERO, vec3(0.0, length, 0.0), GREEN); // Y
-        draw_line_3d(Vec3::ZERO, vec3(0.0, 0.0, length), BLUE);  // Z
+        draw_line_3d(Vec3::ZERO, vec3(0.0, 0.0, length), BLUE); // Z
     }
 
     /// Draw a small crosshair at the orbit controller's target point.
@@ -319,8 +320,7 @@ mod tests {
         let mut clock = Clock::new(10.0, 60.0);
         clock.pause();
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.play_pause);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.play_pause);
 
         overlay.handle_input(&mut clock, &input);
         assert!(matches!(clock.playback_state, PlaybackState::Playing));
@@ -332,8 +332,7 @@ mod tests {
         let mut clock = Clock::new(10.0, 60.0);
         assert!(overlay.hud_visible);
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.toggle_hud);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.toggle_hud);
 
         overlay.handle_input(&mut clock, &input);
         assert!(!overlay.hud_visible);
@@ -345,8 +344,8 @@ mod tests {
         let mut clock = Clock::new(10.0, 60.0);
         assert!(!overlay.camera_follow_timeline);
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.toggle_camera_follow);
+        let input =
+            ScriptedInput::default().with_key_pressed(overlay.keybindings.toggle_camera_follow);
 
         overlay.handle_input(&mut clock, &input);
         assert!(overlay.camera_follow_timeline);
@@ -357,8 +356,7 @@ mod tests {
         let mut overlay = DebugOverlay::new();
         let mut clock = Clock::new(10.0, 60.0);
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.speed_up);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.speed_up);
 
         overlay.handle_input(&mut clock, &input);
         assert!((clock.playback_speed - 2.0).abs() < f32::EPSILON);
@@ -370,8 +368,7 @@ mod tests {
         let mut clock = Clock::new(10.0, 60.0);
         clock.play();
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.step_forward);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.step_forward);
 
         overlay.handle_input(&mut clock, &input);
         assert!(matches!(clock.playback_state, PlaybackState::Paused));
@@ -383,8 +380,7 @@ mod tests {
         let mut overlay = DebugOverlay::new();
         let mut clock = Clock::new(10.0, 60.0);
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.snap_front);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.snap_front);
 
         let result = overlay.handle_input(&mut clock, &input);
         assert!(matches!(result, SnapView::Front));
@@ -395,8 +391,7 @@ mod tests {
         let mut overlay = DebugOverlay::new();
         let mut clock = Clock::new(10.0, 60.0);
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.snap_right);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.snap_right);
 
         let result = overlay.handle_input(&mut clock, &input);
         assert!(matches!(result, SnapView::Right));
@@ -407,8 +402,7 @@ mod tests {
         let mut overlay = DebugOverlay::new();
         let mut clock = Clock::new(10.0, 60.0);
 
-        let input = ScriptedInput::default()
-            .with_key_pressed(overlay.keybindings.snap_top);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.snap_top);
 
         let result = overlay.handle_input(&mut clock, &input);
         assert!(matches!(result, SnapView::Top));

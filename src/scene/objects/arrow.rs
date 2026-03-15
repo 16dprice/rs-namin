@@ -212,7 +212,11 @@ mod tests {
         for name in Arrow::PROPERTY_NAMES {
             let val = arrow.get(name).unwrap();
             arrow.set(name, val.clone());
-            assert_eq!(arrow.get(name).unwrap(), val, "round-trip failed for {name}");
+            assert_eq!(
+                arrow.get(name).unwrap(),
+                val,
+                "round-trip failed for {name}"
+            );
         }
     }
 

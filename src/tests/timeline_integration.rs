@@ -3,10 +3,10 @@ use macroquad::prelude::*;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
-use crate::scene::objects::Disk;
-use crate::scene::value::AnimValue;
 use crate::scene::ObjectId;
 use crate::scene::Scene;
+use crate::scene::objects::Disk;
+use crate::scene::value::AnimValue;
 
 #[test]
 fn apply_sets_property_at_time() {

@@ -38,10 +38,7 @@ impl Tube {
             position: Vec3::ZERO,
             points,
             radius,
-            colors: colors
-                .iter()
-                .map(|c| vec4(c.r, c.g, c.b, c.a))
-                .collect(),
+            colors: colors.iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect(),
             closed: false,
         }
     }
@@ -145,8 +142,7 @@ impl Tube {
                 frames.push((tangent, normal, binormal));
             } else {
                 let (prev_t, prev_n, prev_b) = frames[ring - 1];
-                let (normal, binormal) =
-                    Self::propagate_frame(prev_t, prev_n, prev_b, tangent);
+                let (normal, binormal) = Self::propagate_frame(prev_t, prev_n, prev_b, tangent);
                 frames.push((tangent, normal, binormal));
             }
         }
@@ -174,11 +170,8 @@ impl Tube {
             let mut vertices = Vec::with_capacity(chunk_rings * verts_per_ring);
             let mut indices = Vec::with_capacity((chunk_rings - 1) * RING_SEGMENTS * 6);
 
-            for (ring, &(_tangent, normal, binormal)) in frames
-                .iter()
-                .enumerate()
-                .take(chunk_end)
-                .skip(chunk_start)
+            for (ring, &(_tangent, normal, binormal)) in
+                frames.iter().enumerate().take(chunk_end).skip(chunk_start)
             {
                 let point_idx = ring % n;
 
@@ -287,7 +280,11 @@ mod tests {
 
     fn make_straight_tube() -> Tube {
         Tube::new(
-            vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(2.0, 0.0, 0.0)],
+            vec![
+                vec3(0.0, 0.0, 0.0),
+                vec3(1.0, 0.0, 0.0),
+                vec3(2.0, 0.0, 0.0),
+            ],
             0.5,
             WHITE,
         )
@@ -295,7 +292,11 @@ mod tests {
 
     fn make_triangle_tube() -> Tube {
         Tube::new(
-            vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.0)],
+            vec![
+                vec3(0.0, 0.0, 0.0),
+                vec3(1.0, 0.0, 0.0),
+                vec3(0.5, 1.0, 0.0),
+            ],
             0.2,
             WHITE,
         )
@@ -438,11 +439,7 @@ mod tests {
 
     #[test]
     fn straight_path_rings_are_circular() {
-        let tube = Tube::new(
-            vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)],
-            1.0,
-            WHITE,
-        );
+        let tube = Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)], 1.0, WHITE);
         let meshes = tube.build_meshes();
         let verts = &meshes[0].vertices;
         // Check first ring: all vertices should be distance 1.0 from the path point (0,0,0)

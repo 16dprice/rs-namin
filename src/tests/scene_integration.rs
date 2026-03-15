@@ -1,9 +1,9 @@
 use macroquad::prelude::*;
 
+use crate::scene::Scene;
 use crate::scene::objects::{Disk, Line, Polygon, Rectangle, Torus};
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
-use crate::scene::Scene;
 
 #[test]
 fn add_and_get_object() {

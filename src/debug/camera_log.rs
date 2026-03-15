@@ -159,10 +159,7 @@ mod tests {
     fn records_when_target_changes() {
         let mut log = CameraLog::new(10);
         log.record(&Camera::new(vec3(0.0, 0.0, 10.0), Vec3::ZERO), 0.0);
-        log.record(
-            &Camera::new(vec3(0.0, 0.0, 10.0), vec3(1.0, 0.0, 0.0)),
-            1.0,
-        );
+        log.record(&Camera::new(vec3(0.0, 0.0, 10.0), vec3(1.0, 0.0, 0.0)), 1.0);
         assert_eq!(log.len(), 2);
     }
 }

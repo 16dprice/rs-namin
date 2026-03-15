@@ -26,7 +26,8 @@ impl Disk {
 
     /// Build a flat disk mesh on the XY plane centered at `position`.
     fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] =
+            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
         let mut vertices = Vec::with_capacity(DISK_SEGMENTS + 1);
         let mut indices = Vec::with_capacity(DISK_SEGMENTS * 3);

@@ -83,9 +83,7 @@ impl Animatable for Text {
             ("position", AnimValue::Vec2(v)) => self.position = v,
             ("font_size", AnimValue::Float(v)) => self.font_size = v,
             ("color", AnimValue::Vec4(v)) => self.color = v,
-            ("percentage_shown", AnimValue::Float(v)) => {
-                self.percentage_shown = v.clamp(0.0, 1.0)
-            }
+            ("percentage_shown", AnimValue::Float(v)) => self.percentage_shown = v.clamp(0.0, 1.0),
             _ => {}
         }
     }

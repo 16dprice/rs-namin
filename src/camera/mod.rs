@@ -44,7 +44,12 @@ impl Camera {
     /// Apply rotation fields to the base position offset from target.
     fn rotated_position(&self) -> Vec3 {
         let offset = self.position - self.target;
-        let rot = Quat::from_euler(EulerRot::YXZ, self.rotation_y, self.rotation_x, self.rotation_z);
+        let rot = Quat::from_euler(
+            EulerRot::YXZ,
+            self.rotation_y,
+            self.rotation_x,
+            self.rotation_z,
+        );
         self.target + rot.mul_vec3(offset)
     }
 
@@ -114,7 +119,17 @@ impl Animatable for Camera {
     }
 
     fn property_names(&self) -> &[&str] {
-        &["position", "target", "up", "fov", "near", "far", "rotation_x", "rotation_y", "rotation_z"]
+        &[
+            "position",
+            "target",
+            "up",
+            "fov",
+            "near",
+            "far",
+            "rotation_x",
+            "rotation_y",
+            "rotation_z",
+        ]
     }
 }
 

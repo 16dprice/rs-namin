@@ -1,8 +1,8 @@
 use macroquad::prelude::*;
 
 use crate::animation::timeline::Timeline;
-use crate::camera::orbit::OrbitController;
 use crate::camera::Camera;
+use crate::camera::orbit::OrbitController;
 use crate::clock::{self, Clock};
 use crate::debug::{DebugOverlay, SnapView};
 use crate::input::MacroquadInput;

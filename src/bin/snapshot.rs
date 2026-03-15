@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use macroquad::prelude::*;
-use macroquad::texture::{render_target_ex, RenderTargetParams};
+use macroquad::texture::{RenderTargetParams, render_target_ex};
 
 use rs_namin::examples;
 use rs_namin::my_scene;
@@ -35,7 +35,11 @@ fn parse_args() -> SnapshotConfig {
                 i += 1;
                 let ts: Vec<f32> = args[i]
                     .split(',')
-                    .map(|s| s.trim().parse().expect("--times requires comma-separated floats"))
+                    .map(|s| {
+                        s.trim()
+                            .parse()
+                            .expect("--times requires comma-separated floats")
+                    })
                     .collect();
                 times = Some(ts);
             }
@@ -57,7 +61,9 @@ fn parse_args() -> SnapshotConfig {
             }
             other => {
                 eprintln!("Unknown argument: {other}");
-                eprintln!("Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]");
+                eprintln!(
+                    "Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]"
+                );
                 eprintln!("Available scenes: {}", examples::names().join(", "));
                 std::process::exit(1);
             }
@@ -90,7 +96,11 @@ fn main() {
 
     // Clamp times to scene duration
     let duration = timeline.duration();
-    let times: Vec<f32> = config.times.iter().map(|t| t.clamp(0.0, duration)).collect();
+    let times: Vec<f32> = config
+        .times
+        .iter()
+        .map(|t| t.clamp(0.0, duration))
+        .collect();
 
     let conf = Conf {
         window_title: "rs-namin snapshot".to_owned(),
@@ -105,7 +115,15 @@ fn main() {
 
     macroquad::Window::from_config(
         conf,
-        snapshot_render(scene, timeline, camera, times, config.width, config.height, config.output),
+        snapshot_render(
+            scene,
+            timeline,
+            camera,
+            times,
+            config.width,
+            config.height,
+            config.output,
+        ),
     );
 }
 

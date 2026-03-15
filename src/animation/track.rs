@@ -1,7 +1,7 @@
-use crate::scene::value::AnimValue;
 use crate::scene::ObjectId;
+use crate::scene::value::AnimValue;
 
-use super::easing::{linear, EasingFn};
+use super::easing::{EasingFn, linear};
 
 pub struct Keyframe {
     pub time: f32,
@@ -88,11 +88,7 @@ impl Track {
         }
 
         // Find the segment: keyframes[i] and keyframes[i+1] where time is between them
-        let i = self
-            .keyframes
-            .iter()
-            .rposition(|k| k.time <= time)
-            .unwrap();
+        let i = self.keyframes.iter().rposition(|k| k.time <= time).unwrap();
 
         let k0 = &self.keyframes[i];
         let k1 = &self.keyframes[i + 1];
@@ -164,11 +160,7 @@ mod tests {
         linear_track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(100.0)));
 
         let mut eased_track = Track::new(dummy_id(), "radius");
-        eased_track.add_keyframe(Keyframe::with_easing(
-            0.0,
-            AnimValue::Float(0.0),
-            quad_in,
-        ));
+        eased_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.0), quad_in));
         eased_track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(100.0)));
 
         let linear_val = linear_track.evaluate(1.0);

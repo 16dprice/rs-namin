@@ -5,9 +5,9 @@ use macroquad::prelude::*;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::{Camera, ProjectionMode};
+use crate::scene::Scene;
 use crate::scene::objects::Spiral;
 use crate::scene::value::AnimValue;
-use crate::scene::Scene;
 
 pub fn build() -> (Scene, Timeline, Camera) {
     let mut scene = Scene::new();

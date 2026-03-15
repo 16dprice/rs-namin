@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 use indicatif::{ProgressBar, ProgressStyle};
 use inquire::{CustomType, InquireError, Select, Text};
 use macroquad::prelude::*;
-use macroquad::texture::{render_target_ex, RenderTargetParams};
+use macroquad::texture::{RenderTargetParams, render_target_ex};
 
 use rs_namin::render_util::rgba_to_rgb_flipped;
 use rs_namin::videos::{self, Video};
@@ -343,7 +343,15 @@ fn main() {
 
     macroquad::Window::from_config(
         conf,
-        export_render(scene, timeline, camera, config, start_frame, end_frame, total_frames),
+        export_render(
+            scene,
+            timeline,
+            camera,
+            config,
+            start_frame,
+            end_frame,
+            total_frames,
+        ),
     );
 }
 
@@ -504,11 +512,9 @@ async fn export_render(
     let render_duration = config.end_time - config.start_time;
     let pb = ProgressBar::new(total_frames as u64);
     pb.set_style(
-        ProgressStyle::with_template(
-            "{msg} [{bar:40.cyan/blue}] {pos}/{len} ({eta} remaining)",
-        )
-        .unwrap()
-        .progress_chars("##-"),
+        ProgressStyle::with_template("{msg} [{bar:40.cyan/blue}] {pos}/{len} ({eta} remaining)")
+            .unwrap()
+            .progress_chars("##-"),
     );
     pb.set_message(format!(
         "{render_duration:.1}s @ {fps}fps {} → {output_path}",

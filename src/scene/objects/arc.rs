@@ -47,7 +47,13 @@ impl Arc {
     }
 
     /// Convenience: full-radius arc (disk sector) with inner_radius = 0.
-    pub fn sector(position: Vec3, radius: f32, start_angle: f32, sweep_angle: f32, color: Color) -> Self {
+    pub fn sector(
+        position: Vec3,
+        radius: f32,
+        start_angle: f32,
+        sweep_angle: f32,
+        color: Color,
+    ) -> Self {
         Self::new(position, 0.0, radius, start_angle, sweep_angle, color)
     }
 

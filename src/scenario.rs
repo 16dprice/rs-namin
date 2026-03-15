@@ -9,10 +9,7 @@ pub struct Scenario {
 }
 
 enum Step {
-    RunFrames {
-        count: u32,
-        input: ScriptedInput,
-    },
+    RunFrames { count: u32, input: ScriptedInput },
     AssertCamera(Box<dyn Fn(&Camera) -> bool>, String),
     AssertOrbit(Box<dyn Fn(&OrbitController) -> bool>, String),
     AssertScene(Box<dyn Fn(&Scene) -> bool>, String),
@@ -39,11 +36,7 @@ impl Scenario {
     }
 
     /// Assert a condition on the camera. Panics with `msg` if the closure returns false.
-    pub fn assert_camera(
-        mut self,
-        msg: &str,
-        check: impl Fn(&Camera) -> bool + 'static,
-    ) -> Self {
+    pub fn assert_camera(mut self, msg: &str, check: impl Fn(&Camera) -> bool + 'static) -> Self {
         self.steps
             .push(Step::AssertCamera(Box::new(check), msg.to_string()));
         self
@@ -61,11 +54,7 @@ impl Scenario {
     }
 
     /// Assert a condition on the scene.
-    pub fn assert_scene(
-        mut self,
-        msg: &str,
-        check: impl Fn(&Scene) -> bool + 'static,
-    ) -> Self {
+    pub fn assert_scene(mut self, msg: &str, check: impl Fn(&Scene) -> bool + 'static) -> Self {
         self.steps
             .push(Step::AssertScene(Box::new(check), msg.to_string()));
         self

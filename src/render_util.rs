@@ -39,10 +39,7 @@ mod tests {
         ];
         let mut out = Vec::new();
         rgba_to_rgb_flipped(&rgba, 2, 2, &mut out);
-        assert_eq!(
-            out,
-            vec![0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 0,]
-        );
+        assert_eq!(out, vec![0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 0,]);
     }
 
     #[test]
@@ -57,7 +54,9 @@ mod tests {
         rgba_flipped(&rgba, 2, 2, &mut out);
         assert_eq!(
             out,
-            vec![0, 0, 255, 64, 255, 255, 255, 0, 255, 0, 0, 255, 0, 255, 0, 128,]
+            vec![
+                0, 0, 255, 64, 255, 255, 255, 0, 255, 0, 0, 255, 0, 255, 0, 128,
+            ]
         );
     }
 

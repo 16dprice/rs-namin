@@ -59,8 +59,7 @@ impl ScrubBar {
             && my <= by + bh
         {
             self.dragging = true;
-            self.was_playing_before_drag =
-                clock.playback_state == PlaybackState::Playing;
+            self.was_playing_before_drag = clock.playback_state == PlaybackState::Playing;
             clock.pause();
             let t = self.mouse_x_to_t(mx);
             clock.scrub(t * clock.duration);

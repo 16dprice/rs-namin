@@ -1,8 +1,8 @@
 use std::mem;
 
 use crate::animation::easing::EasingFn;
-use crate::animation::track::{Keyframe, Track};
 use crate::animation::timeline::Timeline;
+use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
@@ -52,7 +52,10 @@ impl SceneBuilder {
         build: impl FnOnce(TrackBuilder) -> TrackBuilder,
     ) -> &mut Self {
         let scene_obj = self.scene.get(obj.id).unwrap_or_else(|| {
-            panic!("SceneBuilder::animate: object {:?} not found in scene", obj.id)
+            panic!(
+                "SceneBuilder::animate: object {:?} not found in scene",
+                obj.id
+            )
         });
 
         // Validate property name
@@ -189,12 +192,14 @@ fn variant_name(v: &AnimValue) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use macroquad::prelude::{vec2, vec3, vec4, Mat4, Vec3, WHITE, RED};
+    use macroquad::prelude::{Mat4, RED, Vec3, WHITE, vec2, vec3, vec4};
 
     use super::*;
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
-    use crate::scene::objects::{Arc, Arrow, Disk, Line, Polygon, Rectangle, Ring, Spiral, Text, Torus, Tube};
+    use crate::scene::objects::{
+        Arc, Arrow, Disk, Line, Polygon, Rectangle, Ring, Spiral, Text, Torus, Tube,
+    };
 
     #[test]
     fn build_scene_with_object() {
@@ -254,9 +259,7 @@ mod tests {
     #[should_panic(expected = "property \"pos\" not found on Camera")]
     fn animate_camera_invalid_property_panics() {
         let mut sb = SceneBuilder::new();
-        sb.animate_camera("pos", |tb| {
-            tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO))
-        });
+        sb.animate_camera("pos", |tb| tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO)));
     }
 
     #[test]
@@ -347,7 +350,14 @@ mod tests {
         let _line = sb.add(Line::new(Vec3::ZERO, Vec3::X, 1.0, WHITE));
         let _rect = sb.add(Rectangle::new(Vec3::ZERO, vec2(1.0, 1.0), WHITE));
         let _poly = sb.add(Polygon::new(Vec3::ZERO, 1.0, 6, WHITE));
-        let _arc = sb.add(Arc::new(Vec3::ZERO, 0.5, 1.0, 0.0, std::f32::consts::PI, WHITE));
+        let _arc = sb.add(Arc::new(
+            Vec3::ZERO,
+            0.5,
+            1.0,
+            0.0,
+            std::f32::consts::PI,
+            WHITE,
+        ));
         let _arrow = sb.add(Arrow::new(Vec3::ZERO, Vec3::X, WHITE));
         let _spiral = sb.add(Spiral::new(Vec3::ZERO, 0.001, 0.1, WHITE, 100, 0.01));
         let _text = sb.add(Text::new("hello", vec2(10.0, 20.0), 16.0, WHITE));
@@ -398,8 +408,10 @@ mod tests {
         let mut sb = SceneBuilder::new();
         let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
         sb.animate(&torus, "rotation", |tb| {
-            tb.keyframe(0.0, AnimValue::Mat4(Mat4::IDENTITY))
-                .keyframe(2.0, AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)))
+            tb.keyframe(0.0, AnimValue::Mat4(Mat4::IDENTITY)).keyframe(
+                2.0,
+                AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)),
+            )
         });
         let (mut scene, timeline, mut camera) = sb.build();
         timeline.apply(1.0, &mut scene, &mut camera);
@@ -431,7 +443,11 @@ mod tests {
     #[test]
     fn animate_tube_specific_properties() {
         let mut sb = SceneBuilder::new();
-        let tube = sb.add(Tube::new(vec![Vec3::ZERO, Vec3::X, vec3(2.0, 1.0, 0.0)], 0.5, WHITE));
+        let tube = sb.add(Tube::new(
+            vec![Vec3::ZERO, Vec3::X, vec3(2.0, 1.0, 0.0)],
+            0.5,
+            WHITE,
+        ));
         sb.animate(&tube, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(0.5))
                 .keyframe(2.0, AnimValue::Float(2.0))
