@@ -10,6 +10,20 @@ use crate::scene::objects::{Ring, Tube};
 use crate::scene::value::AnimValue;
 use crate::scene_builder::SceneBuilder;
 
+/// Dolly zoom easing: follows the 1/tan curve so that d * tan(fov/2) stays constant
+/// when FOV is linearly interpolated from 60° to 2°.
+///
+/// TECH DEBT: FOV values are hardcoded because EasingFn is `fn(f32) -> f32` and
+/// can't capture state. Changing EasingFn to accept closures (e.g. Box<dyn Fn>)
+/// would allow a `dolly_zoom(fov_start, fov_end)` factory instead.
+fn dolly_zoom(t: f32) -> f32 {
+    let fov_start = 60.0_f32.to_radians();
+    let fov_end = 2.0_f32.to_radians();
+    let fov = fov_start + t * (fov_end - fov_start);
+    let inv_tan = |f: f32| 1.0 / (f / 2.0).tan();
+    (inv_tan(fov) - inv_tan(fov_start)) / (inv_tan(fov_end) - inv_tan(fov_start))
+}
+
 pub fn build() -> (Scene, Timeline, Camera) {
     let mut sb = SceneBuilder::new();
 
@@ -66,25 +80,13 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // Camera position (with dolly zoom)
     sb.animate_camera("position", |tb| {
-        let mut tb = tb
-            .keyframe(0.0, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
-            .keyframe(
-                camera_rotation_time,
+        tb.keyframe(0.0, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
+            .keyframe_with_easing(
+                dolly_start,
                 AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
-            );
-
-        // Approximate the nonlinear distance curve with many keyframes
-        let dolly_steps = 500;
-        for i in 0..=dolly_steps {
-            let frac = i as f32 / dolly_steps as f32;
-            let t = dolly_start + frac * (dolly_end - dolly_start);
-            let fov = fov_start + frac * (fov_end - fov_start);
-            let d =
-                cam_radius * (fov_start / 2.0).to_radians().tan() / (fov / 2.0).to_radians().tan();
-            tb = tb.keyframe(t, AnimValue::Vec3(vec3(0.0, 4.0 - 4.0 * frac, d)));
-        }
-
-        tb.keyframe(dolly_end, AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)))
+                dolly_zoom,
+            )
+            .keyframe(dolly_end, AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)))
     });
 
     // Camera target

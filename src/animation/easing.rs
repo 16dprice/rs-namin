@@ -1,3 +1,7 @@
+/// TECH DEBT: This is a bare function pointer, which prevents parameterized easings
+/// (e.g. a dolly_zoom factory that takes fov_start/fov_end). Changing to
+/// `Box<dyn Fn(f32) -> f32>` or `Arc<dyn Fn(f32) -> f32>` would enable closures
+/// that capture state, at the cost of a heap allocation per keyframe.
 pub type EasingFn = fn(f32) -> f32;
 
 pub fn linear(t: f32) -> f32 {
