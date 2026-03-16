@@ -116,9 +116,9 @@ Animations are driven by **tracks** on a **timeline**. Each track targets a sing
 
 The default binary opens an interactive viewer with:
 
-- **Orbit camera**: click-drag to orbit, WASD to move, scroll to zoom
-- **Playback controls**: Space (play/pause), Left/Right (step frame), `[`/`]` (speed)
-- **Debug overlay** (F1): time, FPS, camera state, object bounding boxes
+- **Orbit camera**: middle-click drag to orbit, right-click drag to pan, WASD/QE to move, scroll to zoom
+- **Playback controls**: Space (play/pause), Left/Right (step frame), Up/Down (speed)
+- **Debug overlays**: F1 (HUD), F2 (scrub bar), F3 (value inspector), F4 (world helpers), F6 (mouse coords)
 - **Snap-to-view**: Numpad 1/3/7 for front/right/top
 - **Camera mode toggle** (F5): switch between orbit control and timeline-driven camera
 
