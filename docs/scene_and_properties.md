@@ -34,4 +34,5 @@ macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A s
 ## Design Notes
 
 - **String-keyed properties** allow the animation engine to work generically without compile-time coupling. Typos are caught at scene construction time by `SceneBuilder` (see `src/scene_builder.rs`), which validates property names and AnimValue types.
+- **SceneBuilder validates at runtime, not at Rust compile time.** When you call `animate()` or `animate_camera()`, it checks the property name against the object's `property_names()` list and compares each keyframe's `AnimValue` variant against the property's current value. If either check fails, it panics immediately with a descriptive error listing the valid properties or expected type. This catches mistakes as soon as the scene `build()` function runs, rather than silently doing nothing when the timeline tries to apply a bad track minutes into a render.
 - **Round-trip invariant:** `set(name, value)` then `get(name)` returns the same value. Enforced by tests.

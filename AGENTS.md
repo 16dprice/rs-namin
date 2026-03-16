@@ -65,6 +65,10 @@ This project is visual — many bugs only manifest on screen. Use the tools in [
 - **Rendering changes** (new scene objects, visual tweaks, camera changes): Run `cargo run --bin snapshot -- --time <T> --output snapshot.png` and read the resulting PNG to verify the scene looks correct. Use multiple `--times` to check different points in the animation.
 - **Any change you're unsure about visually**: Take a snapshot before and after your change to confirm nothing broke.
 
+### Version Control
+
+Always commit `.claude/` directory contents (settings, agent definitions, agent memory) alongside other changes. These files are part of the project and should stay in sync with the remote.
+
 ### Code Style
 
 - Follow standard Rust conventions (`rustfmt`, `clippy`).
