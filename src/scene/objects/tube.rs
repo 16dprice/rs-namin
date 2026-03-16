@@ -18,10 +18,11 @@ pub struct Tube {
     pub radius: f32,
     pub colors: Vec<Vec4>,
     pub closed: bool,
+    pub scale: f32,
 }
 
 impl Tube {
-    const PROPERTY_NAMES: &[&str] = &["position", "radius", "closed"];
+    const PROPERTY_NAMES: &[&str] = &["position", "radius", "closed", "scale"];
 
     pub fn new(points: Vec<Vec3>, radius: f32, color: Color) -> Self {
         Self {
@@ -30,6 +31,7 @@ impl Tube {
             radius,
             colors: vec![vec4(color.r, color.g, color.b, color.a)],
             closed: false,
+            scale: 1.0,
         }
     }
 
@@ -40,6 +42,7 @@ impl Tube {
             radius,
             colors: colors.iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect(),
             closed: false,
+            scale: 1.0,
         }
     }
 
@@ -183,8 +186,9 @@ impl Tube {
                     let cos_a = angle.cos();
                     let sin_a = angle.sin();
 
-                    let offset = normal * cos_a * self.radius + binormal * sin_a * self.radius;
-                    let world_pos = self.points[point_idx] + offset + self.position;
+                    let r = self.radius * self.scale;
+                    let offset = normal * cos_a * r + binormal * sin_a * r;
+                    let world_pos = self.points[point_idx] * self.scale + offset + self.position;
 
                     let vert_normal = (normal * cos_a + binormal * sin_a).normalize_or_zero();
 
@@ -241,10 +245,11 @@ impl SceneObject for Tube {
         }
         let mut min = Vec3::splat(f32::MAX);
         let mut max = Vec3::splat(f32::MIN);
+        let r = self.radius * self.scale;
         for p in &self.points {
-            let world = *p + self.position;
-            min = min.min(world - Vec3::splat(self.radius));
-            max = max.max(world + Vec3::splat(self.radius));
+            let world = *p * self.scale + self.position;
+            min = min.min(world - Vec3::splat(r));
+            max = max.max(world + Vec3::splat(r));
         }
         BoundingBox { min, max }
     }
@@ -256,6 +261,7 @@ impl Animatable for Tube {
             "position" => Some(AnimValue::Vec3(self.position)),
             "radius" => Some(AnimValue::Float(self.radius)),
             "closed" => Some(AnimValue::Bool(self.closed)),
+            "scale" => Some(AnimValue::Float(self.scale)),
             _ => None,
         }
     }
@@ -265,6 +271,7 @@ impl Animatable for Tube {
             ("position", AnimValue::Vec3(v)) => self.position = v,
             ("radius", AnimValue::Float(v)) => self.radius = v,
             ("closed", AnimValue::Bool(v)) => self.closed = v,
+            ("scale", AnimValue::Float(v)) => self.scale = v,
             _ => {}
         }
     }
@@ -350,10 +357,11 @@ mod tests {
     fn property_names_complete() {
         let tube = make_straight_tube();
         let names = tube.property_names();
-        assert_eq!(names.len(), 3);
+        assert_eq!(names.len(), 4);
         assert!(names.contains(&"position"));
         assert!(names.contains(&"radius"));
         assert!(names.contains(&"closed"));
+        assert!(names.contains(&"scale"));
     }
 
     #[test]

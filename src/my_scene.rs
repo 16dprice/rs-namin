@@ -25,6 +25,29 @@ fn dolly_zoom(t: f32) -> f32 {
 }
 
 pub fn build() -> (Scene, Timeline, Camera) {
+    // ── Timeline ──────────────────────────────────────────────────────
+    let cam_radius = 10.0_f32;
+    let fov_start: f32 = 60.0;
+    let fov_end: f32 = 2.0;
+    let dolly_distance =
+        cam_radius * (fov_start / 2.0).to_radians().tan() / (fov_end / 2.0).to_radians().tan();
+
+    let rotation_start = 0.0;
+    let rotation_end = 30.0;
+    let dolly_start = rotation_end;
+    let dolly_end = dolly_start + 4.0;
+    let ring1_start = dolly_end + 1.0;
+    let ring1_end = dolly_end + 3.0;
+    let ring2_start = dolly_end + 2.0;
+    let ring2_end = dolly_end + 4.0;
+    let ring3_start = dolly_end + 3.0;
+    let ring3_end = dolly_end + 5.0;
+
+    let knot_zoom_move_back_start = ring3_end + 2.0;
+    let knot_zoom_move_back_end = knot_zoom_move_back_start + 6.0;
+    let scene_end = knot_zoom_move_back_end + 5.0;
+
+    // ── Scene ─────────────────────────────────────────────────────────
     let mut sb = SceneBuilder::new();
 
     // Torus knot geometry
@@ -58,29 +81,27 @@ pub fn build() -> (Scene, Timeline, Camera) {
         ],
     );
     knot.closed = true;
-    sb.add(knot);
+    let knot_tube = sb.add(knot);
 
-    // Camera setup
-    let cam_radius = 10.0_f32;
-    let camera_rotation_time = 30.0;
-    let fov_start: f32 = 60.0;
-    let fov_end: f32 = 2.0;
-    let dolly_start = camera_rotation_time;
-    let dolly_end = dolly_start + 4.0;
-    let dolly_distance =
-        cam_radius * (fov_start / 2.0).to_radians().tan() / (fov_end / 2.0).to_radians().tan();
+    let ring1_start_position = vec3(1.54, 2.61, 2.0);
+    let ring2_start_position = vec3(-3.0, 0.0, 2.0);
+    let ring3_start_position = vec3(1.54, -2.61, 2.0);
 
+    let ring1 = sb.add(Ring::new(ring1_start_position, 0.5, WHITE, 0.0));
+    let ring2 = sb.add(Ring::new(ring2_start_position, 0.5, WHITE, 0.0));
+    let ring3 = sb.add(Ring::new(ring3_start_position, 0.5, WHITE, 0.0));
+
+    // ── Camera ────────────────────────────────────────────────────────
     sb.camera(Camera::new(vec3(0.0, 4.0, cam_radius), Vec3::ZERO));
 
-    // Camera rotation
+    // ── Animations ────────────────────────────────────────────────────
     sb.animate_camera("rotation_y", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out)
-            .keyframe(camera_rotation_time, AnimValue::Float(TAU))
+        tb.keyframe_with_easing(rotation_start, AnimValue::Float(0.0), easing::sine_in_out)
+            .keyframe(rotation_end, AnimValue::Float(TAU))
     });
 
-    // Camera position (with dolly zoom)
     sb.animate_camera("position", |tb| {
-        tb.keyframe(0.0, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
+        tb.keyframe(rotation_start, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
             .keyframe_with_easing(
                 dolly_start,
                 AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)),
@@ -89,32 +110,95 @@ pub fn build() -> (Scene, Timeline, Camera) {
             .keyframe(dolly_end, AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)))
     });
 
-    // Camera target
-    sb.animate_camera("target", |tb| tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO)));
+    sb.animate_camera("target", |tb| {
+        tb.keyframe(rotation_start, AnimValue::Vec3(Vec3::ZERO))
+            .keyframe(scene_end, AnimValue::Vec3(Vec3::ZERO))
+    });
 
-    // Camera FOV
     sb.animate_camera("fov", |tb| {
-        tb.keyframe(0.0, AnimValue::Float(fov_start))
+        tb.keyframe(rotation_start, AnimValue::Float(fov_start))
             .keyframe(dolly_start, AnimValue::Float(fov_start))
             .keyframe(dolly_end, AnimValue::Float(fov_end))
     });
 
-    // Rings with staggered sweep animations
-    let ring1 = sb.add(Ring::new(vec3(1.54, 2.61, 2.0), 0.5, WHITE, 0.0));
-    let ring2 = sb.add(Ring::new(vec3(-3.0, 0.0, 2.0), 0.5, WHITE, 0.0));
-    let ring3 = sb.add(Ring::new(vec3(1.54, -2.61, 2.0), 0.5, WHITE, 0.0));
-
     sb.animate(&ring1, "sweep", |tb| {
-        tb.keyframe_with_easing(dolly_end + 1.0, AnimValue::Float(0.0), easing::quart_out)
-            .keyframe(dolly_end + 3.0, AnimValue::Float(1.0))
+        tb.keyframe_with_easing(ring1_start, AnimValue::Float(0.0), easing::quart_out)
+            .keyframe(ring1_end, AnimValue::Float(1.0))
     });
     sb.animate(&ring2, "sweep", |tb| {
-        tb.keyframe_with_easing(dolly_end + 2.0, AnimValue::Float(0.0), easing::quart_out)
-            .keyframe(dolly_end + 4.0, AnimValue::Float(1.0))
+        tb.keyframe_with_easing(ring2_start, AnimValue::Float(0.0), easing::quart_out)
+            .keyframe(ring2_end, AnimValue::Float(1.0))
     });
     sb.animate(&ring3, "sweep", |tb| {
-        tb.keyframe_with_easing(dolly_end + 3.0, AnimValue::Float(0.0), easing::quart_out)
-            .keyframe(dolly_end + 5.0, AnimValue::Float(1.0))
+        tb.keyframe_with_easing(ring3_start, AnimValue::Float(0.0), easing::quart_out)
+            .keyframe(ring3_end, AnimValue::Float(1.0))
+    });
+
+    sb.animate(&ring1, "position", |tb| {
+        tb.keyframe_with_easing(
+            knot_zoom_move_back_start,
+            AnimValue::Vec3(ring1_start_position),
+            easing::sine_in_out,
+        )
+        .keyframe(
+            knot_zoom_move_back_end,
+            AnimValue::Vec3(vec3(-2.87, 1.96, 2.0)),
+        )
+    });
+    sb.animate(&ring2, "position", |tb| {
+        tb.keyframe_with_easing(
+            knot_zoom_move_back_start,
+            AnimValue::Vec3(ring2_start_position),
+            easing::sine_in_out,
+        )
+        .keyframe(
+            knot_zoom_move_back_end,
+            AnimValue::Vec3(vec3(-6.24, 0.0, 2.0)),
+        )
+    });
+    sb.animate(&ring3, "position", |tb| {
+        tb.keyframe_with_easing(
+            knot_zoom_move_back_start,
+            AnimValue::Vec3(ring3_start_position),
+            easing::sine_in_out,
+        )
+        .keyframe(
+            knot_zoom_move_back_end,
+            AnimValue::Vec3(vec3(-2.87, -1.96, 2.0)),
+        )
+    });
+
+    sb.animate(&ring1, "radius", |tb| {
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Float(0.5))
+            .keyframe(knot_zoom_move_back_end, AnimValue::Float(0.4))
+    });
+    sb.animate(&ring2, "radius", |tb| {
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Float(0.5))
+            .keyframe(knot_zoom_move_back_end, AnimValue::Float(0.4))
+    });
+    sb.animate(&ring3, "radius", |tb| {
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Float(0.5))
+            .keyframe(knot_zoom_move_back_end, AnimValue::Float(0.4))
+    });
+
+    sb.animate(&knot_tube, "position", |tb| {
+        tb.keyframe_with_easing(
+            knot_zoom_move_back_start,
+            AnimValue::Vec3(Vec3::ZERO),
+            easing::sine_in_out,
+        )
+        .keyframe(
+            knot_zoom_move_back_end,
+            AnimValue::Vec3(vec3(-4.0, 0.0, 0.0)),
+        )
+    });
+    sb.animate(&knot_tube, "scale", |tb| {
+        tb.keyframe_with_easing(
+            knot_zoom_move_back_start,
+            AnimValue::Float(1.0),
+            easing::sine_in_out,
+        )
+        .keyframe(knot_zoom_move_back_end, AnimValue::Float(0.75))
     });
 
     sb.build()
