@@ -198,7 +198,7 @@ mod tests {
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
     use crate::scene::objects::{
-        Arc, Arrow, Disk, Line, Polygon, Rectangle, Ring, Spiral, Text, Torus, Tube,
+        Arc, Arrow, Disk, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube,
     };
 
     #[test]

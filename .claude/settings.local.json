@@ -13,7 +13,10 @@
       "Bash(cargo run:*)",
       "Bash(git checkout:*)",
       "Bash(cargo fmt:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(./scripts/validate.sh)"
     ]
   }
 }
