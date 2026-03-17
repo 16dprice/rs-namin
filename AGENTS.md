@@ -13,6 +13,7 @@ Architecture docs live in `docs/`. These focus on gotchas, design rationale, and
 | [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay gotchas, roadmap |
 | [module_layout.md](docs/module_layout.md) | Main loop ordering and why it matters |
 | [vector_text.md](docs/vector_text.md) | Vector text rendering design (bezier-based write-on animation) |
+| [l_system_implementation.md](docs/l_system_implementation.md) | L-system engine design (string rewriting, turtle graphics, presets) |
 | [testing.md](docs/testing.md) | Testing strategy |
 | [agent_testing.md](docs/agent_testing.md) | Input abstraction, snapshot capture, scenario runner |
 

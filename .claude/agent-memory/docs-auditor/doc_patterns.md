@@ -43,6 +43,14 @@ Fix: cross-check against `src/scene/objects/mod.rs` pub use list and `src/bin/` 
 
 Staleness risk: if validate.sh steps change, AGENTS.md description of what it runs will drift. The AGENTS.md section describes the steps inline rather than just pointing to the script — worth keeping current if steps change.
 
+## Medium-Risk Files
+
+**`docs/l_system_implementation.md`** — Covers engine design, module split, animatable properties, and preset table. Goes stale when:
+- Animatable properties are added or renamed (check `src/scene/objects/l_system.rs` `property_names()`)
+- New presets are added to the preset enum/list
+- The two-module split changes (engine vs scene object)
+Notable: preset table has default theta values for all presets — verify any new preset has a default assigned.
+
 ## Known Documentation Gaps
 
 - No doc covering `AnimValue` variants (Float, Vec2, Vec3, Vec4, Bool, Transform2D, Mat4) and when to use each. Currently scattered in scene_and_properties.md and testing.md.
