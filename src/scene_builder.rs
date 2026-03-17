@@ -197,8 +197,9 @@ mod tests {
     use super::*;
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
+    use crate::scene::l_system as lsys;
     use crate::scene::objects::{
-        Arc, Arrow, Disk, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText,
+        Arc, Arrow, Disk, LSystem, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText,
     };
 
     #[test]
@@ -369,9 +370,11 @@ mod tests {
             1.0,
             WHITE,
         ));
+        let (dragon_config, dragon_theta) = lsys::dragon_curve();
+        let _lsystem = sb.add(LSystem::new(dragon_config, dragon_theta, WHITE));
 
         let (scene, _timeline, _camera) = sb.build();
-        assert_eq!(scene.len(), 11);
+        assert_eq!(scene.len(), 12);
     }
 
     #[test]

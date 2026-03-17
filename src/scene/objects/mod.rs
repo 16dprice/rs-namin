@@ -1,6 +1,7 @@
 pub mod arc;
 pub mod arrow;
 pub mod disk;
+pub mod l_system;
 pub mod line;
 pub mod polygon;
 pub mod rectangle;
@@ -14,6 +15,7 @@ pub mod vector_text;
 pub use arc::Arc;
 pub use arrow::Arrow;
 pub use disk::Disk;
+pub use l_system::LSystem;
 pub use line::Line;
 pub use polygon::Polygon;
 pub use rectangle::Rectangle;

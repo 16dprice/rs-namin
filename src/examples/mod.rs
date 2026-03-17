@@ -1,4 +1,5 @@
 pub mod bouncing_ball;
+pub mod l_system;
 pub mod spiral;
 pub mod torus;
 pub mod tube;
@@ -21,6 +22,11 @@ pub const EXAMPLES: &[Example] = &[
         name: "bouncing_ball",
         description: "Bouncing ball with easing, rectangle pulse, hexagon rotation",
         build: bouncing_ball::build,
+    },
+    Example {
+        name: "l_system",
+        description: "Dragon curve L-system with animated iterations and write-on",
+        build: l_system::build,
     },
     Example {
         name: "spiral",
