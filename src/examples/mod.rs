@@ -2,6 +2,7 @@ pub mod bouncing_ball;
 pub mod spiral;
 pub mod torus;
 pub mod tube;
+pub mod vector_text;
 
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
@@ -35,6 +36,11 @@ pub const EXAMPLES: &[Example] = &[
         name: "tube",
         description: "Helix, trefoil knot, and L-bend tubes with animated radius and color",
         build: tube::build,
+    },
+    Example {
+        name: "vector_text",
+        description: "Write-on animation with bezier-based vector text",
+        build: vector_text::build,
     },
 ];
 

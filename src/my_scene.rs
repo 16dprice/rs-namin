@@ -5,9 +5,9 @@ use macroquad::prelude::*;
 use crate::animation::easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
-use crate::scene::Scene;
-use crate::scene::objects::{Ring, Tube};
+use crate::scene::objects::{Ring, Tube, VectorText};
 use crate::scene::value::AnimValue;
+use crate::scene::{Scene, font};
 use crate::scene_builder::SceneBuilder;
 
 /// Dolly zoom easing: follows the 1/tan curve so that d * tan(fov/2) stays constant
@@ -45,7 +45,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     let knot_zoom_move_back_start = ring3_end + 2.0;
     let knot_zoom_move_back_end = knot_zoom_move_back_start + 6.0;
-    let scene_end = knot_zoom_move_back_end + 5.0;
+
+    let text_anim_start = knot_zoom_move_back_end + 1.0;
+    let text_anim_end = text_anim_start + 4.0;
+
+    let scene_end = text_anim_end + 5.0;
 
     // ── Scene ─────────────────────────────────────────────────────────
     let mut sb = SceneBuilder::new();
@@ -90,6 +94,13 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let ring1 = sb.add(Ring::new(ring1_start_position, 0.5, WHITE, 0.0));
     let ring2 = sb.add(Ring::new(ring2_start_position, 0.5, WHITE, 0.0));
     let ring3 = sb.add(Ring::new(ring3_start_position, 0.5, WHITE, 0.0));
+
+    let mut text = VectorText::new("This is a knot", font::default_font(), 1.0, WHITE);
+    text.progress = 0.0;
+    text.stagger = 0.5;
+    text.position = vec3(2.0, 2.0, 2.0);
+
+    let text_ref = sb.add(text);
 
     // ── Camera ────────────────────────────────────────────────────────
     sb.camera(Camera::new(vec3(0.0, 4.0, cam_radius), Vec3::ZERO));
@@ -199,6 +210,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
             easing::sine_in_out,
         )
         .keyframe(knot_zoom_move_back_end, AnimValue::Float(0.75))
+    });
+
+    sb.animate(&text_ref, "progress", |tb| {
+        tb.keyframe_with_easing(text_anim_start, AnimValue::Float(0.0), easing::sine_in_out)
+            .keyframe(text_anim_end, AnimValue::Float(1.0))
     });
 
     sb.build()

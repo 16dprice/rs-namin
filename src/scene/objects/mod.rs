@@ -9,6 +9,7 @@ pub mod spiral;
 pub mod text;
 pub mod torus;
 pub mod tube;
+pub mod vector_text;
 
 pub use arc::Arc;
 pub use arrow::Arrow;
@@ -21,3 +22,4 @@ pub use spiral::Spiral;
 pub use text::Text;
 pub use torus::Torus;
 pub use tube::Tube;
+pub use vector_text::VectorText;

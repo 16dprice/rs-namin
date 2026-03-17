@@ -25,7 +25,7 @@ Build flat meshes using `draw_mesh` with macroquad's `Vertex` struct. Each verte
 
 ### macroquad draw call limits
 
-macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A single `draw_mesh` call that exceeds these limits will be silently clamped. Objects with many primitives (e.g., `Spiral` with thousands of dots) must split into multiple `draw_mesh` calls, each within the buffer limits. See `src/scene/objects/spiral.rs` for a chunked draw implementation.
+macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A single `draw_mesh` call that exceeds these limits will be silently clamped. Objects with many primitives must split into multiple `draw_mesh` calls, each within the buffer limits. Two reference implementations: `Spiral` (`src/scene/objects/spiral.rs`) chunks dot meshes; `VectorText` (`src/scene/objects/vector_text.rs`) chunks lyon-tessellated bezier paths with a vertex-remapping pass for correct index reuse.
 
 ### When to use macroquad primitives
 

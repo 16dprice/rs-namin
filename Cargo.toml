@@ -8,7 +8,9 @@ default-run = "rs-namin"
 image = { version = "0.25", default-features = false, features = ["png"] }
 indicatif = "0.18.4"
 inquire = "0.9.4"
+lyon = "1.0"
 macroquad = "0.4"
+ttf-parser = "0.25"
 
 [[bin]]
 name = "rs-namin"

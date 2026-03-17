@@ -198,7 +198,7 @@ mod tests {
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
     use crate::scene::objects::{
-        Arc, Arrow, Disk, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube,
+        Arc, Arrow, Disk, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText,
     };
 
     #[test]
@@ -363,9 +363,15 @@ mod tests {
         let _text = sb.add(Text::new("hello", vec2(10.0, 20.0), 16.0, WHITE));
         let _torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
         let _tube = sb.add(Tube::new(vec![Vec3::ZERO, Vec3::X], 0.5, WHITE));
+        let _vector_text = sb.add(VectorText::new(
+            "test",
+            crate::scene::font::default_font(),
+            1.0,
+            WHITE,
+        ));
 
         let (scene, _timeline, _camera) = sb.build();
-        assert_eq!(scene.len(), 10);
+        assert_eq!(scene.len(), 11);
     }
 
     #[test]

@@ -16,7 +16,8 @@
       "Bash(git add:*)",
       "Bash(find:*)",
       "Bash(wc:*)",
-      "Bash(./scripts/validate.sh)"
+      "Bash(./scripts/validate.sh)",
+      "WebSearch"
     ]
   }
 }
