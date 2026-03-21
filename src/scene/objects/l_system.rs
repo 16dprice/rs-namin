@@ -17,6 +17,9 @@ pub struct LSystem {
     pub iterations: f32,
     pub progress: f32,
     pub line_width: f32,
+    /// When 2+ colors are provided, segments interpolate through this gradient
+    /// in draw order. When empty, falls back to `self.color`.
+    colors: Vec<Vec4>,
 }
 
 impl LSystem {
@@ -40,7 +43,36 @@ impl LSystem {
             iterations: 3.0,
             progress: 1.0,
             line_width: 0.02,
+            colors: Vec::new(),
         }
+    }
+
+    /// Set a gradient color list. Segments will interpolate through these
+    /// colors in draw order. Pass an empty vec to revert to `self.color`.
+    pub fn with_colors(mut self, colors: Vec<Color>) -> Self {
+        self.colors = colors
+            .into_iter()
+            .map(|c| vec4(c.r, c.g, c.b, c.a))
+            .collect();
+        self
+    }
+
+    fn color_for_segment(&self, seg_index: usize, total: usize) -> [u8; 4] {
+        let c = if self.colors.len() >= 2 {
+            let t = if total <= 1 {
+                0.0
+            } else {
+                seg_index as f32 / (total - 1) as f32
+            };
+            let span = (self.colors.len() - 1) as f32;
+            let pos = t * span;
+            let lo = (pos.floor() as usize).min(self.colors.len() - 2);
+            let frac = pos - lo as f32;
+            self.colors[lo].lerp(self.colors[lo + 1], frac)
+        } else {
+            self.color
+        };
+        Color::new(c.x, c.y, c.z, c.w).into()
     }
 
     fn get_segments(&self) -> Vec<l_system::LineSegment> {
@@ -60,20 +92,21 @@ impl SceneObject for LSystem {
             return;
         }
 
-        let color_bytes: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
         let half_w = self.line_width / 2.0;
         let z = self.position.z;
+        let total = segments.len();
 
-        for chunk_start in (0..segments.len()).step_by(MAX_SEGMENTS_PER_MESH) {
-            let chunk_end = (chunk_start + MAX_SEGMENTS_PER_MESH).min(segments.len());
+        for chunk_start in (0..total).step_by(MAX_SEGMENTS_PER_MESH) {
+            let chunk_end = (chunk_start + MAX_SEGMENTS_PER_MESH).min(total);
             let chunk_len = chunk_end - chunk_start;
 
             let mut vertices = Vec::with_capacity(chunk_len * 4);
             let mut indices = Vec::with_capacity(chunk_len * 6);
 
-            for seg in &segments[chunk_start..chunk_end] {
+            for (i, seg) in segments[chunk_start..chunk_end].iter().enumerate() {
+                let seg_index = chunk_start + i;
+                let color_bytes = self.color_for_segment(seg_index, total);
                 let dir = seg.end - seg.start;
                 let len = dir.length();
                 let perp = if len > 1e-8 {
@@ -256,6 +289,42 @@ mod tests {
         let w1 = bb1.max.x - bb1.min.x;
         let w2 = bb2.max.x - bb2.min.x;
         assert!((w2 - w1 * 2.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn gradient_colors_interpolate() {
+        let (config, theta) = dragon_curve();
+        let ls = LSystem::new(config, theta, WHITE).with_colors(vec![RED, BLUE]);
+        let total = ls.get_segments().len();
+        assert!(total > 2);
+
+        let first = ls.color_for_segment(0, total);
+        assert!(
+            first[0] > first[2],
+            "first segment should have more red than blue"
+        );
+
+        let last = ls.color_for_segment(total - 1, total);
+        assert!(
+            last[2] > last[0],
+            "last segment should have more blue than red"
+        );
+
+        let mid = ls.color_for_segment(total / 2, total);
+        assert!(
+            mid[0] > 0 && mid[2] > 0,
+            "mid segment should have both red and blue"
+        );
+    }
+
+    #[test]
+    fn empty_gradient_uses_color_field() {
+        let ls = make_lsystem();
+        assert!(ls.colors.is_empty());
+        let total = ls.get_segments().len();
+        let c0 = ls.color_for_segment(0, total);
+        let c1 = ls.color_for_segment(total - 1, total);
+        assert_eq!(c0, c1);
     }
 
     #[test]

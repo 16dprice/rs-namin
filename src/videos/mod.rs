@@ -1,3 +1,4 @@
+pub mod basic_l_system;
 pub mod bouncing_ball;
 pub mod torus_knot;
 
@@ -34,6 +35,12 @@ pub const VIDEOS: &[Video] = &[
         name: "torus_knot",
         description: "Rainbow torus knot with dolly zoom and ring sweep animations",
         build: torus_knot::build,
+        audio: None,
+    },
+    Video {
+        name: "basic_l_system",
+        description: "A basic l system that animates theta and progress changing",
+        build: basic_l_system::build,
         audio: None,
     },
 ];

@@ -14,7 +14,8 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut timeline = Timeline::new();
 
     let (config, theta) = lsys::my3();
-    let mut l_system = LSystem::new(config, theta, GREEN);
+    let mut l_system =
+        LSystem::new(config, theta, GREEN).with_colors(vec![RED, YELLOW, GREEN, BLUE, PURPLE]);
     l_system.iterations = 5.0;
     l_system.progress = 0.0;
     l_system.line_width = 0.1;

@@ -17,7 +17,8 @@
       "Bash(find:*)",
       "Bash(wc:*)",
       "Bash(./scripts/validate.sh)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(cargo test:*)"
     ]
   }
 }
