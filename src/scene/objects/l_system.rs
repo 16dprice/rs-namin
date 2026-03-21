@@ -75,6 +75,13 @@ impl LSystem {
         Color::new(c.x, c.y, c.z, c.w).into()
     }
 
+    /// Total number of segments at full progress (for stable color mapping).
+    fn total_segment_count(&self) -> usize {
+        let iters = self.iterations.floor().max(0.0) as usize;
+        let l_string = l_system::apply_rules(&self.config, iters);
+        l_system::get_lines(&l_string, self.theta, 1.0).len()
+    }
+
     fn get_segments(&self) -> Vec<l_system::LineSegment> {
         let iters = self.iterations.floor().max(0.0) as usize;
         let l_string = l_system::apply_rules(&self.config, iters);
@@ -112,10 +119,12 @@ impl SceneObject for LSystem {
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
         let half_w = self.line_width / 2.0;
         let z = self.position.z;
-        let total = segments.len();
+        // Full segment count for stable color mapping; visible count for iteration.
+        let color_total = self.total_segment_count();
+        let visible = segments.len();
 
-        for chunk_start in (0..total).step_by(MAX_SEGMENTS_PER_MESH) {
-            let chunk_end = (chunk_start + MAX_SEGMENTS_PER_MESH).min(total);
+        for chunk_start in (0..visible).step_by(MAX_SEGMENTS_PER_MESH) {
+            let chunk_end = (chunk_start + MAX_SEGMENTS_PER_MESH).min(visible);
             let chunk_len = chunk_end - chunk_start;
 
             let mut vertices = Vec::with_capacity(chunk_len * 4);
@@ -123,7 +132,7 @@ impl SceneObject for LSystem {
 
             for (i, seg) in segments[chunk_start..chunk_end].iter().enumerate() {
                 let seg_index = chunk_start + i;
-                let color_bytes = self.color_for_segment(seg_index, total);
+                let color_bytes = self.color_for_segment(seg_index, color_total);
                 let dir = seg.end - seg.start;
                 let len = dir.length();
                 let perp = if len > 1e-8 {

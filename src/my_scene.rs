@@ -4,7 +4,7 @@ use crate::animation::easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::scene::Scene;
-use crate::scene::l_system::{apply_rules, get_lines, koch};
+use crate::scene::l_system::{apply_rules, dragon_curve, get_lines};
 use crate::scene::objects::{LSystem, Sprite, Turtle};
 use crate::scene::value::AnimValue;
 use crate::scene_builder::SceneBuilder;
@@ -21,8 +21,8 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut sprite = Sprite::new(texture, vec3(0.0, 0.0, 0.0), Some(vec2(1.0, 1.0)), WHITE);
     sprite.center = vec2(0.0, -0.5);
 
-    let (config, theta) = koch();
-    let iterations = 3;
+    let (config, theta) = dragon_curve();
+    let iterations = 5;
     let s = apply_rules(&config, iterations);
     let lines = get_lines(&s, theta, 1.0);
 
@@ -104,6 +104,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
             )
         }
         tb
+    });
+
+    sb.animate(&l_system_ref, "line_width", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(0.02))
+            .keyframe(total_seconds, AnimValue::Float(0.2))
     });
 
     sb.build()
