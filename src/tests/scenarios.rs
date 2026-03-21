@@ -1,12 +1,24 @@
-use macroquad::prelude::{KeyCode, MouseButton, vec2};
+use macroquad::prelude::{KeyCode, MouseButton, WHITE, vec2, vec3};
 
+use crate::animation::timeline::Timeline;
+use crate::camera::Camera;
 use crate::input::ScriptedInput;
-use crate::my_scene;
 use crate::scenario::Scenario;
+use crate::scene::Scene;
+use crate::scene::objects::Disk;
+
+/// Build a minimal scene without textures for scenario tests.
+fn test_scene() -> (Scene, Timeline, Camera) {
+    let mut scene = Scene::new();
+    scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 1.0, WHITE));
+    let timeline = Timeline::new();
+    let camera = Camera::default();
+    (scene, timeline, camera)
+}
 
 #[test]
 fn orbit_accumulation_rightward() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
+    let (mut scene, timeline, mut camera) = test_scene();
 
     // mouse_delta is in -2..2 range; pixel delta = 0.008 * 1280 * 0.5 = 5.12 px
     // azimuth per frame = 5.12 * orbit_speed(0.005) = 0.0256 rad
@@ -26,7 +38,7 @@ fn orbit_accumulation_rightward() {
 
 #[test]
 fn zoom_to_min_clamp() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
+    let (mut scene, timeline, mut camera) = test_scene();
 
     let scroll_in = ScriptedInput::default().with_mouse_wheel(5.0);
 
@@ -40,7 +52,7 @@ fn zoom_to_min_clamp() {
 
 #[test]
 fn pan_then_orbit() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
+    let (mut scene, timeline, mut camera) = test_scene();
 
     let pan_right = ScriptedInput::default()
         .with_mouse_button(MouseButton::Right)
@@ -60,7 +72,7 @@ fn pan_then_orbit() {
 
 #[test]
 fn idle_full_timeline() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
+    let (mut scene, timeline, mut camera) = test_scene();
     let duration = timeline.duration();
     let total_frames = (duration * 60.0).ceil() as u32;
 
@@ -72,7 +84,7 @@ fn idle_full_timeline() {
 
 #[test]
 fn no_input_camera_stable() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
+    let (mut scene, timeline, mut camera) = test_scene();
     let initial_pos = camera.position;
 
     Scenario::new()
@@ -85,7 +97,7 @@ fn no_input_camera_stable() {
 
 #[test]
 fn wasd_movement_accumulates() {
-    let (mut scene, timeline, mut camera) = my_scene::build();
+    let (mut scene, timeline, mut camera) = test_scene();
 
     let move_forward = ScriptedInput::default().with_key_down(KeyCode::W);
 

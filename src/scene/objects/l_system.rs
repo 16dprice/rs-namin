@@ -79,9 +79,26 @@ impl LSystem {
         let iters = self.iterations.floor().max(0.0) as usize;
         let l_string = l_system::apply_rules(&self.config, iters);
         let all = l_system::get_lines(&l_string, self.theta, 1.0);
-        let count =
-            ((self.progress.clamp(0.0, 1.0) * all.len() as f32).floor() as usize).min(all.len());
-        all[..count].to_vec()
+        if all.is_empty() {
+            return Vec::new();
+        }
+
+        let exact = self.progress.clamp(0.0, 1.0) * all.len() as f32;
+        let full_count = (exact.floor() as usize).min(all.len());
+        let frac = exact - full_count as f32;
+
+        let mut result = all[..full_count].to_vec();
+
+        // Partially draw the next segment based on the fractional remainder.
+        if frac > 0.0 && full_count < all.len() {
+            let seg = &all[full_count];
+            result.push(l_system::LineSegment {
+                start: seg.start,
+                end: seg.start.lerp(seg.end, frac),
+            });
+        }
+
+        result
     }
 }
 
@@ -325,6 +342,43 @@ mod tests {
         let c0 = ls.color_for_segment(0, total);
         let c1 = ls.color_for_segment(total - 1, total);
         assert_eq!(c0, c1);
+    }
+
+    #[test]
+    fn progress_renders_partial_segments() {
+        use crate::scene::l_system::{LSystemConfig, ReplacementRule};
+
+        // Two-segment L-system: axiom "FF" with no rules produces 2 forward steps.
+        let config = LSystemConfig {
+            axiom: "FF".to_string(),
+            rules: vec![ReplacementRule {
+                from: 'X',
+                to: "X".to_string(),
+            }],
+        };
+        let mut ls = LSystem::new(config, std::f32::consts::FRAC_PI_2, WHITE);
+        ls.iterations = 0.0; // no expansion, just "FF"
+
+        // 2 segments, progress 0.25 → exact 0.5 → 0 full + 50% of first.
+        ls.progress = 0.25;
+        let segs = ls.get_segments();
+        assert_eq!(segs.len(), 1, "should have one partial segment");
+        let seg = &segs[0];
+        let expected_end = seg.start.lerp(
+            // Original full first segment end
+            vec2(seg.start.x, seg.start.y + 1.0),
+            0.5,
+        );
+        assert!(
+            (seg.end - expected_end).length() < 1e-4,
+            "partial segment end should be at 50% of full segment, got {:?}",
+            seg.end
+        );
+
+        // 2 segments, progress 0.75 → exact 1.5 → 1 full + 50% of second.
+        ls.progress = 0.75;
+        let segs = ls.get_segments();
+        assert_eq!(segs.len(), 2, "should have one full + one partial segment");
     }
 
     #[test]
