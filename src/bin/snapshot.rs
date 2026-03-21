@@ -83,24 +83,22 @@ fn parse_args() -> SnapshotConfig {
 fn main() {
     let config = parse_args();
 
-    let (scene, timeline, camera) = if let Some(ref name) = config.scene {
+    // Resolve the build function but don't call it yet — texture creation
+    // requires the GL context which isn't available until inside the window.
+    let build_fn: fn() -> (
+        rs_namin::scene::Scene,
+        rs_namin::animation::timeline::Timeline,
+        rs_namin::camera::Camera,
+    ) = if let Some(ref name) = config.scene {
         let example = examples::find(name).unwrap_or_else(|| {
             eprintln!("Unknown scene: {name}");
             eprintln!("Available: {}", examples::names().join(", "));
             std::process::exit(1);
         });
-        (example.build)()
+        example.build
     } else {
-        my_scene::build()
+        my_scene::build
     };
-
-    // Clamp times to scene duration
-    let duration = timeline.duration();
-    let times: Vec<f32> = config
-        .times
-        .iter()
-        .map(|t| t.clamp(0.0, duration))
-        .collect();
 
     let conf = Conf {
         window_title: "rs-namin snapshot".to_owned(),
@@ -116,10 +114,8 @@ fn main() {
     macroquad::Window::from_config(
         conf,
         snapshot_render(
-            scene,
-            timeline,
-            camera,
-            times,
+            build_fn,
+            config.times,
             config.width,
             config.height,
             config.output,
@@ -133,14 +129,25 @@ fn save_png(rgba_data: &[u8], width: u32, height: u32, path: &std::path::Path) {
 }
 
 async fn snapshot_render(
-    mut scene: rs_namin::scene::Scene,
-    timeline: rs_namin::animation::timeline::Timeline,
-    initial_camera: rs_namin::camera::Camera,
-    times: Vec<f32>,
+    build_fn: fn() -> (
+        rs_namin::scene::Scene,
+        rs_namin::animation::timeline::Timeline,
+        rs_namin::camera::Camera,
+    ),
+    requested_times: Vec<f32>,
     width: u32,
     height: u32,
     output: PathBuf,
 ) {
+    // Build the scene inside the GL context so texture creation works.
+    let (mut scene, timeline, initial_camera) = build_fn();
+
+    let duration = timeline.duration();
+    let times: Vec<f32> = requested_times
+        .iter()
+        .map(|t| t.clamp(0.0, duration))
+        .collect();
+
     let rt = render_target_ex(
         width,
         height,

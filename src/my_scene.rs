@@ -4,8 +4,8 @@ use crate::animation::easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::scene::Scene;
-use crate::scene::l_system::LineSegment;
-use crate::scene::objects::{Sprite, Turtle};
+use crate::scene::l_system::{apply_rules, get_lines, koch};
+use crate::scene::objects::{LSystem, Sprite, Turtle};
 use crate::scene::value::AnimValue;
 use crate::scene_builder::SceneBuilder;
 
@@ -18,38 +18,42 @@ pub fn build() -> (Scene, Timeline, Camera) {
         None,
     );
     texture.set_filter(FilterMode::Nearest);
-    let sprite = Sprite::new(texture, vec3(0.0, 0.5, 0.0), Some(vec2(1.0, 1.0)), WHITE);
-    let path = vec![
-        LineSegment {
-            start: vec2(0.0, 0.0),
-            end: vec2(10.0, 0.0),
-        },
-        LineSegment {
-            start: vec2(10.0, 0.0),
-            end: vec2(10.0, 10.0),
-        },
-    ];
-    let turtle = Turtle::new(sprite, path.clone());
+    let mut sprite = Sprite::new(texture, vec3(0.0, 0.0, 0.0), Some(vec2(1.0, 1.0)), WHITE);
+    sprite.center = vec2(0.0, -0.5);
+
+    let (config, theta) = koch();
+    let iterations = 3;
+    let s = apply_rules(&config, iterations);
+    let lines = get_lines(&s, theta, 1.0);
+
+    let mut l_system = LSystem::new(config, theta, BLUE)
+        .with_colors(vec![RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE]);
+    l_system.iterations = iterations as f32;
+    l_system.scale = 1.0;
+
+    let turtle = Turtle::new(sprite, lines.clone());
+
+    let l_system_ref = sb.add(l_system);
     let turtle_ref = sb.add(turtle);
 
-    let total_seconds = 6.0;
+    let total_seconds = 1.0 * lines.len() as f32;
 
     // ── Camera ────────────────────────────────────────────────────────
     sb.camera(Camera::new(vec3(0.0, 0.0, 10.0), vec3(0.0, 0.0, 0.0)));
 
     // ── Animations ────────────────────────────────────────────────────
     sb.animate_camera("position", |mut tb| {
-        let seconds_per_segment = total_seconds / path.len() as f32;
+        let seconds_per_segment = total_seconds / lines.len() as f32;
 
         tb = tb.keyframe_with_easing(
             0.0,
-            AnimValue::Vec3(vec3(path[0].start.x, path[0].start.y, 10.0)),
+            AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 6.0)),
             easing::sine_in_out,
         );
-        for (i, seg) in path.iter().enumerate() {
+        for (i, seg) in lines.iter().enumerate() {
             tb = tb.keyframe_with_easing(
                 (i + 1) as f32 * seconds_per_segment,
-                AnimValue::Vec3(vec3(seg.end.x, seg.end.y, 10.0)),
+                AnimValue::Vec3(vec3(seg.end.x, seg.end.y, 6.0)),
                 easing::sine_in_out,
             );
         }
@@ -57,14 +61,14 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
 
     sb.animate_camera("target", |mut tb| {
-        let seconds_per_segment = total_seconds / path.len() as f32;
+        let seconds_per_segment = total_seconds / lines.len() as f32;
 
         tb = tb.keyframe_with_easing(
             0.0,
-            AnimValue::Vec3(vec3(path[0].start.x, path[0].start.y, 0.0)),
+            AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 0.0)),
             easing::sine_in_out,
         );
-        for (i, seg) in path.iter().enumerate() {
+        for (i, seg) in lines.iter().enumerate() {
             tb = tb.keyframe_with_easing(
                 (i + 1) as f32 * seconds_per_segment,
                 AnimValue::Vec3(vec3(seg.end.x, seg.end.y, 0.0)),
@@ -74,10 +78,32 @@ pub fn build() -> (Scene, Timeline, Camera) {
         tb
     });
 
-    sb.animate(&turtle_ref, "progress", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out)
-            .keyframe_with_easing(3.0, AnimValue::Float(0.5), easing::sine_in_out)
-            .keyframe(6.0, AnimValue::Float(1.0))
+    sb.animate(&turtle_ref, "progress", |mut tb| {
+        let seconds_per_segment = total_seconds / lines.len() as f32;
+
+        tb = tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out);
+        for i in 0..lines.len() {
+            tb = tb.keyframe_with_easing(
+                (i + 1) as f32 * seconds_per_segment,
+                AnimValue::Float((i + 1) as f32 / lines.len() as f32),
+                easing::sine_in_out,
+            )
+        }
+        tb
+    });
+
+    sb.animate(&l_system_ref, "progress", |mut tb| {
+        let seconds_per_segment = total_seconds / lines.len() as f32;
+
+        tb = tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out);
+        for i in 0..lines.len() {
+            tb = tb.keyframe_with_easing(
+                (i + 1) as f32 * seconds_per_segment,
+                AnimValue::Float((i + 1) as f32 / lines.len() as f32),
+                easing::sine_in_out,
+            )
+        }
+        tb
     });
 
     sb.build()

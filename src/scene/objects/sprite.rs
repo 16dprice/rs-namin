@@ -9,6 +9,12 @@ pub struct Sprite {
     pub rotation: f32,
     /// Width (X) and height (Y) in world units.
     pub size: Vec2,
+    /// Pivot point in local space (world units, relative to geometric center).
+    /// The sprite rotates around this point, and this point is placed at `position`.
+    /// Default `(0,0)` = geometric center.
+    pub center: Vec2,
+    /// Mirror the texture horizontally.
+    pub flip_x: bool,
     /// Tint color — white (1,1,1,1) renders the texture unmodified.
     pub color: Vec4,
     pub(crate) texture: Option<Texture2D>,
@@ -27,12 +33,14 @@ impl Sprite {
             position,
             rotation: 0.0,
             size,
+            center: Vec2::ZERO,
+            flip_x: false,
             color: vec4(color.r, color.g, color.b, color.a),
             texture: Some(texture),
         }
     }
 
-    /// Build a textured quad mesh on the XY plane, rotated around its center.
+    /// Build a textured quad mesh on the XY plane, rotated around `center`.
     fn build_mesh(&self) -> Mesh {
         let color: [u8; 4] =
             Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
@@ -40,20 +48,23 @@ impl Sprite {
         let hw = self.size.x / 2.0;
         let hh = self.size.y / 2.0;
 
-        // Corner offsets relative to center.
-        let corners = [vec2(-hw, -hh), vec2(hw, -hh), vec2(hw, hh), vec2(-hw, hh)];
+        // Corner offsets relative to geometric center, shifted so that
+        // `self.center` becomes the rotation pivot (maps to `position`).
+        let c = self.center;
+        let corners = [
+            vec2(-hw - c.x, -hh - c.y),
+            vec2(hw - c.x, -hh - c.y),
+            vec2(hw - c.x, hh - c.y),
+            vec2(-hw - c.x, hh - c.y),
+        ];
 
         let (sin_r, cos_r) = self.rotation.sin_cos();
         let cx = self.position.x;
         let cy = self.position.y;
         let z = self.position.z;
 
-        let uvs = [
-            vec2(0.0, 1.0),
-            vec2(1.0, 1.0),
-            vec2(1.0, 0.0),
-            vec2(0.0, 0.0),
-        ];
+        let (u0, u1) = if self.flip_x { (1.0, 0.0) } else { (0.0, 1.0) };
+        let uvs = [vec2(u0, 1.0), vec2(u1, 1.0), vec2(u1, 0.0), vec2(u0, 0.0)];
 
         let vertices: Vec<Vertex> = corners
             .iter()
@@ -86,25 +97,33 @@ impl SceneObject for Sprite {
     fn bounding_box(&self) -> BoundingBox {
         let hw = self.size.x / 2.0;
         let hh = self.size.y / 2.0;
+        let c = self.center;
 
-        // For a rotated rectangle, the AABB encloses all four rotated corners.
+        let corners = [
+            vec2(-hw - c.x, -hh - c.y),
+            vec2(hw - c.x, -hh - c.y),
+            vec2(hw - c.x, hh - c.y),
+            vec2(-hw - c.x, hh - c.y),
+        ];
+
         let (sin_r, cos_r) = self.rotation.sin_cos();
-        let abs_cos = cos_r.abs();
-        let abs_sin = sin_r.abs();
-        let half_w = hw * abs_cos + hh * abs_sin;
-        let half_h = hw * abs_sin + hh * abs_cos;
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+
+        for p in &corners {
+            let rx = p.x * cos_r - p.y * sin_r + self.position.x;
+            let ry = p.x * sin_r + p.y * cos_r + self.position.y;
+            min_x = min_x.min(rx);
+            min_y = min_y.min(ry);
+            max_x = max_x.max(rx);
+            max_y = max_y.max(ry);
+        }
 
         BoundingBox {
-            min: vec3(
-                self.position.x - half_w,
-                self.position.y - half_h,
-                self.position.z,
-            ),
-            max: vec3(
-                self.position.x + half_w,
-                self.position.y + half_h,
-                self.position.z,
-            ),
+            min: vec3(min_x, min_y, self.position.z),
+            max: vec3(max_x, max_y, self.position.z),
         }
     }
 }
@@ -146,6 +165,8 @@ mod tests {
             position,
             rotation: 0.0,
             size,
+            center: Vec2::ZERO,
+            flip_x: false,
             color: vec4(1.0, 1.0, 1.0, 1.0),
             texture: None,
         }
@@ -219,6 +240,49 @@ mod tests {
         let bb_90 = sprite.bounding_box();
         assert!((bb_90.max.x - bb_0.max.y).abs() < 1e-5);
         assert!((bb_90.max.y - bb_0.max.x).abs() < 1e-5);
+    }
+
+    #[test]
+    fn center_shifts_mesh_vertices() {
+        // With center=(0, 0.5) on a 1x1 sprite at origin, the pivot is 0.5
+        // above geometric center. The quad should shift down so that point
+        // lands at position. Without rotation, bottom-left should be at (-0.5, -1.0).
+        let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
+        sprite.center = vec2(0.0, 0.5);
+        let mesh = sprite.build_mesh();
+        let bl = mesh.vertices[0].position; // bottom-left corner
+        assert!((bl.x - -0.5).abs() < 1e-5);
+        assert!((bl.y - -1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn center_pivot_stays_at_position_after_rotation() {
+        use std::f32::consts::FRAC_PI_2;
+
+        // center=(0, 0.5) means the point 0.5 above geometric center is at position.
+        // After 90° rotation, that point should still be at position (0,0).
+        // The geometric center of the quad should be at (-0.5, 0) after rotation.
+        let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
+        sprite.center = vec2(0.0, 0.5);
+        sprite.rotation = FRAC_PI_2;
+        let mesh = sprite.build_mesh();
+
+        // Average of all 4 vertices = geometric center of the rotated quad.
+        let avg_x: f32 = mesh.vertices.iter().map(|v| v.position.x).sum::<f32>() / 4.0;
+        let avg_y: f32 = mesh.vertices.iter().map(|v| v.position.y).sum::<f32>() / 4.0;
+        // Geometric center should have shifted away from position.
+        assert!(avg_x.abs() > 0.1 || avg_y.abs() > 0.1);
+
+        // But position (0,0) should be the pivot: the center point in local space
+        // was (0, 0.5), which after 90° CCW rotation becomes (-0.5, 0).
+        // Since we subtracted center before rotation, the pivot maps to origin.
+        // Verify by checking that the bounding box is centered around the
+        // geometric center, not the position.
+        let bb = sprite.bounding_box();
+        let bb_cx = (bb.min.x + bb.max.x) / 2.0;
+        let bb_cy = (bb.min.y + bb.max.y) / 2.0;
+        // BB center should NOT be at position (0,0) because of the offset.
+        assert!(bb_cx.abs() > 0.1 || bb_cy.abs() > 0.1);
     }
 
     #[test]

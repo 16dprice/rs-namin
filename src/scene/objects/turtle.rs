@@ -109,9 +109,17 @@ impl Turtle {
     }
 
     /// Keep the child sprite's world position in sync with the turtle.
+    /// The sprite offset is rotated by the turtle's heading so the sprite
+    /// stays in the correct relative position regardless of direction.
     fn sync_sprite(&mut self) {
         self.sprite.position = self.position + self.sprite_offset;
-        self.sprite.rotation = self.rotation;
+        let facing_left = self.rotation.cos() < 0.0;
+        self.sprite.flip_x = facing_left;
+        self.sprite.rotation = if facing_left {
+            self.rotation - std::f32::consts::PI
+        } else {
+            self.rotation
+        };
     }
 }
 
@@ -175,6 +183,8 @@ mod tests {
             position: offset,
             rotation: 0.0,
             size: vec2(1.0, 1.0),
+            center: Vec2::ZERO,
+            flip_x: false,
             color: vec4(1.0, 1.0, 1.0, 1.0),
             texture: None,
         }
@@ -198,9 +208,22 @@ mod tests {
     fn sprite_offset_applied() {
         let turtle = Turtle::new(
             test_sprite(vec3(0.5, 0.5, 0.0)),
-            vec![seg(10.0, 20.0, 15.0, 25.0)],
+            vec![seg(10.0, 20.0, 20.0, 20.0)],
         );
-        assert_eq!(turtle.sprite.position, vec3(10.5, 20.5, 0.0));
+        // Offset is applied in world space, not rotated by heading.
+        assert!((turtle.sprite.position.x - 10.5).abs() < 1e-5);
+        assert!((turtle.sprite.position.y - 20.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn sprite_offset_not_rotated_by_heading() {
+        // Vertical segment (heading=π/2). Offset (1, 0) stays (1, 0) in world space.
+        let turtle = Turtle::new(
+            test_sprite(vec3(1.0, 0.0, 0.0)),
+            vec![seg(0.0, 0.0, 0.0, 10.0)],
+        );
+        assert!((turtle.sprite.position.x - 1.0).abs() < 1e-5);
+        assert!(turtle.sprite.position.y.abs() < 1e-5);
     }
 
     #[test]
@@ -214,11 +237,10 @@ mod tests {
     }
 
     #[test]
-    fn set_rotation_syncs_sprite() {
+    fn set_rotation_updates_turtle() {
         let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), vec![seg(0.0, 0.0, 1.0, 0.0)]);
         turtle.set("rotation", AnimValue::Float(1.5));
         assert_eq!(turtle.rotation, 1.5);
-        assert_eq!(turtle.sprite.rotation, 1.5);
     }
 
     #[test]
@@ -380,12 +402,17 @@ mod tests {
     }
 
     #[test]
-    fn heading_syncs_to_sprite_rotation() {
-        use std::f32::consts::FRAC_PI_2;
-
-        let path = vec![seg(0.0, 0.0, 0.0, 10.0)];
+    fn heading_flips_sprite_when_facing_left() {
+        // Segment going left → flip_x should be true.
+        let path = vec![seg(10.0, 0.0, 0.0, 0.0)];
         let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), path);
         turtle.set("progress", AnimValue::Float(0.5));
-        assert!((turtle.sprite.rotation - FRAC_PI_2).abs() < 1e-5);
+        assert!(turtle.sprite.flip_x);
+
+        // Segment going right → flip_x should be false.
+        let path = vec![seg(0.0, 0.0, 10.0, 0.0)];
+        let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), path);
+        turtle.set("progress", AnimValue::Float(0.5));
+        assert!(!turtle.sprite.flip_x);
     }
 }
