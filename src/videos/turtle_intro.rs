@@ -14,7 +14,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut sb = SceneBuilder::new();
 
     let texture = Texture2D::from_file_with_format(
-        include_bytes!("../assets/aseprite-files/tutle.png"),
+        include_bytes!("../../assets/aseprite-files/tutle.png"),
         None,
     );
     texture.set_filter(FilterMode::Nearest);

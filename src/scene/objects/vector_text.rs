@@ -11,6 +11,7 @@ use macroquad::prelude::*;
 
 use crate::scene::bezier::{BezierContour, GlyphOutline};
 use crate::scene::font;
+use crate::scene::latex;
 use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
 use crate::scene::value::AnimValue;
 
@@ -68,7 +69,16 @@ impl VectorText {
         }
     }
 
-    /// Create from pre-built glyph outlines (pipeline-agnostic, for future LaTeX).
+    /// Create from a LaTeX expression. Shells out to `latex` + `dvisvgm`.
+    ///
+    /// Panics if compilation fails (e.g. missing `latex`/`dvisvgm` or invalid LaTeX).
+    pub fn from_latex(latex: &str, color: Color) -> Self {
+        let glyphs = latex::latex_to_glyphs(latex)
+            .unwrap_or_else(|e| panic!("LaTeX compilation failed: {e}"));
+        Self::from_glyphs(glyphs, color)
+    }
+
+    /// Create from pre-built glyph outlines (pipeline-agnostic).
     pub fn from_glyphs(glyphs: Vec<GlyphOutline>, color: Color) -> Self {
         Self {
             glyphs,

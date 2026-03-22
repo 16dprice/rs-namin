@@ -1,6 +1,7 @@
 pub mod bezier;
 pub mod font;
 pub mod l_system;
+pub mod latex;
 pub mod objects;
 pub mod traits;
 pub mod value;

@@ -303,12 +303,30 @@ fn build_ffmpeg_args(config: &ExportConfig, output_path: &str) -> Vec<String> {
 }
 
 fn main() {
-    // Prompt for video selection first, then build scene to get duration.
+    // Prompt for video selection before creating the window.
     let video = match prompt_video() {
         Some(v) => v,
         None => return,
     };
 
+    // Create window first so the GL context is available for scene building
+    // (some scenes load textures which require it).
+    let conf = Conf {
+        window_title: "rs-namin export".to_owned(),
+        window_width: 1280,
+        window_height: 720,
+        platform: miniquad::conf::Platform {
+            swap_interval: Some(0),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    macroquad::Window::from_config(conf, export_main(video));
+}
+
+async fn export_main(video: Video) {
+    // Build scene inside async context where GL is available.
     let (scene, timeline, camera) = (video.build)();
     let duration = timeline.duration();
 
@@ -318,7 +336,6 @@ fn main() {
     };
 
     let fps = config.fps;
-    let (width, height) = (config.resolution.width, config.resolution.height);
 
     let start_frame = (config.start_time * fps as f32).floor() as u32;
     let end_time = config.end_time.min(duration);
@@ -330,29 +347,16 @@ fn main() {
         return;
     }
 
-    let conf = Conf {
-        window_title: "rs-namin export".to_owned(),
-        window_width: width.min(1280) as i32,
-        window_height: height.min(720) as i32,
-        platform: miniquad::conf::Platform {
-            swap_interval: Some(0),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
-    macroquad::Window::from_config(
-        conf,
-        export_render(
-            scene,
-            timeline,
-            camera,
-            config,
-            start_frame,
-            end_frame,
-            total_frames,
-        ),
-    );
+    export_render(
+        scene,
+        timeline,
+        camera,
+        config,
+        start_frame,
+        end_frame,
+        total_frames,
+    )
+    .await;
 }
 
 #[cfg(test)]

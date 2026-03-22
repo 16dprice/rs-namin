@@ -18,7 +18,9 @@
       "Bash(wc:*)",
       "Bash(./scripts/validate.sh)",
       "WebSearch",
-      "Bash(cargo test:*)"
+      "Bash(cargo test:*)",
+      "Read(//tmp/**)",
+      "Bash(dvisvgm --no-fonts --exact test_latex.dvi -o test_latex.svg)"
     ]
   }
 }

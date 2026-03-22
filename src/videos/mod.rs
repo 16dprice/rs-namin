@@ -1,6 +1,7 @@
 pub mod basic_l_system;
 pub mod bouncing_ball;
 pub mod torus_knot;
+pub mod turtle_intro;
 
 use std::fmt;
 
@@ -41,6 +42,12 @@ pub const VIDEOS: &[Video] = &[
         name: "basic_l_system",
         description: "A basic l system that animates theta and progress changing",
         build: basic_l_system::build,
+        audio: None,
+    },
+    Video {
+        name: "turtle_intro",
+        description: "An intro to drawing with turtle graphics and the L-System rules",
+        build: turtle_intro::build,
         audio: None,
     },
 ];
