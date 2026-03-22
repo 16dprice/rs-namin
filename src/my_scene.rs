@@ -3,9 +3,7 @@ use macroquad::prelude::*;
 use crate::animation::easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
-use crate::scene::l_system::{
-    apply_rules, binary_tree, dragon_curve, fractal_plant, get_lines, my3,
-};
+use crate::scene::l_system::{apply_rules, dragon_curve, get_lines};
 use crate::scene::objects::{LSystem, Sprite, Turtle, VectorText};
 use crate::scene::value::AnimValue;
 use crate::scene::{Scene, font};
