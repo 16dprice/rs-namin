@@ -55,3 +55,18 @@ Notable: preset table has default theta values for all presets — verify any ne
 
 - No doc covering `AnimValue` variants (Float, Vec2, Vec3, Vec4, Bool, Transform2D, Mat4) and when to use each. Currently scattered in scene_and_properties.md and testing.md.
 - No doc for `src/videos/` structure vs `src/examples/` — only mentioned briefly in module_layout.md.
+
+## High-Risk Pattern: "Future Work" Sections
+
+**`docs/vector_text.md`** had a "Future work" section listing LaTeX as not-yet-implemented. When the feature shipped, the section became actively misleading. Future audits should treat any "Future work" or "Out of scope" language as a red flag to verify against the actual codebase.
+
+Fix pattern: replace speculative sections with concrete gotcha notes documenting what was hard-won during implementation (e.g., dvisvgm's compact path format, SVG Y-flip, coordinate normalization).
+
+## LaTeX Pipeline Gotchas (added 2026-03-21)
+
+The implementation in `src/scene/latex.rs` has several non-obvious behaviors worth knowing for future work:
+- dvisvgm compact path format uses negative signs/decimal points as implicit separators — requires a custom tokenizer
+- `<use>` elements reference `<path>` defs in `<defs>`; `<rect>` elements represent rules (fraction bars, etc.)
+- Coordinates normalized by `PT_PER_EM = 10.0` (TeX default 10pt font) so 1 em ≈ 1 world unit
+- `advance_x` is always 0.0 for LaTeX glyphs — layout from SVG positions, not character metrics
+- Export binary: scene building happens inside `async export_main()` so GL context is available (Texture2D loading requires it)
