@@ -1,5 +1,6 @@
 pub mod bouncing_ball;
 pub mod l_system;
+pub mod sequential_api;
 pub mod spiral;
 pub mod torus;
 pub mod tube;
@@ -27,6 +28,11 @@ pub const EXAMPLES: &[Example] = &[
         name: "l_system",
         description: "Dragon curve L-system with animated iterations and write-on",
         build: l_system::build,
+    },
+    Example {
+        name: "sequential_api",
+        description: "Demonstrates animate_seq, animate_for, parallel, wait, and mixing with absolute-time animate",
+        build: sequential_api::build,
     },
     Example {
         name: "spiral",
