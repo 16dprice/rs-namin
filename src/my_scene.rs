@@ -71,7 +71,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let theta_text_ref = sb.add(theta_text);
 
     let total_seconds_l_system_drawing_seconds = 1.0 * lines.len() as f32;
-    let camera_start_zoom_out_time = 40.0; // after 30 seconds, stop following turtle and zoom out to the right
+    let camera_start_zoom_out_time = 30.0; // after 30 seconds, stop following turtle and zoom out to the right
     let camera_finish_zoom_out_time = camera_start_zoom_out_time + 5.0;
 
     let alphabet_text_start_time = camera_finish_zoom_out_time - 1.0;
@@ -82,6 +82,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let production_rules_text_end_time = production_rules_text_start_time + 4.0;
     let theta_text_start_time = production_rules_text_start_time + 1.0;
     let theta_text_end_time = theta_text_start_time + 3.0;
+
+    let alphabet_text_scale_start_time = theta_text_end_time + 4.0;
+    let axiom_text_scale_start_time = theta_text_end_time + 9.0;
+    let production_rules_text_scale_start_time = theta_text_end_time + 14.0;
+    let theta_text_scale_start_time = theta_text_end_time + 19.0;
 
     let camera_position_final_z = 24.0;
 
@@ -200,16 +205,16 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
     sb.animate(&alphabet_text_ref, "scale", |tb| {
         tb.keyframe_with_easing(
-            theta_text_end_time + 10.0,
+            alphabet_text_scale_start_time,
             AnimValue::Float(1.4),
             easing::sine_out,
         )
         .keyframe_with_easing(
-            theta_text_end_time + 11.0,
+            alphabet_text_scale_start_time + 1.0,
             AnimValue::Float(1.55),
             easing::sine_in,
         )
-        .keyframe(theta_text_end_time + 12.0, AnimValue::Float(1.4))
+        .keyframe(alphabet_text_scale_start_time + 2.0, AnimValue::Float(1.4))
     });
 
     sb.animate(&axiom_text_ref, "progress", |tb| {
@@ -222,16 +227,16 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
     sb.animate(&axiom_text_ref, "scale", |tb| {
         tb.keyframe_with_easing(
-            theta_text_end_time + 14.0,
+            axiom_text_scale_start_time,
             AnimValue::Float(1.4),
             easing::sine_out,
         )
         .keyframe_with_easing(
-            theta_text_end_time + 15.0,
+            axiom_text_scale_start_time + 1.0,
             AnimValue::Float(1.6),
             easing::sine_in,
         )
-        .keyframe(theta_text_end_time + 16.0, AnimValue::Float(1.4))
+        .keyframe(axiom_text_scale_start_time + 2.0, AnimValue::Float(1.4))
     });
 
     sb.animate(&production_rules_text_ref, "progress", |tb| {
@@ -244,16 +249,19 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
     sb.animate(&production_rules_text_ref, "scale", |tb| {
         tb.keyframe_with_easing(
-            theta_text_end_time + 18.0,
+            production_rules_text_scale_start_time,
             AnimValue::Float(1.4),
             easing::sine_out,
         )
         .keyframe_with_easing(
-            theta_text_end_time + 19.0,
+            production_rules_text_scale_start_time + 1.0,
             AnimValue::Float(1.5),
             easing::sine_in,
         )
-        .keyframe(theta_text_end_time + 20.0, AnimValue::Float(1.4))
+        .keyframe(
+            production_rules_text_scale_start_time + 2.0,
+            AnimValue::Float(1.4),
+        )
     });
 
     sb.animate(&theta_text_ref, "progress", |tb| {
@@ -266,16 +274,16 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
     sb.animate(&theta_text_ref, "scale", |tb| {
         tb.keyframe_with_easing(
-            theta_text_end_time + 22.0,
+            theta_text_scale_start_time,
             AnimValue::Float(1.4),
             easing::sine_out,
         )
         .keyframe_with_easing(
-            theta_text_end_time + 23.0,
+            theta_text_scale_start_time + 1.0,
             AnimValue::Float(1.6),
             easing::sine_in,
         )
-        .keyframe(theta_text_end_time + 24.0, AnimValue::Float(1.4))
+        .keyframe(theta_text_scale_start_time + 2.0, AnimValue::Float(1.4))
     });
 
     sb.build()
