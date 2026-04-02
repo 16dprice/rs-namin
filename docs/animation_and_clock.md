@@ -1,6 +1,33 @@
 # Animation Engine & Clock
 
-See `src/animation/` and `src/clock.rs` for implementations.
+See `src/animation/` and `src/clock.rs` for implementations. Scene authoring via `SceneBuilder` lives in `src/scene_builder.rs`.
+
+## Sequential and Parallel Animation Authoring
+
+`SceneBuilder` has two authoring modes that can be freely mixed:
+
+**Absolute-time mode** (`animate`, `animate_camera`, `keyframe`, `keyframe_with_easing`): keyframe times are literal absolute seconds. The cursor is not touched. Use this when you have a fixed known time (e.g., a camera zoom-out at t=35.0).
+
+**Cursor mode** (`animate_seq`, `animate_camera_seq`, `animate_for`, `wait`, `set_cursor`, `parallel`): keyframe times are relative to the cursor. Each seq call advances the cursor by the animation's duration. Use this to chain animations end-to-end without manually tracking absolute times.
+
+### Key gotchas
+
+**`animate_for` requires a prior keyframe.** It sets the easing on the *previous* keyframe and adds a new one. Calling it on an empty `TrackBuilder` panics. Always start with `keyframe(0.0, ...)` before chaining `animate_for` calls:
+```ignore
+tb.keyframe(0.0, AnimValue::Float(1.0))
+  .animate_for(1.0, AnimValue::Float(5.0), easing::sine_out)   // ok
+  .animate_for(1.0, AnimValue::Float(1.0), easing::sine_in)    // ok
+```
+
+**`parallel` advances by the longest, not the sum.** The cursor ends at `start + max(durations)`. Animations inside a `parallel` block all start from the same cursor position. Each one's relative keyframe t=0 maps to that same absolute start time.
+
+**`animate_seq` cursor advance is driven by max keyframe time in the closure.** The cursor advances by however large the largest keyframe time is inside the closure — not by a separate duration argument. If your closure goes up to t=3.0, the cursor advances 3.0 seconds.
+
+**Mixing modes is intentional.** You can use `animate` (absolute) alongside `animate_seq` (cursor-relative) in the same builder. The cursor only moves when seq methods are called. A typical pattern: use `parallel` for the main drawing phase (fixed duration known from data), then `set_cursor` + `animate_seq` for a text reveal sequence with staggered offsets.
+
+### `wait` vs `set_cursor`
+
+`wait(duration)` advances the cursor by `duration` — useful for inserting pauses between sequential animations. `set_cursor(time)` jumps to an absolute time — useful when you want to start a sequence at a specific moment regardless of cursor state (e.g., `set_cursor(text_sequence_start + 1.0)` to stagger text reveals by offset from a known anchor).
 
 ## Easing Functions
 

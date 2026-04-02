@@ -21,7 +21,7 @@ Fix: cross-check against `src/scene/objects/mod.rs` pub use list and `src/bin/` 
 
 **`docs/camera_and_rendering.md`** — Covers gotchas (macroquad spelling, FOV radians, depth buffer). Stable because these are macroquad quirks unlikely to change.
 
-**`docs/animation_and_clock.md`** — Covers easing count and per-segment easing gotcha. Stable.
+**`docs/animation_and_clock.md`** — Covers easing count, per-segment easing gotcha, and the sequential/parallel SceneBuilder API. The SceneBuilder section is medium-risk: go stale if method names change (`animate_seq`, `animate_for`, `parallel`, `wait`, `set_cursor`) or if the `animate_for` "requires prior keyframe" constraint is relaxed. Check `src/scene_builder.rs` `TrackBuilder::animate_for` assert on schema change.
 
 **`docs/scene_and_properties.md`** — Covers flat mesh approach and draw call limits. Stable.
 
