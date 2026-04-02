@@ -71,219 +71,170 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let theta_text_ref = sb.add(theta_text);
 
     let total_seconds_l_system_drawing_seconds = 1.0 * lines.len() as f32;
-    let camera_start_zoom_out_time = 30.0; // after 30 seconds, stop following turtle and zoom out to the right
+    let camera_start_zoom_out_time = 30.0;
     let camera_finish_zoom_out_time = camera_start_zoom_out_time + 5.0;
-
-    let alphabet_text_start_time = camera_finish_zoom_out_time - 1.0;
-    let alphabet_text_end_time = alphabet_text_start_time + 3.0;
-    let axiom_text_start_time = alphabet_text_start_time + 1.0;
-    let axiom_text_end_time = axiom_text_start_time + 3.0;
-    let production_rules_text_start_time = axiom_text_start_time + 1.0;
-    let production_rules_text_end_time = production_rules_text_start_time + 4.0;
-    let theta_text_start_time = production_rules_text_start_time + 1.0;
-    let theta_text_end_time = theta_text_start_time + 3.0;
-
-    let alphabet_text_scale_start_time = theta_text_end_time + 4.0;
-    let axiom_text_scale_start_time = theta_text_end_time + 9.0;
-    let production_rules_text_scale_start_time = theta_text_end_time + 14.0;
-    let theta_text_scale_start_time = theta_text_end_time + 19.0;
-
     let camera_position_final_z = 24.0;
 
     // ── Camera ────────────────────────────────────────────────────────
     sb.camera(Camera::new(vec3(0.0, 0.0, 10.0), vec3(0.0, 0.0, 0.0)));
 
-    // ── Animations ────────────────────────────────────────────────────
-    sb.animate_camera("position", |mut tb| {
-        let seconds_per_segment = total_seconds_l_system_drawing_seconds / lines.len() as f32;
+    // ── Drawing phase: camera, turtle, and l-system all animate from t=0 ──
+    let seconds_per_segment = total_seconds_l_system_drawing_seconds / lines.len() as f32;
 
-        tb = tb.keyframe_with_easing(
-            0.0,
-            AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 6.0)),
-            easing::sine_in_out,
-        );
+    sb.parallel(|p| {
+        p.animate_camera("position", |mut tb| {
+            tb = tb.keyframe(
+                0.0,
+                AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 6.0)),
+            );
 
-        for (i, seg) in lines.iter().enumerate() {
-            let time = (i + 1) as f32 * seconds_per_segment;
-
-            if time > camera_start_zoom_out_time {
-                break;
+            for (i, seg) in lines.iter().enumerate() {
+                let time = (i + 1) as f32 * seconds_per_segment;
+                if time > camera_start_zoom_out_time {
+                    break;
+                }
+                tb = tb.animate_for(
+                    seconds_per_segment,
+                    AnimValue::Vec3(vec3(
+                        seg.end.x,
+                        seg.end.y,
+                        (camera_position_final_z - 6.0) * ((i + 1) as f32 / lines.len() as f32)
+                            + 6.0,
+                    )),
+                    easing::sine_in_out,
+                );
             }
 
-            tb = tb.keyframe_with_easing(
-                (i + 1) as f32 * seconds_per_segment,
-                AnimValue::Vec3(vec3(
-                    seg.end.x,
-                    seg.end.y,
-                    (camera_position_final_z - 6.0) * ((i + 1) as f32 / lines.len() as f32) + 6.0,
-                )),
+            tb.keyframe_with_easing(
+                camera_finish_zoom_out_time,
+                AnimValue::Vec3(vec3(15.0, 2.0, camera_position_final_z)),
                 easing::sine_in_out,
+            )
+        });
+
+        p.animate_camera("target", |mut tb| {
+            tb = tb.keyframe(
+                0.0,
+                AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 0.0)),
             );
-        }
 
-        tb = tb.keyframe_with_easing(
-            camera_finish_zoom_out_time,
-            AnimValue::Vec3(vec3(15.0, 2.0, camera_position_final_z)),
-            easing::sine_in_out,
-        );
-
-        tb
-    });
-
-    sb.animate_camera("target", |mut tb| {
-        let seconds_per_segment = total_seconds_l_system_drawing_seconds / lines.len() as f32;
-
-        tb = tb.keyframe_with_easing(
-            0.0,
-            AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 0.0)),
-            easing::sine_in_out,
-        );
-
-        for (i, seg) in lines.iter().enumerate() {
-            let time = (i + 1) as f32 * seconds_per_segment;
-
-            if time > camera_start_zoom_out_time {
-                break;
+            for (i, seg) in lines.iter().enumerate() {
+                let time = (i + 1) as f32 * seconds_per_segment;
+                if time > camera_start_zoom_out_time {
+                    break;
+                }
+                tb = tb.animate_for(
+                    seconds_per_segment,
+                    AnimValue::Vec3(vec3(seg.end.x, seg.end.y, 0.0)),
+                    easing::sine_in_out,
+                );
             }
 
-            tb = tb.keyframe_with_easing(
-                (i + 1) as f32 * seconds_per_segment,
-                AnimValue::Vec3(vec3(seg.end.x, seg.end.y, 0.0)),
-                easing::sine_in_out,
-            );
-        }
-
-        tb = tb.keyframe_with_easing(
-            camera_finish_zoom_out_time,
-            AnimValue::Vec3(vec3(15.0, 2.0, 0.0)),
-            easing::sine_in_out,
-        );
-
-        tb
-    });
-
-    sb.animate(&turtle_ref, "progress", |mut tb| {
-        let seconds_per_segment = total_seconds_l_system_drawing_seconds / lines.len() as f32;
-
-        tb = tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out);
-        for i in 0..lines.len() {
-            tb = tb.keyframe_with_easing(
-                (i + 1) as f32 * seconds_per_segment,
-                AnimValue::Float((i + 1) as f32 / lines.len() as f32),
+            tb.keyframe_with_easing(
+                camera_finish_zoom_out_time,
+                AnimValue::Vec3(vec3(15.0, 2.0, 0.0)),
                 easing::sine_in_out,
             )
-        }
-        tb
+        });
+
+        p.animate(&turtle_ref, "progress", |mut tb| {
+            tb = tb.keyframe(0.0, AnimValue::Float(0.0));
+            for i in 0..lines.len() {
+                tb = tb.animate_for(
+                    seconds_per_segment,
+                    AnimValue::Float((i + 1) as f32 / lines.len() as f32),
+                    easing::sine_in_out,
+                )
+            }
+            tb
+        });
+
+        p.animate(&l_system_ref, "progress", |mut tb| {
+            tb = tb.keyframe(0.0, AnimValue::Float(0.0));
+            for i in 0..lines.len() {
+                tb = tb.animate_for(
+                    seconds_per_segment,
+                    AnimValue::Float((i + 1) as f32 / lines.len() as f32),
+                    easing::sine_in_out,
+                )
+            }
+            tb
+        });
+
+        p.animate(&l_system_ref, "line_width", |tb| {
+            tb.keyframe(0.0, AnimValue::Float(0.02))
+                .keyframe(camera_finish_zoom_out_time, AnimValue::Float(0.15))
+        });
     });
 
-    sb.animate(&l_system_ref, "progress", |mut tb| {
-        let seconds_per_segment = total_seconds_l_system_drawing_seconds / lines.len() as f32;
+    // ── Text reveal phase: staggered progress animations ──────────────
+    let text_sequence_start = camera_finish_zoom_out_time - 1.0;
 
-        tb = tb.keyframe_with_easing(0.0, AnimValue::Float(0.0), easing::sine_in_out);
-        for i in 0..lines.len() {
-            tb = tb.keyframe_with_easing(
-                (i + 1) as f32 * seconds_per_segment,
-                AnimValue::Float((i + 1) as f32 / lines.len() as f32),
-                easing::sine_in_out,
-            )
-        }
-        tb
-    });
-
-    sb.animate(&l_system_ref, "line_width", |tb| {
-        tb.keyframe(0.0, AnimValue::Float(0.02))
-            .keyframe(camera_finish_zoom_out_time, AnimValue::Float(0.15))
-    });
-
-    sb.animate(&alphabet_text_ref, "progress", |tb| {
-        tb.keyframe_with_easing(
-            alphabet_text_start_time,
-            AnimValue::Float(0.0),
+    sb.set_cursor(text_sequence_start);
+    sb.animate_seq(&alphabet_text_ref, "progress", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
+            3.0,
+            AnimValue::Float(1.0),
             easing::sine_in_out,
         )
-        .keyframe(alphabet_text_end_time, AnimValue::Float(1.0))
-    });
-    sb.animate(&alphabet_text_ref, "scale", |tb| {
-        tb.keyframe_with_easing(
-            alphabet_text_scale_start_time,
-            AnimValue::Float(1.4),
-            easing::sine_out,
-        )
-        .keyframe_with_easing(
-            alphabet_text_scale_start_time + 1.0,
-            AnimValue::Float(1.55),
-            easing::sine_in,
-        )
-        .keyframe(alphabet_text_scale_start_time + 2.0, AnimValue::Float(1.4))
     });
 
-    sb.animate(&axiom_text_ref, "progress", |tb| {
-        tb.keyframe_with_easing(
-            axiom_text_start_time,
-            AnimValue::Float(0.0),
+    sb.set_cursor(text_sequence_start + 1.0);
+    sb.animate_seq(&axiom_text_ref, "progress", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
+            3.0,
+            AnimValue::Float(1.0),
             easing::sine_in_out,
-        )
-        .keyframe(axiom_text_end_time, AnimValue::Float(1.0))
-    });
-    sb.animate(&axiom_text_ref, "scale", |tb| {
-        tb.keyframe_with_easing(
-            axiom_text_scale_start_time,
-            AnimValue::Float(1.4),
-            easing::sine_out,
-        )
-        .keyframe_with_easing(
-            axiom_text_scale_start_time + 1.0,
-            AnimValue::Float(1.6),
-            easing::sine_in,
-        )
-        .keyframe(axiom_text_scale_start_time + 2.0, AnimValue::Float(1.4))
-    });
-
-    sb.animate(&production_rules_text_ref, "progress", |tb| {
-        tb.keyframe_with_easing(
-            production_rules_text_start_time,
-            AnimValue::Float(0.0),
-            easing::sine_in_out,
-        )
-        .keyframe(production_rules_text_end_time, AnimValue::Float(1.0))
-    });
-    sb.animate(&production_rules_text_ref, "scale", |tb| {
-        tb.keyframe_with_easing(
-            production_rules_text_scale_start_time,
-            AnimValue::Float(1.4),
-            easing::sine_out,
-        )
-        .keyframe_with_easing(
-            production_rules_text_scale_start_time + 1.0,
-            AnimValue::Float(1.5),
-            easing::sine_in,
-        )
-        .keyframe(
-            production_rules_text_scale_start_time + 2.0,
-            AnimValue::Float(1.4),
         )
     });
 
-    sb.animate(&theta_text_ref, "progress", |tb| {
-        tb.keyframe_with_easing(
-            theta_text_start_time,
-            AnimValue::Float(0.0),
+    sb.set_cursor(text_sequence_start + 2.0);
+    sb.animate_seq(&production_rules_text_ref, "progress", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
+            4.0,
+            AnimValue::Float(1.0),
             easing::sine_in_out,
         )
-        .keyframe(theta_text_end_time, AnimValue::Float(1.0))
     });
-    sb.animate(&theta_text_ref, "scale", |tb| {
-        tb.keyframe_with_easing(
-            theta_text_scale_start_time,
-            AnimValue::Float(1.4),
-            easing::sine_out,
+
+    sb.set_cursor(text_sequence_start + 3.0);
+    sb.animate_seq(&theta_text_ref, "progress", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
+            3.0,
+            AnimValue::Float(1.0),
+            easing::sine_in_out,
         )
-        .keyframe_with_easing(
-            theta_text_scale_start_time + 1.0,
-            AnimValue::Float(1.6),
-            easing::sine_in,
-        )
-        .keyframe(theta_text_scale_start_time + 2.0, AnimValue::Float(1.4))
+    });
+    // cursor is now at theta_text_end equivalent
+
+    // ── Scale pulse phase: sequential pulses highlighting each text ────
+    sb.wait(4.0);
+
+    sb.animate_seq(&alphabet_text_ref, "scale", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(1.4))
+            .animate_for(1.0, AnimValue::Float(1.55), easing::sine_out)
+            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+    });
+    sb.wait(3.0);
+
+    sb.animate_seq(&axiom_text_ref, "scale", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(1.4))
+            .animate_for(1.0, AnimValue::Float(1.6), easing::sine_out)
+            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+    });
+    sb.wait(3.0);
+
+    sb.animate_seq(&production_rules_text_ref, "scale", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(1.4))
+            .animate_for(1.0, AnimValue::Float(1.5), easing::sine_out)
+            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+    });
+    sb.wait(3.0);
+
+    sb.animate_seq(&theta_text_ref, "scale", |tb| {
+        tb.keyframe(0.0, AnimValue::Float(1.4))
+            .animate_for(1.0, AnimValue::Float(1.6), easing::sine_out)
+            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
     });
 
     sb.build()
