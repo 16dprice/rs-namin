@@ -1,5 +1,7 @@
 use macroquad::prelude::Vec2;
 
+use crate::scene::polyline::LineSegment;
+
 #[derive(Debug, Clone)]
 pub struct ReplacementRule {
     pub from: char,
@@ -10,12 +12,6 @@ pub struct ReplacementRule {
 pub struct LSystemConfig {
     pub axiom: String,
     pub rules: Vec<ReplacementRule>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct LineSegment {
-    pub start: Vec2,
-    pub end: Vec2,
 }
 
 /// Iteratively apply replacement rules to the axiom string.

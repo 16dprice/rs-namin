@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 use super::sprite::Sprite;
-use crate::scene::l_system::LineSegment;
+use crate::scene::polyline::LineSegment;
 use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
 use crate::scene::value::AnimValue;
 
@@ -9,11 +9,10 @@ pub struct Turtle {
     pub position: Vec3,
     pub rotation: f32,
     /// Progress along the path (0.0 to 1.0). Setting this updates `position`
-    /// by interpolating along the line segments.
+    /// by interpolating along the line segments. Progress is divided evenly
+    /// across segment count (not arc-length weighted).
     progress: f32,
     path: Vec<LineSegment>,
-    /// Cumulative length at the end of each segment, normalised to 0.0–1.0.
-    cumulative: Vec<f32>,
     sprite: Sprite,
     /// The sprite's local offset from the turtle's position.
     sprite_offset: Vec3,
@@ -24,7 +23,6 @@ impl Turtle {
 
     pub fn new(sprite: Sprite, path: Vec<LineSegment>) -> Self {
         let sprite_offset = sprite.position;
-        let cumulative = Self::build_cumulative(&path);
         let (position, rotation) = if path.is_empty() {
             (Vec3::ZERO, 0.0)
         } else {
@@ -36,31 +34,11 @@ impl Turtle {
             rotation,
             progress: 0.0,
             path,
-            cumulative,
             sprite,
             sprite_offset,
         };
         t.sync_sprite();
         t
-    }
-
-    /// Pre-compute normalised cumulative lengths for arc-length parameterisation.
-    fn build_cumulative(path: &[LineSegment]) -> Vec<f32> {
-        if path.is_empty() {
-            return Vec::new();
-        }
-        let mut cum = Vec::with_capacity(path.len());
-        let mut total = 0.0f32;
-        for seg in path {
-            total += (seg.end - seg.start).length();
-            cum.push(total);
-        }
-        if total > 0.0 {
-            for c in &mut cum {
-                *c /= total;
-            }
-        }
-        cum
     }
 
     /// Compute heading angle (radians) from a segment's direction vector.
@@ -71,41 +49,25 @@ impl Turtle {
     }
 
     /// Interpolate position and heading along the path for a given progress (0.0–1.0).
+    /// Progress is divided evenly by segment count, matching `polyline::take_progress`.
     fn pose_on_path(&self, progress: f32) -> (Vec3, f32) {
         if self.path.is_empty() {
             return (self.position, self.rotation);
         }
 
         let clamped = progress.clamp(0.0, 1.0);
+        let n = self.path.len() as f32;
+        let exact = clamped * n;
+        let seg_index = (exact.floor() as usize).min(self.path.len() - 1);
+        let frac = if seg_index >= self.path.len() - 1 && exact >= n {
+            1.0
+        } else {
+            exact - seg_index as f32
+        };
 
-        if clamped <= 0.0 {
-            let s = &self.path[0];
-            return (vec3(s.start.x, s.start.y, 0.0), Self::segment_heading(s));
-        }
-        if clamped >= 1.0 {
-            let s = self.path.last().unwrap();
-            return (vec3(s.end.x, s.end.y, 0.0), Self::segment_heading(s));
-        }
-
-        // Find which segment we're in via cumulative lengths.
-        let prev_end = |i: usize| if i == 0 { 0.0 } else { self.cumulative[i - 1] };
-
-        for (i, &cum_end) in self.cumulative.iter().enumerate() {
-            if clamped <= cum_end {
-                let cum_start = prev_end(i);
-                let seg_len = cum_end - cum_start;
-                let t = if seg_len > 0.0 {
-                    (clamped - cum_start) / seg_len
-                } else {
-                    0.0
-                };
-                let p = self.path[i].start.lerp(self.path[i].end, t);
-                return (vec3(p.x, p.y, 0.0), Self::segment_heading(&self.path[i]));
-            }
-        }
-
-        let s = self.path.last().unwrap();
-        (vec3(s.end.x, s.end.y, 0.0), Self::segment_heading(s))
+        let seg = &self.path[seg_index];
+        let p = seg.start.lerp(seg.end, frac);
+        (vec3(p.x, p.y, 0.0), Self::segment_heading(seg))
     }
 
     /// Keep the child sprite's world position in sync with the turtle.
@@ -113,13 +75,7 @@ impl Turtle {
     /// stays in the correct relative position regardless of direction.
     fn sync_sprite(&mut self) {
         self.sprite.position = self.position + self.sprite_offset;
-        let facing_left = self.rotation.cos() < 0.0;
-        self.sprite.flip_x = facing_left;
-        self.sprite.rotation = if facing_left {
-            self.rotation - std::f32::consts::PI
-        } else {
-            self.rotation
-        };
+        self.sprite.rotation = self.rotation;
     }
 }
 
@@ -283,17 +239,22 @@ mod tests {
 
     #[test]
     fn progress_multi_segment_unequal_length() {
-        // First segment length=10, second length=30. Total=40.
-        // So first segment covers 0.0–0.25 of progress, second 0.25–1.0.
+        // First segment length=10, second length=30.
+        // Progress is segment-count based, not arc-length: each segment gets
+        // an equal share of the progress range (0.0–0.5 and 0.5–1.0).
         let path = vec![seg(0.0, 0.0, 10.0, 0.0), seg(10.0, 0.0, 40.0, 0.0)];
         let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), path);
 
-        // End of first segment at progress 0.25.
+        // Halfway through first segment at progress 0.25.
         turtle.set("progress", AnimValue::Float(0.25));
+        assert!((turtle.position.x - 5.0).abs() < 1e-5);
+
+        // End of first segment at progress 0.5.
+        turtle.set("progress", AnimValue::Float(0.5));
         assert!((turtle.position.x - 10.0).abs() < 1e-5);
 
-        // Midpoint of second segment at progress 0.625.
-        turtle.set("progress", AnimValue::Float(0.625));
+        // Halfway through second segment at progress 0.75.
+        turtle.set("progress", AnimValue::Float(0.75));
         assert!((turtle.position.x - 25.0).abs() < 1e-5);
     }
 
@@ -402,15 +363,9 @@ mod tests {
     }
 
     #[test]
-    fn heading_flips_sprite_when_facing_left() {
-        // Segment going left → flip_x should be true.
+    fn sprite_not_flipped() {
+        // Facing left should not flip the sprite.
         let path = vec![seg(10.0, 0.0, 0.0, 0.0)];
-        let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), path);
-        turtle.set("progress", AnimValue::Float(0.5));
-        assert!(turtle.sprite.flip_x);
-
-        // Segment going right → flip_x should be false.
-        let path = vec![seg(0.0, 0.0, 10.0, 0.0)];
         let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), path);
         turtle.set("progress", AnimValue::Float(0.5));
         assert!(!turtle.sprite.flip_x);

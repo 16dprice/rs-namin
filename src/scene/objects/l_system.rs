@@ -1,12 +1,11 @@
 use macroquad::prelude::*;
 
 use crate::scene::l_system::{self, LSystemConfig};
+use crate::scene::polyline::{
+    self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh,
+};
 use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
 use crate::scene::value::AnimValue;
-
-/// Maximum line segments per draw_mesh call.
-/// Each segment uses 4 vertices and 6 indices. Limit: 5000 indices / 6 = 833.
-const MAX_SEGMENTS_PER_MESH: usize = 833;
 
 pub struct LSystem {
     config: LSystemConfig,
@@ -57,24 +56,6 @@ impl LSystem {
         self
     }
 
-    fn color_for_segment(&self, seg_index: usize, total: usize) -> [u8; 4] {
-        let c = if self.colors.len() >= 2 {
-            let t = if total <= 1 {
-                0.0
-            } else {
-                seg_index as f32 / (total - 1) as f32
-            };
-            let span = (self.colors.len() - 1) as f32;
-            let pos = t * span;
-            let lo = (pos.floor() as usize).min(self.colors.len() - 2);
-            let frac = pos - lo as f32;
-            self.colors[lo].lerp(self.colors[lo + 1], frac)
-        } else {
-            self.color
-        };
-        Color::new(c.x, c.y, c.z, c.w).into()
-    }
-
     /// Total number of segments at full progress (for stable color mapping).
     fn total_segment_count(&self) -> usize {
         let iters = self.iterations.floor().max(0.0) as usize;
@@ -82,99 +63,32 @@ impl LSystem {
         l_system::get_lines(&l_string, self.theta, 1.0).len()
     }
 
-    fn get_segments(&self) -> Vec<l_system::LineSegment> {
+    fn get_segments(&self) -> Vec<LineSegment> {
         let iters = self.iterations.floor().max(0.0) as usize;
         let l_string = l_system::apply_rules(&self.config, iters);
         let all = l_system::get_lines(&l_string, self.theta, 1.0);
-        if all.is_empty() {
-            return Vec::new();
-        }
-
-        let exact = self.progress.clamp(0.0, 1.0) * all.len() as f32;
-        let full_count = (exact.floor() as usize).min(all.len());
-        let frac = exact - full_count as f32;
-
-        let mut result = all[..full_count].to_vec();
-
-        // Partially draw the next segment based on the fractional remainder.
-        if frac > 0.0 && full_count < all.len() {
-            let seg = &all[full_count];
-            result.push(l_system::LineSegment {
-                start: seg.start,
-                end: seg.start.lerp(seg.end, frac),
-            });
-        }
-
-        result
+        polyline::take_progress(&all, self.progress)
     }
 }
 
 impl SceneObject for LSystem {
     fn draw(&self) {
         let segments = self.get_segments();
-        if segments.is_empty() {
-            return;
-        }
-
-        let normal = vec4(0.0, 0.0, 1.0, 0.0);
-        let half_w = self.line_width / 2.0;
-        let z = self.position.z;
-        // Full segment count for stable color mapping; visible count for iteration.
+        // Full segment count for stable color mapping during progress animation.
         let color_total = self.total_segment_count();
-        let visible = segments.len();
-
-        for chunk_start in (0..visible).step_by(MAX_SEGMENTS_PER_MESH) {
-            let chunk_end = (chunk_start + MAX_SEGMENTS_PER_MESH).min(visible);
-            let chunk_len = chunk_end - chunk_start;
-
-            let mut vertices = Vec::with_capacity(chunk_len * 4);
-            let mut indices = Vec::with_capacity(chunk_len * 6);
-
-            for (i, seg) in segments[chunk_start..chunk_end].iter().enumerate() {
-                let seg_index = chunk_start + i;
-                let color_bytes = self.color_for_segment(seg_index, color_total);
-                let dir = seg.end - seg.start;
-                let len = dir.length();
-                let perp = if len > 1e-8 {
-                    let fwd = dir / len;
-                    vec2(-fwd.y, fwd.x)
-                } else {
-                    vec2(0.0, 1.0)
-                };
-
-                let base = vertices.len() as u16;
-                let p = perp * half_w;
-
-                let mk = |v: Vec2| Vertex {
-                    position: vec3(
-                        v.x * self.scale + self.position.x,
-                        v.y * self.scale + self.position.y,
-                        z,
-                    ),
-                    uv: vec2(0.0, 0.0),
-                    color: color_bytes,
-                    normal,
-                };
-
-                vertices.push(mk(seg.start - p));
-                vertices.push(mk(seg.start + p));
-                vertices.push(mk(seg.end + p));
-                vertices.push(mk(seg.end - p));
-
-                indices.push(base);
-                indices.push(base + 1);
-                indices.push(base + 2);
-                indices.push(base);
-                indices.push(base + 2);
-                indices.push(base + 3);
-            }
-
-            draw_mesh(&Mesh {
-                vertices,
-                indices,
-                texture: None,
-            });
-        }
+        draw_polyline_mesh(
+            &segments,
+            &PolylineStyle {
+                line_width: self.line_width,
+                color: self.color,
+                colors: &self.colors,
+                color_total,
+            },
+            &PolylineTransform {
+                position: self.position,
+                scale: self.scale,
+            },
+        );
     }
 
     fn bounding_box(&self) -> BoundingBox {
@@ -315,79 +229,6 @@ mod tests {
         let w1 = bb1.max.x - bb1.min.x;
         let w2 = bb2.max.x - bb2.min.x;
         assert!((w2 - w1 * 2.0).abs() < 1e-4);
-    }
-
-    #[test]
-    fn gradient_colors_interpolate() {
-        let (config, theta) = dragon_curve();
-        let ls = LSystem::new(config, theta, WHITE).with_colors(vec![RED, BLUE]);
-        let total = ls.get_segments().len();
-        assert!(total > 2);
-
-        let first = ls.color_for_segment(0, total);
-        assert!(
-            first[0] > first[2],
-            "first segment should have more red than blue"
-        );
-
-        let last = ls.color_for_segment(total - 1, total);
-        assert!(
-            last[2] > last[0],
-            "last segment should have more blue than red"
-        );
-
-        let mid = ls.color_for_segment(total / 2, total);
-        assert!(
-            mid[0] > 0 && mid[2] > 0,
-            "mid segment should have both red and blue"
-        );
-    }
-
-    #[test]
-    fn empty_gradient_uses_color_field() {
-        let ls = make_lsystem();
-        assert!(ls.colors.is_empty());
-        let total = ls.get_segments().len();
-        let c0 = ls.color_for_segment(0, total);
-        let c1 = ls.color_for_segment(total - 1, total);
-        assert_eq!(c0, c1);
-    }
-
-    #[test]
-    fn progress_renders_partial_segments() {
-        use crate::scene::l_system::{LSystemConfig, ReplacementRule};
-
-        // Two-segment L-system: axiom "FF" with no rules produces 2 forward steps.
-        let config = LSystemConfig {
-            axiom: "FF".to_string(),
-            rules: vec![ReplacementRule {
-                from: 'X',
-                to: "X".to_string(),
-            }],
-        };
-        let mut ls = LSystem::new(config, std::f32::consts::FRAC_PI_2, WHITE);
-        ls.iterations = 0.0; // no expansion, just "FF"
-
-        // 2 segments, progress 0.25 → exact 0.5 → 0 full + 50% of first.
-        ls.progress = 0.25;
-        let segs = ls.get_segments();
-        assert_eq!(segs.len(), 1, "should have one partial segment");
-        let seg = &segs[0];
-        let expected_end = seg.start.lerp(
-            // Original full first segment end
-            vec2(seg.start.x, seg.start.y + 1.0),
-            0.5,
-        );
-        assert!(
-            (seg.end - expected_end).length() < 1e-4,
-            "partial segment end should be at 50% of full segment, got {:?}",
-            seg.end
-        );
-
-        // 2 segments, progress 0.75 → exact 1.5 → 1 full + 50% of second.
-        ls.progress = 0.75;
-        let segs = ls.get_segments();
-        assert_eq!(segs.len(), 2, "should have one full + one partial segment");
     }
 
     #[test]
