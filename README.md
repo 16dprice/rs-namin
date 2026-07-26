@@ -90,7 +90,7 @@ let (scene, timeline, camera) = sb.build();
 
 See `src/scene/objects/` for the full list (16 object types, e.g. `Disk`, `Ring`, `Line`, `Rectangle`, `Polygon`, `Arc`, `Arrow`, `Spiral`, `Torus`, `Tube`, `VectorText`, `LSystem`, `Polyline`, `Sprite`, `Turtle`) and `Text` for screen-space overlays.
 
-Most world-space objects are rendered as flat custom meshes via `draw_mesh` on the XY plane. Exceptions: `Line` uses `draw_line_3d`; `Torus`/`Tube` are true 3D meshes; `Sprite` is a textured quad. Screen-space objects (like `Text`) render in pixel coordinates after the 3D camera pass.
+Most world-space objects are rendered as flat custom meshes via `draw_mesh` on the XY plane. Exceptions: `Line` uses `draw_line_3d`; `Torus`/`Tube` are true 3D meshes; `Sprite` is a textured quad. Screen-space objects (like `Text`) render in pixel coordinates against a fixed 1280x720 design canvas that's scaled to the actual output, so they look the same size/position in the interactive viewer and at every export resolution.
 
 ## Animation
 
@@ -112,11 +112,13 @@ The default binary opens an interactive viewer with:
 
 ## Binaries
 
+`example`, `export`, and `snapshot` all resolve scenes by name against a single registry (`src/registry.rs`); run any of them with `--help` (or no scene name for `example`) to see the full list. The interactive viewer always runs the scratch scene (`src/my_scene.rs`).
+
 | Binary | Command | Purpose |
 |--------|---------|---------|
 | `rs-namin` | `cargo run` | Interactive viewer |
-| `example` | `cargo run --bin example` | Example scene picker |
-| `export` | `cargo run --bin export` | MP4 export via ffmpeg |
+| `example` | `cargo run --bin example` | Interactive picker over every registered scene |
+| `export` | `cargo run --bin export` | MP4 export via ffmpeg — interactive or scriptable |
 | `snapshot` | `cargo run --bin snapshot` | PNG frame capture |
 
 ### Snapshot options
@@ -127,6 +129,25 @@ The default binary opens an interactive viewer with:
 --times T1,T2,...     Multiple frames
 --width W --height H  Resolution (default: 1280x720)
 --output PATH         Output path (default: snapshot.png)
+```
+
+### Export options
+
+With no flags, `export` prompts interactively. Passing `--scene` switches to non-interactive mode for scripting:
+
+```
+--scene NAME                    Scene to render (required for non-interactive mode)
+--resolution 720p|1080p|1440p|4K|WxH   Default: 1080p
+--fps N                         Default: 60
+--crf N | --bitrate KBPS        Default: CRF 18
+--start S --end S               Default: full scene range
+--audio PATH                    Default: scene's registered audio, if any
+--output PATH                   Default: renders/<scene>_<res>_<fps>fps_<timestamp>.mp4
+```
+
+```bash
+# Non-interactive: render the full bouncing_ball_long video at 1080p60
+cargo run --bin export -- --scene bouncing_ball_long --resolution 1080p --fps 60
 ```
 
 ## Development

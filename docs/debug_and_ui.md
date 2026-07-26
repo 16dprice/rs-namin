@@ -11,7 +11,7 @@ Snap-to-view: Numpad 1 (front), Numpad 3 (right), Numpad 7 (top). Sets the orbit
 - Grid and origin axes (XYZ colored lines)
 - Orbit-target crosshair — yellow 3-axis cross at the orbit controller's target point, scales with camera distance
 - Per-object bounding boxes — wireframe AABBs around world-space objects (controlled by `bounding_boxes_visible` flag, off by default)
-- Mouse world coords (F6) — shows XY world coordinates (raycasted onto Z=0 plane) near the cursor. See `draw_mouse_coords` in `src/debug/mod.rs`.
+- Mouse world coords (F6) — shows XY world coordinates (raycasted onto Z=0 plane) near the cursor. See `draw_mouse_coords` in `src/debug/mod.rs`. The projection matrix used for the unprojection branches on `camera.projection`: perspective builds it from `fovy`/aspect/near/far as usual, but orthographic reinterprets `fovy` as a vertical world-unit extent to build an orthographic frustum — reusing the perspective math here would misplace the readout whenever the camera is in orthographic mode.
 
 ## Camera State Log
 

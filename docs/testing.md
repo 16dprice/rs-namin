@@ -16,7 +16,13 @@
 
 ## Property Round-Trip Tests
 
-- Most object types have a `set(name, value)` / `get(name)` round-trip test (pattern: iterate `property_names()`, set then get, assert equality). Not universal — e.g. `Spiral` currently has none. When adding a new object, check its sibling objects in `src/scene/objects/` for the pattern rather than assuming coverage exists.
+Every macro-based object (all of `src/scene/objects/` except `Turtle`) has a `property_round_trip` test that calls the shared helper `traits::test_support::assert_property_roundtrip` (`src/scene/traits.rs`): it iterates `property_names()`, perturbs each value, asserts `set` then `get` returns it, and checks an unknown name returns `None`. Adding a new macro-based object gets this coverage for free with one test-body line — no per-object round-trip logic to write. `Turtle` implements `Animatable` by hand (its `set` has side effects) and has its own hand-written round-trip tests instead.
+
+Since per-object property coverage now lives inline in each object file, `src/tests/scene_integration.rs` covers only `Scene` container behavior (add/remove/iterate/len) — it is not where to look for property tests.
+
+## Mesh Building Tests
+
+- `MeshBuilder` (`src/scene/mesh.rs`) has its own unit tests: chunking triggers when the next primitive would exceed the 10k-vertex/5k-index limits, indices are rebased correctly per chunk, `quad`/`fan`/`strip` produce the expected index patterns, and a single oversized primitive panics. Per-object mesh tests (e.g. `Ring::mesh_half_sweep`, `Torus::mesh_vertex_count`) only assert their own vertex/index *counts* — chunking behavior itself is covered once, here, not per object.
 
 ## Timeline Integration Tests
 

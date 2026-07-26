@@ -14,8 +14,9 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 - **Two runtime modes:** Interactive (free orbit camera) and Timeline (keyframe-driven camera, toggled with F5).
 - **Camera wrapper** converting to macroquad's `Camera3D` in one place. Camera is animatable.
 - **Debug overlay** with HUD, world-space helpers, value inspector, scrub bar, orbit-target crosshair, bounding boxes, snap-to-view, camera state log.
-- **CLI export tool** (`cargo run --bin export`) renders the animation to MP4 via ffmpeg, with optional audio muxing.
-- **Example runner** (`cargo run --bin example`) presents an interactive picker for example scenes.
+- **Unified scene registry** (`src/registry.rs`) — one `SceneEntry` list (name, description, kind, build fn, default audio) covering every example, video, and the scratch scene. `example`, `snapshot`, and `export` all resolve scenes by name against it.
+- **CLI export tool** (`cargo run --bin export`) renders the animation to MP4 via ffmpeg, with optional audio muxing. Supports interactive prompts or a non-interactive CLI (`--scene`, `--resolution`, `--fps`, etc. — see `--help`) for scripting.
+- **Example runner** (`cargo run --bin example`) presents an interactive picker over every registered scene (examples, videos, and the scratch scene) — not just examples despite the name.
 - **Automated testing** covering math, animation, properties, clock, orbit controller, and export.
 - **SceneBuilder DSL** for constructing scenes with validated property names and types. See `src/scene_builder.rs`.
 - **Agent testing infrastructure** — input abstraction (`InputProvider` trait + `ScriptedInput`), headless snapshot capture (`cargo run --bin snapshot`), and a scenario runner for multi-frame integration tests. See [agent_testing.md](agent_testing.md).
@@ -35,5 +36,6 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 - **Property system is string-keyed.** Flexible and generic, but typos are runtime errors. Mitigated by `SceneBuilder` which validates property names and types at scene construction time. See `src/scene_builder.rs`.
 - **Everything is 3D from day one.** Camera, transforms, and positions are all `Vec3` even if early objects are flat. Retrofitting 3D later is much harder.
 - **Clock is the single source of truth for time.** Paused state is a distinct code path (not speed=0). `timeline.apply` runs every frame regardless of play state.
-- **CLI export decouples from real time.** A separate binary drives time synthetically with vsync disabled. See [camera_and_rendering.md](camera_and_rendering.md) for why.
+- **CLI export decouples from real time.** A separate binary drives time synthetically with vsync disabled. See [camera_and_rendering.md](camera_and_rendering.md) for why. `export` and `snapshot` share an offscreen two-pass render pipeline (`render_util::OffscreenRenderer`).
+- **Screen-space objects render against a fixed design canvas** (`DESIGN_WIDTH`/`HEIGHT` = 1280x720 in `src/render_util.rs`) that's scaled to the actual output, so a `Text` object looks the same size/position in the interactive viewer and at every export resolution. See [camera_and_rendering.md](camera_and_rendering.md) > "Screen-Space Design Canvas".
 - **Library + binary crate structure.** Shared code lives in `src/lib.rs`. Four binaries: interactive viewer (`src/main.rs`), CLI exporter (`src/bin/export.rs`), snapshot tool (`src/bin/snapshot.rs`), and example runner (`src/bin/example.rs`).

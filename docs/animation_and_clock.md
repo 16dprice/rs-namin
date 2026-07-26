@@ -46,6 +46,7 @@ Changing `EasingFn` to `Box<dyn Fn(f32) -> f32>` or `Arc<dyn Fn(f32) -> f32>` wo
 ## Gotchas
 
 - **Easing is per-segment, applied from the starting keyframe.** The easing function on keyframe N controls the curve from keyframe N to N+1 — not the arrival at N.
+- **`Bool` doesn't interpolate — it holds the start value until the segment midpoint, then snaps.** `AnimValue::lerp` for `Bool` returns `a` while `t < 0.5` and `b` from `t >= 0.5` onward (see `src/scene/value.rs`). Easing curves on a `Bool` track still only affect which side of 0.5 `t` lands on, not any gradient.
 - **Timeline runs every frame regardless of pause state.** This is what makes scrubbing work — the clock position changes, and the next `timeline.apply()` picks it up.
 - **`apply` vs `apply_scene_only`:** `apply(time, &mut scene, &mut camera)` drives both scene objects and camera. `apply_scene_only(time, &mut scene)` skips camera tracks, used when the orbit controller drives the camera instead.
 
