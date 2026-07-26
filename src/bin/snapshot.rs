@@ -95,7 +95,6 @@ fn main() {
         eprintln!("Unknown scene: {name}");
         usage_exit(1);
     });
-    let build_fn = entry.build;
 
     let conf = Conf {
         window_title: "rs-namin snapshot".to_owned(),
@@ -110,7 +109,7 @@ fn main() {
 
     macroquad::Window::from_config(
         conf,
-        snapshot_render(build_fn, config.times, config.width, config.height, config.output),
+        snapshot_render(entry, config.times, config.width, config.height, config.output),
     );
 }
 
@@ -119,9 +118,15 @@ fn save_png(rgba_data: &[u8], width: u32, height: u32, path: &std::path::Path) {
         .unwrap_or_else(|e| panic!("Failed to save PNG to {}: {e}", path.display()));
 }
 
-async fn snapshot_render(build_fn: registry::BuildFn, requested_times: Vec<f32>, width: u32, height: u32, output: PathBuf) {
+async fn snapshot_render(entry: &registry::SceneEntry, requested_times: Vec<f32>, width: u32, height: u32, output: PathBuf) {
     // Build the scene inside the GL context so texture creation works.
-    let (mut scene, timeline, initial_camera) = build_fn();
+    let (mut scene, timeline, initial_camera) = match entry.build_scene() {
+        Ok(built) => built,
+        Err(error) => {
+            eprintln!("Failed to build scene: {error}");
+            std::process::exit(1);
+        }
+    };
 
     let duration = timeline.duration();
     let times: Vec<f32> = requested_times.iter().map(|t| t.clamp(0.0, duration)).collect();

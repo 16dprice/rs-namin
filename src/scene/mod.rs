@@ -34,8 +34,14 @@ impl Scene {
     }
 
     pub fn add(&mut self, object: impl SceneNode + 'static) -> ObjectId {
+        self.add_boxed(Box::new(object))
+    }
+
+    /// Add an already-boxed object (used by data-driven construction, where
+    /// the concrete type is decided at runtime).
+    pub fn add_boxed(&mut self, object: Box<dyn SceneNode>) -> ObjectId {
         let id = ObjectId(self.objects.len());
-        self.objects.push(Some(Box::new(object)));
+        self.objects.push(Some(object));
         id
     }
 

@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::animation::easing;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::scene::Scene;
@@ -26,24 +26,24 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // ── Animations ────────────────────────────────────────────────────
     sb.animate(&l_system_ref, "theta", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), easing::quart_in_out)
+        tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), Easing::QuartInOut)
             .keyframe(27.0, AnimValue::Float(5.8))
             .keyframe(37.0, AnimValue::Float(5.8))
     });
 
     sb.animate(&l_system_ref, "progress", |tb| {
-        tb.keyframe_with_easing(32.0, AnimValue::Float(1.0), easing::quint_in_out)
+        tb.keyframe_with_easing(32.0, AnimValue::Float(1.0), Easing::QuintInOut)
             .keyframe(70.0, AnimValue::Float(0.0))
             .keyframe(72.0, AnimValue::Float(0.0))
     });
 
     sb.animate_camera("position", |tb| {
-        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 25.7)), easing::sine_in_out)
+        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 25.7)), Easing::SineInOut)
             .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 5.0)))
     });
 
     sb.animate_camera("target", |tb| {
-        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 0.0)), easing::sine_in_out)
+        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 0.0)), Easing::SineInOut)
             .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 0.0)))
     });
 

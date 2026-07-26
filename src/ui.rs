@@ -235,7 +235,7 @@ fn loop_label(mode: LoopMode) -> &'static str {
 }
 
 /// Run the egui input+layout pass for the library mode: the full-screen
-/// scene list over `registry::SCENES`.
+/// scene list over the registry.
 pub fn library_layout() -> (UiCapture, UiRequest) {
     let mut capture = UiCapture {
         pointer: false,
@@ -257,7 +257,7 @@ pub fn library_layout() -> (UiCapture, UiRequest) {
                     .spacing([18.0, 8.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        for entry in registry::SCENES {
+                        for entry in registry::scenes() {
                             if ui.button(entry.name).clicked() {
                                 request = UiRequest::OpenScene(entry);
                             }
@@ -281,6 +281,7 @@ fn kind_label(kind: SceneKind) -> &'static str {
         SceneKind::Example => "example",
         SceneKind::Video => "video",
         SceneKind::Scratch => "scratch",
+        SceneKind::Doc => "doc",
     }
 }
 

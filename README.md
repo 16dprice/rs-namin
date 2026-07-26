@@ -86,6 +86,10 @@ let (scene, timeline, camera) = sb.build();
 
 `SceneBuilder` validates property names and animation value types at construction time, panicking with descriptive errors on mismatches.
 
+### Scene documents (no Rust required)
+
+Scenes can also be written as RON files in `scenes/` — objects, initial property overrides, keyframe tracks with named easings, and a camera. Documents are discovered at startup and appear in the library, snapshot, and export like any built-in scene. See [scenes/demo.ron](scenes/demo.ron) for a complete example and `src/doc.rs` for the format; validation errors are reported with the offending object/property named.
+
 ## Scene objects
 
 See `src/scene/objects/` for the full list (16 object types, e.g. `Disk`, `Ring`, `Line`, `Rectangle`, `Polygon`, `Arc`, `Arrow`, `Spiral`, `Torus`, `Tube`, `VectorText`, `LSystem`, `Polyline`, `Sprite`, `Turtle`) and `Text` for screen-space overlays.

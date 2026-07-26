@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::animation::easing;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::scene::Scene;
@@ -34,19 +34,19 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // Each circle grows from radius 0 → 0.8 over 0.5s, with a 0.3s gap between.
     sb.animate_seq(&red_circle, "radius", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(0.5, AnimValue::Float(0.8), easing::back_out)
+            .animate_for(0.5, AnimValue::Float(0.8), Easing::BackOut)
     });
     sb.wait(0.3);
 
     sb.animate_seq(&green_circle, "radius", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(0.5, AnimValue::Float(0.8), easing::back_out)
+            .animate_for(0.5, AnimValue::Float(0.8), Easing::BackOut)
     });
     sb.wait(0.3);
 
     sb.animate_seq(&blue_circle, "radius", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(0.5, AnimValue::Float(0.8), easing::back_out)
+            .animate_for(0.5, AnimValue::Float(0.8), Easing::BackOut)
     });
     // cursor is now at 2.1 (0.5 + 0.3 + 0.5 + 0.3 + 0.5)
 
@@ -55,18 +55,18 @@ pub fn build() -> (Scene, Timeline, Camera) {
     sb.parallel(|p| {
         p.animate(&red_circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(0.8))
-                .animate_for(0.4, AnimValue::Float(1.2), easing::sine_out)
-                .animate_for(0.4, AnimValue::Float(0.8), easing::sine_in)
+                .animate_for(0.4, AnimValue::Float(1.2), Easing::SineOut)
+                .animate_for(0.4, AnimValue::Float(0.8), Easing::SineIn)
         });
         p.animate(&green_circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(0.8))
-                .animate_for(0.4, AnimValue::Float(1.2), easing::sine_out)
-                .animate_for(0.4, AnimValue::Float(0.8), easing::sine_in)
+                .animate_for(0.4, AnimValue::Float(1.2), Easing::SineOut)
+                .animate_for(0.4, AnimValue::Float(0.8), Easing::SineIn)
         });
         p.animate(&blue_circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(0.8))
-                .animate_for(0.4, AnimValue::Float(1.2), easing::sine_out)
-                .animate_for(0.4, AnimValue::Float(0.8), easing::sine_in)
+                .animate_for(0.4, AnimValue::Float(1.2), Easing::SineOut)
+                .animate_for(0.4, AnimValue::Float(0.8), Easing::SineIn)
         });
     });
     // cursor is now at 3.4
@@ -77,38 +77,38 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     sb.animate_seq(&red_circle, "color", |tb| {
         tb.keyframe(0.0, AnimValue::Vec4(red))
-            .animate_for(0.2, AnimValue::Vec4(white), easing::expo_out)
-            .animate_for(0.3, AnimValue::Vec4(red), easing::expo_in)
+            .animate_for(0.2, AnimValue::Vec4(white), Easing::ExpoOut)
+            .animate_for(0.3, AnimValue::Vec4(red), Easing::ExpoIn)
     });
 
     sb.animate_seq(&green_circle, "color", |tb| {
         tb.keyframe(0.0, AnimValue::Vec4(green))
-            .animate_for(0.2, AnimValue::Vec4(white), easing::expo_out)
-            .animate_for(0.3, AnimValue::Vec4(green), easing::expo_in)
+            .animate_for(0.2, AnimValue::Vec4(white), Easing::ExpoOut)
+            .animate_for(0.3, AnimValue::Vec4(green), Easing::ExpoIn)
     });
 
     sb.animate_seq(&blue_circle, "color", |tb| {
         tb.keyframe(0.0, AnimValue::Vec4(blue))
-            .animate_for(0.2, AnimValue::Vec4(white), easing::expo_out)
-            .animate_for(0.3, AnimValue::Vec4(blue), easing::expo_in)
+            .animate_for(0.2, AnimValue::Vec4(white), Easing::ExpoOut)
+            .animate_for(0.3, AnimValue::Vec4(blue), Easing::ExpoIn)
     });
 
     // ── Camera: slow zoom using absolute-time animate ─────────────────
     // Runs from t=0 alongside everything else, showing that both APIs coexist.
     sb.animate_camera("position", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Vec3(vec3(0.0, 2.5, 10.0)), easing::sine_in_out)
+        tb.keyframe_with_easing(0.0, AnimValue::Vec3(vec3(0.0, 2.5, 10.0)), Easing::SineInOut)
             .keyframe(5.0, AnimValue::Vec3(vec3(0.0, 2.5, 8.0)))
     });
 
     // ── Ground line fade-in: absolute-time animate (independent of cursor) ──
     sb.animate(&ground, "color", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Vec4(vec4(1.0, 1.0, 1.0, 0.0)), easing::linear)
+        tb.keyframe_with_easing(0.0, AnimValue::Vec4(vec4(1.0, 1.0, 1.0, 0.0)), Easing::Linear)
             .keyframe(1.0, AnimValue::Vec4(white))
     });
 
     // ── Backdrop fade-in: absolute-time animate ───────────────────────
     sb.animate(&backdrop, "color", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Vec4(vec4(bg.x, bg.y, bg.z, 0.0)), easing::sine_out)
+        tb.keyframe_with_easing(0.0, AnimValue::Vec4(vec4(bg.x, bg.y, bg.z, 0.0)), Easing::SineOut)
             .keyframe(1.5, AnimValue::Vec4(bg))
     });
 

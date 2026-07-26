@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::animation::easing::EasingFn;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
@@ -297,7 +297,7 @@ impl TrackBuilder {
     }
 
     /// Add a keyframe with a custom easing function.
-    pub fn keyframe_with_easing(mut self, time: f32, value: AnimValue, easing: EasingFn) -> Self {
+    pub fn keyframe_with_easing(mut self, time: f32, value: AnimValue, easing: Easing) -> Self {
         self.validate_type(&value);
         self.keyframes.push(Keyframe::with_easing(time, value, easing));
         self.local_time = time;
@@ -312,10 +312,10 @@ impl TrackBuilder {
     ///
     /// ```ignore
     /// tb.keyframe(0.0, AnimValue::Float(1.0))
-    ///   .animate_for(1.0, AnimValue::Float(5.0), easing::sine_out)
-    ///   .animate_for(1.0, AnimValue::Float(1.0), easing::sine_in)
+    ///   .animate_for(1.0, AnimValue::Float(5.0), Easing::SineOut)
+    ///   .animate_for(1.0, AnimValue::Float(1.0), Easing::SineIn)
     /// ```
-    pub fn animate_for(mut self, duration: f32, value: AnimValue, easing: EasingFn) -> Self {
+    pub fn animate_for(mut self, duration: f32, value: AnimValue, easing: Easing) -> Self {
         self.validate_type(&value);
         assert!(
             !self.keyframes.is_empty(),
@@ -358,8 +358,7 @@ mod tests {
     use macroquad::prelude::{Mat4, RED, Vec3, WHITE, vec2, vec3, vec4};
 
     use super::*;
-    use crate::animation::easing;
-    use crate::animation::easing::quad_out;
+    use crate::animation::easing::Easing;
     use crate::camera::{Camera, ProjectionMode};
     use crate::scene::l_system as lsys;
     use crate::scene::objects::{Arc, Arrow, Disk, LSystem, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText};
@@ -461,7 +460,7 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
             // Easing is on k0 (the segment start keyframe)
-            tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), quad_out)
+            tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), Easing::QuadOut)
                 .keyframe(2.0, AnimValue::Float(5.0))
         });
         let (_scene, timeline, _camera) = sb.build();
@@ -761,7 +760,7 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))
-                .animate_for(2.0, AnimValue::Float(5.0), quad_out)
+                .animate_for(2.0, AnimValue::Float(5.0), Easing::QuadOut)
         });
         let (mut scene, timeline, mut camera) = sb.build();
         assert!((timeline.duration() - 2.0).abs() < f32::EPSILON);
@@ -780,8 +779,8 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))
-                .animate_for(1.0, AnimValue::Float(5.0), easing::linear)
-                .animate_for(1.0, AnimValue::Float(1.0), easing::linear)
+                .animate_for(1.0, AnimValue::Float(5.0), Easing::Linear)
+                .animate_for(1.0, AnimValue::Float(1.0), Easing::Linear)
         });
         let (mut scene, timeline, mut camera) = sb.build();
         assert!((timeline.duration() - 2.0).abs() < f32::EPSILON);
@@ -815,8 +814,8 @@ mod tests {
         sb.set_cursor(10.0);
         sb.animate_seq(&circle, "radius", |tb| {
             tb.keyframe(0.0, AnimValue::Float(1.0))
-                .animate_for(2.0, AnimValue::Float(5.0), easing::linear)
-                .animate_for(3.0, AnimValue::Float(1.0), easing::linear)
+                .animate_for(2.0, AnimValue::Float(5.0), Easing::Linear)
+                .animate_for(3.0, AnimValue::Float(1.0), Easing::Linear)
         });
         // cursor should advance by 5.0 (2+3)
         assert!((sb.cursor() - 15.0).abs() < f32::EPSILON);
@@ -835,7 +834,7 @@ mod tests {
     fn animate_for_panics_without_starting_keyframe() {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
-        sb.animate(&circle, "radius", |tb| tb.animate_for(1.0, AnimValue::Float(5.0), easing::linear));
+        sb.animate(&circle, "radius", |tb| tb.animate_for(1.0, AnimValue::Float(5.0), Easing::Linear));
     }
 
     #[test]

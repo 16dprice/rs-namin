@@ -6,11 +6,14 @@ default-run = "rs-namin"
 
 [dependencies]
 egui-macroquad = "0.17.3"
+glam = { version = "0.27", features = ["serde"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 indicatif = "0.18.4"
 inquire = "0.9.4"
 lyon = "1.0"
 macroquad = "0.4"
+ron = "0.12.2"
+serde = { version = "1.0.229", features = ["derive"] }
 ttf-parser = "0.25"
 
 [[bin]]

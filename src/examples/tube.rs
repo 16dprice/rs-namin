@@ -2,7 +2,7 @@ use std::f32::consts::{PI, TAU};
 
 use macroquad::prelude::*;
 
-use crate::animation::easing::cubic_in_out;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
@@ -27,8 +27,8 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // Animate the radius pulsing
     let mut radius_track = Track::new(helix_id, "radius");
-    radius_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.15), cubic_in_out));
-    radius_track.add_keyframe(Keyframe::with_easing(3.0, AnimValue::Float(0.4), cubic_in_out));
+    radius_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.15), Easing::CubicInOut));
+    radius_track.add_keyframe(Keyframe::with_easing(3.0, AnimValue::Float(0.4), Easing::CubicInOut));
     radius_track.add_keyframe(Keyframe::new(6.0, AnimValue::Float(0.15)));
     timeline.add_track(radius_track);
 

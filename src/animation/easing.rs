@@ -1,8 +1,125 @@
-/// TECH DEBT: This is a bare function pointer, which prevents parameterized easings
-/// (e.g. a dolly_zoom factory that takes fov_start/fov_end). Changing to
-/// `Box<dyn Fn(f32) -> f32>` or `Arc<dyn Fn(f32) -> f32>` would enable closures
-/// that capture state, at the cost of a heap allocation per keyframe.
+use serde::{Deserialize, Serialize};
+
 pub type EasingFn = fn(f32) -> f32;
+
+/// Easing as data: serializable, enumerable (for UI pickers), and evaluable.
+/// Keyframes store this instead of a bare function pointer so scene documents
+/// can express curves. `Custom` carries a raw function for code-authored
+/// scenes that need bespoke curves (e.g. torus_knot's dolly zoom) — it cannot
+/// be serialized, so scene documents are limited to the named variants.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub enum Easing {
+    #[default]
+    Linear,
+    QuadIn,
+    QuadOut,
+    QuadInOut,
+    CubicIn,
+    CubicOut,
+    CubicInOut,
+    QuartIn,
+    QuartOut,
+    QuartInOut,
+    QuintIn,
+    QuintOut,
+    QuintInOut,
+    SineIn,
+    SineOut,
+    SineInOut,
+    ExpoIn,
+    ExpoOut,
+    ExpoInOut,
+    BackIn,
+    BackOut,
+    BackInOut,
+    ElasticIn,
+    ElasticOut,
+    ElasticInOut,
+    BounceIn,
+    BounceOut,
+    BounceInOut,
+    #[serde(skip)]
+    Custom(EasingFn),
+}
+
+impl PartialEq for Easing {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // fn_addr_eq avoids the unpredictable-fn-pointer-comparison lint;
+            // two Customs are "equal" only if they share an address.
+            (Easing::Custom(a), Easing::Custom(b)) => std::ptr::fn_addr_eq(*a, *b),
+            _ => std::mem::discriminant(self) == std::mem::discriminant(other),
+        }
+    }
+}
+
+impl Easing {
+    /// Every named variant, in picker order (excludes `Custom`).
+    pub const NAMED: [Easing; 28] = [
+        Easing::Linear,
+        Easing::QuadIn,
+        Easing::QuadOut,
+        Easing::QuadInOut,
+        Easing::CubicIn,
+        Easing::CubicOut,
+        Easing::CubicInOut,
+        Easing::QuartIn,
+        Easing::QuartOut,
+        Easing::QuartInOut,
+        Easing::QuintIn,
+        Easing::QuintOut,
+        Easing::QuintInOut,
+        Easing::SineIn,
+        Easing::SineOut,
+        Easing::SineInOut,
+        Easing::ExpoIn,
+        Easing::ExpoOut,
+        Easing::ExpoInOut,
+        Easing::BackIn,
+        Easing::BackOut,
+        Easing::BackInOut,
+        Easing::ElasticIn,
+        Easing::ElasticOut,
+        Easing::ElasticInOut,
+        Easing::BounceIn,
+        Easing::BounceOut,
+        Easing::BounceInOut,
+    ];
+
+    pub fn eval(self, t: f32) -> f32 {
+        match self {
+            Easing::Linear => linear(t),
+            Easing::QuadIn => quad_in(t),
+            Easing::QuadOut => quad_out(t),
+            Easing::QuadInOut => quad_in_out(t),
+            Easing::CubicIn => cubic_in(t),
+            Easing::CubicOut => cubic_out(t),
+            Easing::CubicInOut => cubic_in_out(t),
+            Easing::QuartIn => quart_in(t),
+            Easing::QuartOut => quart_out(t),
+            Easing::QuartInOut => quart_in_out(t),
+            Easing::QuintIn => quint_in(t),
+            Easing::QuintOut => quint_out(t),
+            Easing::QuintInOut => quint_in_out(t),
+            Easing::SineIn => sine_in(t),
+            Easing::SineOut => sine_out(t),
+            Easing::SineInOut => sine_in_out(t),
+            Easing::ExpoIn => expo_in(t),
+            Easing::ExpoOut => expo_out(t),
+            Easing::ExpoInOut => expo_in_out(t),
+            Easing::BackIn => back_in(t),
+            Easing::BackOut => back_out(t),
+            Easing::BackInOut => back_in_out(t),
+            Easing::ElasticIn => elastic_in(t),
+            Easing::ElasticOut => elastic_out(t),
+            Easing::ElasticInOut => elastic_in_out(t),
+            Easing::BounceIn => bounce_in(t),
+            Easing::BounceOut => bounce_out(t),
+            Easing::BounceInOut => bounce_in_out(t),
+            Easing::Custom(f) => f(t),
+        }
+    }
+}
 
 pub fn linear(t: f32) -> f32 {
     t

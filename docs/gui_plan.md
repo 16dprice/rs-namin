@@ -144,8 +144,19 @@ Prerequisite refactors (small, high-leverage, do before UI work):
   viewer, and export pipeline all pick them up with zero extra plumbing.
 
 UI build-out (iterative; order negotiable after the design conversation):
-- **M2.1** SceneDoc + easing enum + serde + doc-backed registry entries (no UI yet — a
-  hand-written .ron file renders and exports).
+- **M2.1** ✅ **DONE** — `Easing` enum replaces the bare fn pointer everywhere (28 named
+  serializable variants + non-serializable `Custom(fn)` for code-authored curves like the
+  dolly zoom); `AnimValue`/`Transform2D` derive serde (glam's serde feature). `src/doc.rs`
+  defines `SceneDoc` (objects as `ObjectSpec` variants for the 11 data-friendly types,
+  initial `set` overrides, keyframe tracks incl. `"camera"`, camera) with a validating
+  `build()` that returns errors instead of panicking, plus RON load/save. The registry
+  gained `SceneSource::{Builtin, Doc}` and `registry::scenes()` — documents in
+  `scenes/*.ron` are discovered at startup and appear in the library (kind badge "doc"),
+  snapshot, and export like any built-in; doc failures surface as an error-text scene in
+  the app and hard errors in the CLIs. Proven with `scenes/demo.ron`: renders in the
+  viewer/library, snapshots, and CLI-exports to a valid MP4. Still not representable:
+  VectorText/LSystem/Sprite/Turtle (non-data constructor inputs) — they get spec entries in
+  a later milestone.
 - **M2.2** Object palette + property inspector: add/select objects, edit initial properties via
   widgets generated from `property_names()` + `AnimValue` variant (Float → drag value, Vec3 →
   three drags, Vec4 color → color picker, Bool → checkbox).

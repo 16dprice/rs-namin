@@ -64,6 +64,7 @@ each frame:
 
 ## Scene Organization
 
-Scenes are `fn() -> (Scene, Timeline, Camera)`. `src/registry.rs` holds one `SceneEntry` list (name, description, `SceneKind` badge, build fn, default audio) covering every example, video, and the scratch scene — `src/examples/mod.rs` and `src/videos/mod.rs` are now just `pub mod` declarations feeding that list, not registries of their own.
+A scene builds to `(Scene, Timeline, Camera)` from one of two sources: a built-in builder fn (examples, videos, the scratch scene) or a **scene document** (`scenes/*.ron`, parsed and validated by `src/doc.rs`). `src/registry.rs` holds one `SceneEntry` list (name, description, `SceneKind` badge, `SceneSource`, default audio); `registry::scenes()` returns builtins plus documents discovered once per process — `src/examples/mod.rs` and `src/videos/mod.rs` are just `pub mod` declarations feeding that list.
 
-- Every binary resolves scenes against `registry::SCENES`/`registry::find`: `rs-namin` looks up `my_scene` and opens the viewer on it, `example` renders the registry as the in-app library screen, and `snapshot --scene NAME` / `export --scene NAME` look entries up directly.
+- Every binary resolves scenes against `registry::scenes()`/`registry::find`: `rs-namin` looks up `my_scene` and opens the viewer on it, `example` renders the registry as the in-app library screen, and `snapshot --scene NAME` / `export --scene NAME` look entries up directly.
+- Builds go through `SceneEntry::build_scene()` (returns `Result` — document loading/validation can fail; CLIs exit with the message) or `build_or_error_scene()` (the app's variant, which turns a failure into a visible error-text scene).

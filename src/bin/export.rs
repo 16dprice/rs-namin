@@ -35,7 +35,7 @@ struct ExportConfig {
 }
 
 fn prompt_scene() -> Option<SceneEntry> {
-    match Select::new("Scene", registry::SCENES.to_vec()).prompt() {
+    match Select::new("Scene", registry::scenes().to_vec()).prompt() {
         Ok(v) => Some(v),
         Err(e) if prompt_cancelled(&e) => None,
         Err(e) => panic!("{e}"),
@@ -338,7 +338,13 @@ fn main() {
 
 async fn export_main(entry: SceneEntry, cli: Option<CliArgs>) {
     // Build scene inside async context where GL is available.
-    let (scene, timeline, camera) = (entry.build)();
+    let (scene, timeline, camera) = match entry.build_scene() {
+        Ok(built) => built,
+        Err(error) => {
+            eprintln!("Failed to build scene: {error}");
+            return;
+        }
+    };
     let duration = timeline.duration();
 
     let config = match cli {

@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use macroquad::prelude::*;
 
-use crate::animation::easing;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::scene::Scene;
@@ -87,11 +87,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
             for i in 0..total_segments {
                 let progress_value = (i + 1) as f32 / total_segments as f32;
                 tb = tb
-                    .animate_for(seconds_per_move, AnimValue::Float(progress_value), easing::sine_in_out)
-                    .animate_for(seconds_per_rotation, AnimValue::Float(progress_value), easing::linear);
+                    .animate_for(seconds_per_move, AnimValue::Float(progress_value), Easing::SineInOut)
+                    .animate_for(seconds_per_rotation, AnimValue::Float(progress_value), Easing::Linear);
             }
 
-            tb.animate_for(5.0, AnimValue::Float(1.0), easing::linear)
+            tb.animate_for(5.0, AnimValue::Float(1.0), Easing::Linear)
         });
 
         p.animate(&pl_ref, "progress", |mut tb| {
@@ -101,11 +101,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
             for i in 0..total_segments {
                 let progress_value = (i + 1) as f32 / total_segments as f32;
                 tb = tb
-                    .animate_for(seconds_per_move, AnimValue::Float(progress_value), easing::sine_in_out)
-                    .animate_for(seconds_per_rotation, AnimValue::Float(progress_value), easing::linear);
+                    .animate_for(seconds_per_move, AnimValue::Float(progress_value), Easing::SineInOut)
+                    .animate_for(seconds_per_rotation, AnimValue::Float(progress_value), Easing::Linear);
             }
 
-            tb.animate_for(5.0, AnimValue::Float(1.0), easing::linear)
+            tb.animate_for(5.0, AnimValue::Float(1.0), Easing::Linear)
         });
 
         p.animate(&turtle_ref, "rotation", |mut tb| {
@@ -115,7 +115,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
             tb = tb
                 .keyframe(0.0, AnimValue::Float(angle))
-                .animate_for(seconds_per_move, AnimValue::Float(angle), easing::linear);
+                .animate_for(seconds_per_move, AnimValue::Float(angle), Easing::Linear);
 
             let mut angle = 0.0;
             for (idx, seg) in segments.clone().iter().enumerate() {
@@ -130,11 +130,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 angle += delta;
 
                 tb = tb
-                    .animate_for(seconds_per_rotation, AnimValue::Float(angle), easing::sine_in_out)
-                    .animate_for(seconds_per_move, AnimValue::Float(angle), easing::linear);
+                    .animate_for(seconds_per_rotation, AnimValue::Float(angle), Easing::SineInOut)
+                    .animate_for(seconds_per_move, AnimValue::Float(angle), Easing::Linear);
             }
 
-            tb.animate_for(5.0, AnimValue::Float(angle), easing::linear)
+            tb.animate_for(5.0, AnimValue::Float(angle), Easing::Linear)
         });
     });
 

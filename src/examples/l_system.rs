@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::animation::easing::cubic_in_out;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
@@ -24,7 +24,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // Then animate progress 0 → 1 over 3 seconds (held at 0 until t=4)
     let mut progress_track = Track::new(l_system_id, "progress");
     progress_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
-    progress_track.add_keyframe(Keyframe::with_easing(7.0, AnimValue::Float(1.0), cubic_in_out));
+    progress_track.add_keyframe(Keyframe::with_easing(7.0, AnimValue::Float(1.0), Easing::CubicInOut));
 
     let mut theta_track = Track::new(l_system_id, "theta");
     theta_track.add_keyframe(Keyframe::new(8.0, AnimValue::Float(std::f32::consts::FRAC_PI_2)));

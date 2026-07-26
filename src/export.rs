@@ -330,7 +330,7 @@ impl ExportMode {
     /// Must be called inside the macroquad window (scene builders may load
     /// textures).
     pub fn new(entry: &'static SceneEntry) -> Self {
-        let (scene, timeline, camera) = (entry.build)();
+        let (scene, timeline, camera) = entry.build_or_error_scene();
         let duration = timeline.duration();
         Self {
             entry,

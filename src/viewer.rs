@@ -40,7 +40,7 @@ impl ViewerMode {
     /// Build the entry's scene and set up playback. Must be called inside the
     /// macroquad window (scene builders may load textures).
     pub fn new(entry: &'static SceneEntry) -> Self {
-        let (scene, timeline, camera) = (entry.build)();
+        let (scene, timeline, camera) = entry.build_or_error_scene();
 
         let mut clock = Clock::new(timeline.duration(), 60.0);
         clock.loop_mode = clock::LoopMode::Loop;

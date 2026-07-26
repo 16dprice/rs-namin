@@ -1,12 +1,12 @@
 use crate::scene::ObjectId;
 use crate::scene::value::AnimValue;
 
-use super::easing::{EasingFn, linear};
+use super::easing::Easing;
 
 pub struct Keyframe {
     pub time: f32,
     pub value: AnimValue,
-    pub easing: EasingFn,
+    pub easing: Easing,
 }
 
 impl Keyframe {
@@ -14,11 +14,11 @@ impl Keyframe {
         Self {
             time,
             value,
-            easing: linear,
+            easing: Easing::Linear,
         }
     }
 
-    pub fn with_easing(time: f32, value: AnimValue, easing: EasingFn) -> Self {
+    pub fn with_easing(time: f32, value: AnimValue, easing: Easing) -> Self {
         Self { time, value, easing }
     }
 }
@@ -91,7 +91,7 @@ impl Track {
 
         let segment_duration = k1.time - k0.time;
         let t = (time - k0.time) / segment_duration;
-        let eased_t = (k0.easing)(t);
+        let eased_t = k0.easing.eval(t);
 
         Some(AnimValue::lerp(&k0.value, &k1.value, eased_t))
     }
@@ -102,7 +102,7 @@ mod tests {
     use macroquad::prelude::*;
 
     use super::*;
-    use crate::animation::easing::quad_in;
+    use crate::animation::easing::Easing;
     use crate::scene::ObjectId;
 
     fn dummy_id() -> ObjectId {
@@ -156,7 +156,7 @@ mod tests {
         linear_track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(100.0)));
 
         let mut eased_track = Track::new(dummy_id(), "radius");
-        eased_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.0), quad_in));
+        eased_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.0), Easing::QuadIn));
         eased_track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(100.0)));
 
         let linear_val = linear_track.evaluate(1.0);

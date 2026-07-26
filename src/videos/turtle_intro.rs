@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::animation::easing;
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::scene::Scene;
@@ -90,14 +90,14 @@ pub fn build() -> (Scene, Timeline, Camera) {
                         seg.end.y,
                         (camera_position_final_z - 6.0) * ((i + 1) as f32 / lines.len() as f32) + 6.0,
                     )),
-                    easing::sine_in_out,
+                    Easing::SineInOut,
                 );
             }
 
             tb.keyframe_with_easing(
                 camera_finish_zoom_out_time,
                 AnimValue::Vec3(vec3(15.0, 2.0, camera_position_final_z)),
-                easing::sine_in_out,
+                Easing::SineInOut,
             )
         });
 
@@ -112,14 +112,14 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 tb = tb.animate_for(
                     seconds_per_segment,
                     AnimValue::Vec3(vec3(seg.end.x, seg.end.y, 0.0)),
-                    easing::sine_in_out,
+                    Easing::SineInOut,
                 );
             }
 
             tb.keyframe_with_easing(
                 camera_finish_zoom_out_time,
                 AnimValue::Vec3(vec3(15.0, 2.0, 0.0)),
-                easing::sine_in_out,
+                Easing::SineInOut,
             )
         });
 
@@ -129,7 +129,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 tb = tb.animate_for(
                     seconds_per_segment,
                     AnimValue::Float((i + 1) as f32 / lines.len() as f32),
-                    easing::sine_in_out,
+                    Easing::SineInOut,
                 )
             }
             tb
@@ -141,7 +141,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 tb = tb.animate_for(
                     seconds_per_segment,
                     AnimValue::Float((i + 1) as f32 / lines.len() as f32),
-                    easing::sine_in_out,
+                    Easing::SineInOut,
                 )
             }
             tb
@@ -159,25 +159,25 @@ pub fn build() -> (Scene, Timeline, Camera) {
     sb.set_cursor(text_sequence_start);
     sb.animate_seq(&alphabet_text_ref, "progress", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(3.0, AnimValue::Float(1.0), easing::sine_in_out)
+            .animate_for(3.0, AnimValue::Float(1.0), Easing::SineInOut)
     });
 
     sb.set_cursor(text_sequence_start + 1.0);
     sb.animate_seq(&axiom_text_ref, "progress", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(3.0, AnimValue::Float(1.0), easing::sine_in_out)
+            .animate_for(3.0, AnimValue::Float(1.0), Easing::SineInOut)
     });
 
     sb.set_cursor(text_sequence_start + 2.0);
     sb.animate_seq(&production_rules_text_ref, "progress", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(4.0, AnimValue::Float(1.0), easing::sine_in_out)
+            .animate_for(4.0, AnimValue::Float(1.0), Easing::SineInOut)
     });
 
     sb.set_cursor(text_sequence_start + 3.0);
     sb.animate_seq(&theta_text_ref, "progress", |tb| {
         tb.keyframe(0.0, AnimValue::Float(0.0))
-            .animate_for(3.0, AnimValue::Float(1.0), easing::sine_in_out)
+            .animate_for(3.0, AnimValue::Float(1.0), Easing::SineInOut)
     });
     // cursor is now at theta_text_end equivalent
 
@@ -186,29 +186,29 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     sb.animate_seq(&alphabet_text_ref, "scale", |tb| {
         tb.keyframe(0.0, AnimValue::Float(1.4))
-            .animate_for(1.0, AnimValue::Float(1.55), easing::sine_out)
-            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+            .animate_for(1.0, AnimValue::Float(1.55), Easing::SineOut)
+            .animate_for(1.0, AnimValue::Float(1.4), Easing::SineIn)
     });
     sb.wait(3.0);
 
     sb.animate_seq(&axiom_text_ref, "scale", |tb| {
         tb.keyframe(0.0, AnimValue::Float(1.4))
-            .animate_for(1.0, AnimValue::Float(1.6), easing::sine_out)
-            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+            .animate_for(1.0, AnimValue::Float(1.6), Easing::SineOut)
+            .animate_for(1.0, AnimValue::Float(1.4), Easing::SineIn)
     });
     sb.wait(3.0);
 
     sb.animate_seq(&production_rules_text_ref, "scale", |tb| {
         tb.keyframe(0.0, AnimValue::Float(1.4))
-            .animate_for(1.0, AnimValue::Float(1.5), easing::sine_out)
-            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+            .animate_for(1.0, AnimValue::Float(1.5), Easing::SineOut)
+            .animate_for(1.0, AnimValue::Float(1.4), Easing::SineIn)
     });
     sb.wait(3.0);
 
     sb.animate_seq(&theta_text_ref, "scale", |tb| {
         tb.keyframe(0.0, AnimValue::Float(1.4))
-            .animate_for(1.0, AnimValue::Float(1.6), easing::sine_out)
-            .animate_for(1.0, AnimValue::Float(1.4), easing::sine_in)
+            .animate_for(1.0, AnimValue::Float(1.6), Easing::SineOut)
+            .animate_for(1.0, AnimValue::Float(1.4), Easing::SineIn)
     });
 
     sb.build()

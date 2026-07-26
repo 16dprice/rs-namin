@@ -1,13 +1,14 @@
 use macroquad::prelude::{Mat4, Quat, Vec2, Vec3, Vec4};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Transform2D {
     pub position: Vec2,
     pub rotation: f32,
     pub scale: Vec2,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AnimValue {
     Float(f32),
     Vec2(Vec2),

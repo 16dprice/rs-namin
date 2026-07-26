@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
-use crate::animation::easing::{quad_in, quad_out};
+use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
 use crate::animation::track::{Keyframe, Track};
 use crate::camera::Camera;
@@ -32,7 +32,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut pos_track = Track::new(circle_id, "position");
     let mut t = 0.0_f32;
 
-    pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), quad_out));
+    pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), Easing::QuadOut));
 
     while t < DURATION {
         for i in 0..bounce_heights.len() {
@@ -40,10 +40,10 @@ pub fn build() -> (Scene, Timeline, Camera) {
             let dur = bounce_durations[i];
 
             t += dur;
-            pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, peak_y, 0.0)), quad_in));
+            pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, peak_y, 0.0)), Easing::QuadIn));
 
             t += dur;
-            pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), quad_out));
+            pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), Easing::QuadOut));
         }
     }
     timeline.add_track(pos_track);

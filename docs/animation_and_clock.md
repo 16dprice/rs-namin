@@ -15,8 +15,8 @@ See `src/animation/` and `src/clock.rs` for implementations. Scene authoring via
 **`animate_for` requires a prior keyframe.** It sets the easing on the *previous* keyframe and adds a new one. Calling it on an empty `TrackBuilder` panics. Always start with `keyframe(0.0, ...)` before chaining `animate_for` calls:
 ```ignore
 tb.keyframe(0.0, AnimValue::Float(1.0))
-  .animate_for(1.0, AnimValue::Float(5.0), easing::sine_out)   // ok
-  .animate_for(1.0, AnimValue::Float(1.0), easing::sine_in)    // ok
+  .animate_for(1.0, AnimValue::Float(5.0), Easing::SineOut)   // ok
+  .animate_for(1.0, AnimValue::Float(1.0), Easing::SineIn)    // ok
 ```
 
 **`parallel` advances by the longest, not the sum.** The cursor ends at `start + max(durations)`. Animations inside a `parallel` block all start from the same cursor position. Each one's relative keyframe t=0 maps to that same absolute start time.
@@ -31,17 +31,15 @@ tb.keyframe(0.0, AnimValue::Float(1.0))
 
 ## Easing Functions
 
-28 easing functions available in `src/animation/easing.rs`: linear, quad, cubic, quart, quint, sine, expo, back, elastic, bounce (each with in/out/in-out variants). All satisfy boundary invariants: `f(0)=0`, `f(1)=1`.
+Easing is **data**: keyframes store the `Easing` enum (`src/animation/easing.rs`) — 28 named variants (linear, quad, cubic, quart, quint, sine, expo, back, elastic, bounce, each with in/out/in-out) plus `Easing::Custom(fn)` for code-authored curves. Named variants serialize (scene documents use them); `Custom` does not. All named variants satisfy boundary invariants: `f(0)=0`, `f(1)=1`.
 
 ## Custom Easing Functions
 
-You can write custom easing functions as plain `fn(f32) -> f32` functions. The input `t` is normalized progress through the segment (0.0 to 1.0), and the output is the eased value (typically 0.0 to 1.0, though overshoot easings like `back` can exceed this range). See `dolly_zoom` in `src/videos/torus_knot.rs` for an example that follows a `1/tan` curve.
+Custom curves are plain `fn(f32) -> f32` functions wrapped in `Easing::Custom`. The input `t` is normalized progress through the segment (0.0 to 1.0), and the output is the eased value (typically 0.0 to 1.0, though overshoot easings like `back` can exceed this range). See `dolly_zoom` in `src/videos/torus_knot.rs` for an example that follows a `1/tan` curve.
 
-### EasingFn closure limitation (tech debt)
+### Custom easing limitation (remaining tech debt)
 
-`EasingFn` is currently `fn(f32) -> f32` — a bare function pointer. This means easing functions **cannot capture state**. You can't write a factory like `dolly_zoom(fov_start, fov_end)` that returns a closure parameterized by those values. Any scene-specific values must be hardcoded in the function body.
-
-Changing `EasingFn` to `Box<dyn Fn(f32) -> f32>` or `Arc<dyn Fn(f32) -> f32>` would enable closures at the cost of a heap allocation per keyframe. This is tracked as tech debt in `src/animation/easing.rs`.
+`Easing::Custom` holds a bare function pointer, so custom curves still **cannot capture state** — no `dolly_zoom(fov_start, fov_end)` factory; scene-specific values must be hardcoded in the function body. The planned resolution is a parameterized serializable variant (e.g. `CubicBezier`) rather than boxed closures — see docs/gui_plan.md (curve editor, M2.4).
 
 ## Gotchas
 
