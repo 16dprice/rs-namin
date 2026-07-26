@@ -87,7 +87,14 @@ Milestones (each is a well-scoped agent task):
   utility (see docs/agent_testing.md) — no high-DPI artifacts on a standard display.
   Known gap carried to M1.3: the scrub bar reads macroquad input directly (pre-existing), so
   it isn't UI-gated; it gets replaced by an egui slider in M1.3 anyway.
-- **M1.2** App shell + Library mode + mode switching (viewer becomes a mode).
+- **M1.2** ✅ **DONE** — `src/app.rs` shell: `AppMode { Library, Viewer(ViewerMode) }` with
+  per-frame dispatch and `UiRequest`-driven transitions; the viewer loop became
+  `ViewerMode::frame`. The library screen lists all registry scenes (kind badge +
+  description) and replaces the `example` binary's terminal picker; the viewer got a top app
+  bar (`< Library`, scene name, shortcut hints) and Esc navigates back. Opening a scene
+  rebuilds it fresh, inside the GL context. `cargo run` starts in the viewer on `my_scene`;
+  `cargo run --bin example` starts in the library. Design note from review: egui's stock look
+  is fine — prioritize flow over visual polish in M1.3+.
 - **M1.3** Viewer chrome: transport bar, scrub slider (replacing the hand-drawn scrub bar),
   snapshot button, value inspector as an egui panel.
 - **M1.4** In-app export with progress + cancel (the incremental render loop).

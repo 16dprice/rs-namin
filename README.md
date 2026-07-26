@@ -102,22 +102,24 @@ Animations are driven by **tracks** on a **timeline**. Each track targets a sing
 
 ## Interactive viewer
 
-The default binary opens an interactive viewer with:
+The default binary opens the app in the viewer with:
 
 - **Orbit camera**: middle-click drag to orbit, right-click drag to pan, WASD/QE to move, scroll to zoom
+- **HUD panel** (F1): play/pause, speed, camera mode, and camera readouts in an egui window
 - **Playback controls**: Space (play/pause), Left/Right (step frame), Up/Down (speed)
-- **Debug overlays**: F1 (HUD), F2 (scrub bar), F3 (value inspector), F4 (world helpers), F6 (mouse coords)
+- **Debug overlays**: F2 (scrub bar), F3 (value inspector), F4 (world helpers), F6 (mouse coords)
 - **Snap-to-view**: Numpad 1/3/7 for front/right/top
 - **Camera mode toggle** (F5): switch between orbit control and timeline-driven camera
+- **Scene library**: the `< Library` button (or Esc) opens the in-app scene list; clicking a scene opens it in the viewer
 
 ## Binaries
 
-`example`, `export`, and `snapshot` all resolve scenes by name against a single registry (`src/registry.rs`); run any of them with `--help` (or no scene name for `example`) to see the full list. The interactive viewer always runs the scratch scene (`src/my_scene.rs`).
+All binaries resolve scenes by name against a single registry (`src/registry.rs`). `cargo run` starts in the viewer on the scratch scene (`src/my_scene.rs`); `cargo run --bin example` starts in the library.
 
 | Binary | Command | Purpose |
 |--------|---------|---------|
-| `rs-namin` | `cargo run` | Interactive viewer |
-| `example` | `cargo run --bin example` | Interactive picker over every registered scene |
+| `rs-namin` | `cargo run` | App, starting in the viewer on `my_scene` |
+| `example` | `cargo run --bin example` | App, starting in the scene library |
 | `export` | `cargo run --bin export` | MP4 export via ffmpeg — interactive or scriptable |
 | `snapshot` | `cargo run --bin snapshot` | PNG frame capture |
 
@@ -176,7 +178,8 @@ This runs `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test`.
 - [image](https://github.com/image-rs/image) -- PNG encoding for snapshots
 - [lyon](https://github.com/nical/lyon) -- bezier tessellation for `VectorText`
 - [ttf-parser](https://github.com/RazrFalcon/ttf-parser) -- glyph outline extraction for `VectorText`
-- [inquire](https://github.com/mikaelmello/inquire) -- interactive pickers in `example`/`export`
+- [egui-macroquad](https://github.com/optozorax/egui-macroquad) -- egui bindings for the in-app UI
+- [inquire](https://github.com/mikaelmello/inquire) -- interactive prompts in `export`
 - [indicatif](https://github.com/console-rs/indicatif) -- progress bars for `export`
 - [ffmpeg](https://ffmpeg.org/) -- required at runtime for MP4 export
 - `latex` + `dvisvgm` -- required at runtime for `VectorText::from_latex` (Debian/Ubuntu: `texlive-base`, `texlive-latex-extra`, `dvisvgm`)

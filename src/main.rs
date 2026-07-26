@@ -1,7 +1,7 @@
 use macroquad::prelude::Conf;
 
-use rs_namin::my_scene;
-use rs_namin::viewer;
+use rs_namin::app::{self, AppMode};
+use rs_namin::registry;
 
 fn window_conf() -> Conf {
     Conf {
@@ -15,6 +15,8 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let (scene, timeline, camera) = my_scene::build();
-    viewer::run(scene, timeline, camera).await;
+    // Start in the viewer on the scratch scene (the iteration workflow);
+    // the library is one click or Esc away.
+    let entry = registry::find("my_scene").expect("my_scene is registered");
+    app::run(AppMode::viewer(entry)).await;
 }

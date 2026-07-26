@@ -1,8 +1,17 @@
 # Module Layout & Main Loop
 
-## Main Loop Structure
+## App Shell
 
-See `src/viewer.rs` for the full implementation. The ordering below is load-bearing:
+`src/app.rs` owns the window loop: `app::run(AppMode)` dispatches one frame per mode
+(`Library` or `Viewer(ViewerMode)`), applies the `UiRequest` transition the mode's UI
+returned, and handles the `RS_NAMIN_FRAME_DUMP` capture. `rs-namin` starts in the viewer on
+`my_scene`; the `example` binary starts in the library. Opening a scene from the library
+constructs a fresh `ViewerMode` (rebuilding the scene — animation state never leaks between
+visits). Scene builds happen inside the loop, i.e. inside the GL context.
+
+## Viewer Frame Structure
+
+See `ViewerMode::frame` in `src/viewer.rs` for the full implementation. The ordering below is load-bearing:
 
 ```
 each frame:
@@ -53,5 +62,4 @@ each frame:
 
 Scenes are `fn() -> (Scene, Timeline, Camera)`. `src/registry.rs` holds one `SceneEntry` list (name, description, `SceneKind` badge, build fn, default audio) covering every example, video, and the scratch scene — `src/examples/mod.rs` and `src/videos/mod.rs` are now just `pub mod` declarations feeding that list, not registries of their own.
 
-- The `example`, `snapshot`, and `export` binaries all resolve a scene by name against `registry::SCENES`/`registry::find` (`example` lists every entry as an interactive picker; `snapshot --scene NAME` and `export --scene NAME` look one up directly).
-- The interactive viewer (`src/main.rs`) does **not** go through the registry — it always builds `my_scene::build()` directly, since it has a fixed default scene rather than a picker. `my_scene` is also registered as the `Scratch`-kind entry `my_scene`, so `snapshot`/`export` can still target it explicitly by name.
+- Every binary resolves scenes against `registry::SCENES`/`registry::find`: `rs-namin` looks up `my_scene` and opens the viewer on it, `example` renders the registry as the in-app library screen, and `snapshot --scene NAME` / `export --scene NAME` look entries up directly.
