@@ -1,9 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::scene::l_system::{self, LSystemConfig};
-use crate::scene::polyline::{
-    self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh,
-};
+use crate::scene::polyline::{self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh};
 use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
 use crate::scene::value::AnimValue;
 
@@ -22,15 +20,7 @@ pub struct LSystem {
 }
 
 impl LSystem {
-    const PROPERTY_NAMES: &[&str] = &[
-        "position",
-        "color",
-        "theta",
-        "scale",
-        "iterations",
-        "progress",
-        "line_width",
-    ];
+    const PROPERTY_NAMES: &[&str] = &["position", "color", "theta", "scale", "iterations", "progress", "line_width"];
 
     pub fn new(config: LSystemConfig, theta: f32, color: Color) -> Self {
         Self {
@@ -49,10 +39,7 @@ impl LSystem {
     /// Set a gradient color list. Segments will interpolate through these
     /// colors in draw order. Pass an empty vec to revert to `self.color`.
     pub fn with_colors(mut self, colors: Vec<Color>) -> Self {
-        self.colors = colors
-            .into_iter()
-            .map(|c| vec4(c.r, c.g, c.b, c.a))
-            .collect();
+        self.colors = colors.into_iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect();
         self
     }
 

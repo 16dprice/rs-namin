@@ -19,11 +19,7 @@ impl Keyframe {
     }
 
     pub fn with_easing(time: f32, value: AnimValue, easing: EasingFn) -> Self {
-        Self {
-            time,
-            value,
-            easing,
-        }
+        Self { time, value, easing }
     }
 }
 

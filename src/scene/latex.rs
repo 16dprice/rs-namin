@@ -54,10 +54,7 @@ fn compile_to_svg_inner(latex: &str, tmp_dir: &std::path::Path) -> Result<String
         .map_err(|e| format!("failed to run latex: {e}"))?;
 
     if !output.status.success() {
-        return Err(format!(
-            "latex compilation failed:\n{}",
-            String::from_utf8_lossy(&output.stdout)
-        ));
+        return Err(format!("latex compilation failed:\n{}", String::from_utf8_lossy(&output.stdout)));
     }
 
     let output = std::process::Command::new("dvisvgm")
@@ -68,10 +65,7 @@ fn compile_to_svg_inner(latex: &str, tmp_dir: &std::path::Path) -> Result<String
         .map_err(|e| format!("failed to run dvisvgm: {e}"))?;
 
     if !output.status.success() {
-        return Err(format!(
-            "dvisvgm failed:\n{}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
+        return Err(format!("dvisvgm failed:\n{}", String::from_utf8_lossy(&output.stderr)));
     }
 
     std::fs::read_to_string(&svg_path).map_err(|e| format!("failed to read SVG: {e}"))
@@ -114,12 +108,7 @@ fn parse_dvisvgm_svg(svg: &str) -> Vec<GlyphOutline> {
     glyphs
 }
 
-fn offset_and_transform_contour(
-    contour: &BezierContour,
-    use_x: f32,
-    use_y: f32,
-    viewbox_min_x: f32,
-) -> BezierContour {
+fn offset_and_transform_contour(contour: &BezierContour, use_x: f32, use_y: f32, viewbox_min_x: f32) -> BezierContour {
     BezierContour {
         segments: contour
             .segments
@@ -172,12 +161,7 @@ fn rect_to_contour(rect: &RectElement, viewbox_min_x: f32) -> BezierContour {
     }
 
     BezierContour {
-        segments: vec![
-            line_seg(p0, p1),
-            line_seg(p1, p2),
-            line_seg(p2, p3),
-            line_seg(p3, p0),
-        ],
+        segments: vec![line_seg(p0, p1), line_seg(p1, p2), line_seg(p2, p3), line_seg(p3, p0)],
         closed: true,
     }
 }
@@ -186,10 +170,7 @@ fn rect_to_contour(rect: &RectElement, viewbox_min_x: f32) -> BezierContour {
 
 fn parse_viewbox_min_x(svg: &str) -> f32 {
     if let Some(vb) = extract_attr(svg, "viewBox") {
-        let nums: Vec<f32> = vb
-            .split_whitespace()
-            .filter_map(|s| s.parse().ok())
-            .collect();
+        let nums: Vec<f32> = vb.split_whitespace().filter_map(|s| s.parse().ok()).collect();
         if !nums.is_empty() {
             return nums[0];
         }
@@ -231,12 +212,8 @@ fn parse_use_elements(svg: &str) -> Vec<UseElement> {
         };
         let tag = &svg[abs_start..end];
 
-        let x = extract_attr(tag, "x")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
-        let y = extract_attr(tag, "y")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
+        let x = extract_attr(tag, "x").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+        let y = extract_attr(tag, "y").and_then(|s| s.parse().ok()).unwrap_or(0.0);
 
         // xlink:href='#g0-1' → strip the '#'
         if let Some(href) = extract_attr(tag, "xlink:href") {
@@ -262,25 +239,12 @@ fn parse_rect_elements(svg: &str) -> Vec<RectElement> {
         };
         let tag = &svg[abs_start..end];
 
-        let x = extract_attr(tag, "x")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
-        let y = extract_attr(tag, "y")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
-        let width = extract_attr(tag, "width")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
-        let height = extract_attr(tag, "height")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
+        let x = extract_attr(tag, "x").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+        let y = extract_attr(tag, "y").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+        let width = extract_attr(tag, "width").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+        let height = extract_attr(tag, "height").and_then(|s| s.parse().ok()).unwrap_or(0.0);
 
-        rects.push(RectElement {
-            x,
-            y,
-            width,
-            height,
-        });
+        rects.push(RectElement { x, y, width, height });
         search_from = end;
     }
 
@@ -346,11 +310,7 @@ fn parse_svg_path(d: &str) -> Vec<BezierContour> {
                         // Implicit LineTo for subsequent coordinate pairs
                         while i < tokens.len() && matches!(tokens[i], PathToken::Number(_)) {
                             let (x, y) = consume_pair(&tokens, &mut i);
-                            let end = if cmd == 'M' {
-                                vec2(x, y)
-                            } else {
-                                pos + vec2(x, y)
-                            };
+                            let end = if cmd == 'M' { vec2(x, y) } else { pos + vec2(x, y) };
                             current_segments.push(line_as_cubic(pos, end));
                             pos = end;
                             last_control = None;
@@ -359,11 +319,7 @@ fn parse_svg_path(d: &str) -> Vec<BezierContour> {
                     'L' | 'l' => {
                         while i < tokens.len() && matches!(tokens[i], PathToken::Number(_)) {
                             let (x, y) = consume_pair(&tokens, &mut i);
-                            let end = if cmd == 'L' {
-                                vec2(x, y)
-                            } else {
-                                pos + vec2(x, y)
-                            };
+                            let end = if cmd == 'L' { vec2(x, y) } else { pos + vec2(x, y) };
                             current_segments.push(line_as_cubic(pos, end));
                             pos = end;
                             last_control = None;
@@ -372,11 +328,7 @@ fn parse_svg_path(d: &str) -> Vec<BezierContour> {
                     'H' | 'h' => {
                         while i < tokens.len() && matches!(tokens[i], PathToken::Number(_)) {
                             let x = consume_number(&tokens, &mut i);
-                            let end = if cmd == 'H' {
-                                vec2(x, pos.y)
-                            } else {
-                                vec2(pos.x + x, pos.y)
-                            };
+                            let end = if cmd == 'H' { vec2(x, pos.y) } else { vec2(pos.x + x, pos.y) };
                             current_segments.push(line_as_cubic(pos, end));
                             pos = end;
                             last_control = None;
@@ -385,11 +337,7 @@ fn parse_svg_path(d: &str) -> Vec<BezierContour> {
                     'V' | 'v' => {
                         while i < tokens.len() && matches!(tokens[i], PathToken::Number(_)) {
                             let y = consume_number(&tokens, &mut i);
-                            let end = if cmd == 'V' {
-                                vec2(pos.x, y)
-                            } else {
-                                vec2(pos.x, pos.y + y)
-                            };
+                            let end = if cmd == 'V' { vec2(pos.x, y) } else { vec2(pos.x, pos.y + y) };
                             current_segments.push(line_as_cubic(pos, end));
                             pos = end;
                             last_control = None;
@@ -710,10 +658,7 @@ mod tests {
     #[test]
     fn latex_compilation_produces_glyphs() {
         let glyphs = latex_to_glyphs("$x^2$").expect("latex compilation failed");
-        assert!(
-            !glyphs.is_empty(),
-            "should produce at least one glyph for x^2"
-        );
+        assert!(!glyphs.is_empty(), "should produce at least one glyph for x^2");
         // All glyphs should have contours
         for glyph in &glyphs {
             assert!(!glyph.contours.is_empty());
@@ -722,13 +667,8 @@ mod tests {
 
     #[test]
     fn latex_math_symbols() {
-        let glyphs = latex_to_glyphs(r"$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$")
-            .expect("latex compilation failed");
-        assert!(
-            glyphs.len() > 5,
-            "complex formula should produce many glyphs, got {}",
-            glyphs.len()
-        );
+        let glyphs = latex_to_glyphs(r"$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$").expect("latex compilation failed");
+        assert!(glyphs.len() > 5, "complex formula should produce many glyphs, got {}", glyphs.len());
     }
 
     #[test]

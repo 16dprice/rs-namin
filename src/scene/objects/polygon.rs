@@ -30,8 +30,7 @@ impl Polygon {
 
     /// Build a flat regular polygon mesh on the XY plane centered at `position`.
     fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
         let n = self.sides as usize;
         let mut vertices = Vec::with_capacity(n + 1);
@@ -81,16 +80,8 @@ impl SceneObject for Polygon {
 
     fn bounding_box(&self) -> BoundingBox {
         BoundingBox {
-            min: vec3(
-                self.position.x - self.radius,
-                self.position.y - self.radius,
-                self.position.z,
-            ),
-            max: vec3(
-                self.position.x + self.radius,
-                self.position.y + self.radius,
-                self.position.z,
-            ),
+            min: vec3(self.position.x - self.radius, self.position.y - self.radius, self.position.z),
+            max: vec3(self.position.x + self.radius, self.position.y + self.radius, self.position.z),
         }
     }
 }

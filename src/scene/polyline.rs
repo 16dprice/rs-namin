@@ -55,11 +55,7 @@ pub fn take_progress(segments: &[LineSegment], progress: f32) -> Vec<LineSegment
 /// calls. Segment `i` is colored by sampling `style.colors` at position
 /// `i / (style.color_total - 1)`, falling back to `style.color` when the
 /// gradient has fewer than 2 entries.
-pub fn draw_polyline_mesh(
-    segments: &[LineSegment],
-    style: &PolylineStyle,
-    xform: &PolylineTransform,
-) {
+pub fn draw_polyline_mesh(segments: &[LineSegment], style: &PolylineStyle, xform: &PolylineTransform) {
     if segments.is_empty() {
         return;
     }
@@ -77,8 +73,7 @@ pub fn draw_polyline_mesh(
 
         for (i, seg) in segments[chunk_start..chunk_end].iter().enumerate() {
             let seg_index = chunk_start + i;
-            let color_bytes =
-                gradient_sample(style.colors, style.color, seg_index, style.color_total);
+            let color_bytes = gradient_sample(style.colors, style.color, seg_index, style.color_total);
             let dir = seg.end - seg.start;
             let len = dir.length();
             let perp = if len > 1e-8 {
@@ -92,11 +87,7 @@ pub fn draw_polyline_mesh(
             let p = perp * half_w;
 
             let mk = |v: Vec2| Vertex {
-                position: vec3(
-                    v.x * xform.scale + xform.position.x,
-                    v.y * xform.scale + xform.position.y,
-                    z,
-                ),
+                position: vec3(v.x * xform.scale + xform.position.x, v.y * xform.scale + xform.position.y, z),
                 uv: vec2(0.0, 0.0),
                 color: color_bytes,
                 normal,

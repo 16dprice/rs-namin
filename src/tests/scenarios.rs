@@ -44,9 +44,7 @@ fn zoom_to_min_clamp() {
 
     Scenario::new()
         .run_frames(100, scroll_in)
-        .assert_orbit("distance should be at minimum", |o| {
-            (o.distance - o.min_distance).abs() < 0.01
-        })
+        .assert_orbit("distance should be at minimum", |o| (o.distance - o.min_distance).abs() < 0.01)
         .run(&mut scene, &timeline, &mut camera);
 }
 
@@ -103,8 +101,6 @@ fn wasd_movement_accumulates() {
 
     Scenario::new()
         .run_frames(60, move_forward)
-        .assert_orbit("target should have moved forward (-Z)", |o| {
-            o.target.z < 0.0
-        })
+        .assert_orbit("target should have moved forward (-Z)", |o| o.target.z < 0.0)
         .run(&mut scene, &timeline, &mut camera);
 }

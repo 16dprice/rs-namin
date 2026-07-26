@@ -162,10 +162,7 @@ mod tests {
 
     #[test]
     fn sprite_offset_applied() {
-        let turtle = Turtle::new(
-            test_sprite(vec3(0.5, 0.5, 0.0)),
-            vec![seg(10.0, 20.0, 20.0, 20.0)],
-        );
+        let turtle = Turtle::new(test_sprite(vec3(0.5, 0.5, 0.0)), vec![seg(10.0, 20.0, 20.0, 20.0)]);
         // Offset is applied in world space, not rotated by heading.
         assert!((turtle.sprite.position.x - 10.5).abs() < 1e-5);
         assert!((turtle.sprite.position.y - 20.5).abs() < 1e-5);
@@ -174,20 +171,14 @@ mod tests {
     #[test]
     fn sprite_offset_not_rotated_by_heading() {
         // Vertical segment (heading=π/2). Offset (1, 0) stays (1, 0) in world space.
-        let turtle = Turtle::new(
-            test_sprite(vec3(1.0, 0.0, 0.0)),
-            vec![seg(0.0, 0.0, 0.0, 10.0)],
-        );
+        let turtle = Turtle::new(test_sprite(vec3(1.0, 0.0, 0.0)), vec![seg(0.0, 0.0, 0.0, 10.0)]);
         assert!((turtle.sprite.position.x - 1.0).abs() < 1e-5);
         assert!(turtle.sprite.position.y.abs() < 1e-5);
     }
 
     #[test]
     fn set_position_syncs_sprite() {
-        let mut turtle = Turtle::new(
-            test_sprite(vec3(1.0, 0.0, 0.0)),
-            vec![seg(0.0, 0.0, 10.0, 0.0)],
-        );
+        let mut turtle = Turtle::new(test_sprite(vec3(1.0, 0.0, 0.0)), vec![seg(0.0, 0.0, 10.0, 0.0)]);
         turtle.set("position", AnimValue::Vec3(vec3(5.0, 5.0, 0.0)));
         assert_eq!(turtle.sprite.position, vec3(6.0, 5.0, 0.0));
     }
@@ -320,20 +311,12 @@ mod tests {
         // Horizontal segment → heading 0 (facing +X).
         let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), vec![seg(0.0, 0.0, 10.0, 0.0)]);
         turtle.set("progress", AnimValue::Float(0.5));
-        assert!(
-            turtle.rotation.abs() < 1e-5,
-            "expected 0, got {}",
-            turtle.rotation
-        );
+        assert!(turtle.rotation.abs() < 1e-5, "expected 0, got {}", turtle.rotation);
 
         // Vertical segment → heading π/2 (facing +Y).
         let mut turtle = Turtle::new(test_sprite(Vec3::ZERO), vec![seg(0.0, 0.0, 0.0, 10.0)]);
         turtle.set("progress", AnimValue::Float(0.5));
-        assert!(
-            (turtle.rotation - FRAC_PI_2).abs() < 1e-5,
-            "expected π/2, got {}",
-            turtle.rotation
-        );
+        assert!((turtle.rotation - FRAC_PI_2).abs() < 1e-5, "expected π/2, got {}", turtle.rotation);
     }
 
     #[test]

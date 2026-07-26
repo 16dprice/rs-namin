@@ -5,11 +5,7 @@ use macroquad::prelude::*;
 /// `fallback` is used. Returns RGBA bytes suitable for vertex color attributes.
 pub fn gradient_sample(colors: &[Vec4], fallback: Vec4, index: usize, total: usize) -> [u8; 4] {
     let c = if colors.len() >= 2 {
-        let t = if total <= 1 {
-            0.0
-        } else {
-            index as f32 / (total - 1) as f32
-        };
+        let t = if total <= 1 { 0.0 } else { index as f32 / (total - 1) as f32 };
         let span = (colors.len() - 1) as f32;
         let pos = t * span;
         let lo = (pos.floor() as usize).min(colors.len() - 2);
@@ -35,22 +31,13 @@ mod tests {
         let total = 10;
 
         let first = gradient_sample(&colors, v(WHITE), 0, total);
-        assert!(
-            first[0] > first[2],
-            "first item should have more red than blue"
-        );
+        assert!(first[0] > first[2], "first item should have more red than blue");
 
         let last = gradient_sample(&colors, v(WHITE), total - 1, total);
-        assert!(
-            last[2] > last[0],
-            "last item should have more blue than red"
-        );
+        assert!(last[2] > last[0], "last item should have more blue than red");
 
         let mid = gradient_sample(&colors, v(WHITE), total / 2, total);
-        assert!(
-            mid[0] > 0 && mid[2] > 0,
-            "mid item should have both red and blue"
-        );
+        assert!(mid[0] > 0 && mid[2] > 0, "mid item should have both red and blue");
     }
 
     #[test]
@@ -60,7 +47,10 @@ mod tests {
         let c0 = gradient_sample(&colors, fallback, 0, 10);
         let c1 = gradient_sample(&colors, fallback, 9, 10);
         assert_eq!(c0, c1);
-        assert_eq!(c0, <Color as Into<[u8; 4]>>::into(Color::new(fallback.x, fallback.y, fallback.z, fallback.w)));
+        assert_eq!(
+            c0,
+            <Color as Into<[u8; 4]>>::into(Color::new(fallback.x, fallback.y, fallback.z, fallback.w))
+        );
     }
 
     #[test]
@@ -68,7 +58,10 @@ mod tests {
         let colors = vec![v(RED)];
         let fallback = v(GREEN);
         let c = gradient_sample(&colors, fallback, 0, 10);
-        assert_eq!(c, <Color as Into<[u8; 4]>>::into(Color::new(fallback.x, fallback.y, fallback.z, fallback.w)));
+        assert_eq!(
+            c,
+            <Color as Into<[u8; 4]>>::into(Color::new(fallback.x, fallback.y, fallback.z, fallback.w))
+        );
     }
 
     #[test]

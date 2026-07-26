@@ -52,12 +52,7 @@ impl ScrubBar {
         let (mx, my) = mouse_position();
         let (bx, by, bw, bh) = self.bar_rect();
 
-        if is_mouse_button_pressed(MouseButton::Left)
-            && mx >= bx
-            && mx <= bx + bw
-            && my >= by
-            && my <= by + bh
-        {
+        if is_mouse_button_pressed(MouseButton::Left) && mx >= bx && mx <= bx + bw && my >= by && my <= by + bh {
             self.dragging = true;
             self.was_playing_before_drag = clock.playback_state == PlaybackState::Playing;
             clock.pause();
@@ -104,13 +99,7 @@ impl ScrubBar {
         let time_text = format!("{:.2} / {:.2}s", clock.current_time, clock.duration);
         let font_size = 14.0;
         let text_w = measure_text(&time_text, None, font_size as u16, 1.0).width;
-        draw_text(
-            &time_text,
-            x + w - text_w - 4.0,
-            y - 4.0,
-            font_size,
-            TEXT_COLOR,
-        );
+        draw_text(&time_text, x + w - text_w - 4.0, y - 4.0, font_size, TEXT_COLOR);
 
         // Play/pause indicator
         let state = if clock.playback_state == PlaybackState::Playing {

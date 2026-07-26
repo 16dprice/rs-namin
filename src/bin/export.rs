@@ -50,10 +50,7 @@ impl fmt::Display for EncodingMode {
 }
 
 fn prompt_cancelled(err: &InquireError) -> bool {
-    matches!(
-        err,
-        InquireError::OperationCanceled | InquireError::OperationInterrupted
-    )
+    matches!(err, InquireError::OperationCanceled | InquireError::OperationInterrupted)
 }
 
 struct ExportConfig {
@@ -114,10 +111,7 @@ fn prompt_config(video: Video, duration: f32) -> Option<ExportConfig> {
         },
     ];
 
-    let resolution = match Select::new("Resolution", resolutions)
-        .with_starting_cursor(1)
-        .prompt()
-    {
+    let resolution = match Select::new("Resolution", resolutions).with_starting_cursor(1).prompt() {
         Ok(r) => r,
         Err(e) if prompt_cancelled(&e) => return None,
         Err(e) => panic!("{e}"),
@@ -126,10 +120,7 @@ fn prompt_config(video: Video, duration: f32) -> Option<ExportConfig> {
     // 3. Frame rate
     let fps_presets = vec![FpsPreset { fps: 30 }, FpsPreset { fps: 60 }];
 
-    let fps = match Select::new("Frame rate", fps_presets)
-        .with_starting_cursor(1)
-        .prompt()
-    {
+    let fps = match Select::new("Frame rate", fps_presets).with_starting_cursor(1).prompt() {
         Ok(f) => f.fps,
         Err(e) if prompt_cancelled(&e) => return None,
         Err(e) => panic!("{e}"),
@@ -256,12 +247,7 @@ fn build_ffmpeg_args(config: &ExportConfig, output_path: &str) -> Vec<String> {
     }
 
     // Video encoding
-    args.extend([
-        "-c:v".into(),
-        "libx264".into(),
-        "-pix_fmt".into(),
-        "yuv420p".into(),
-    ]);
+    args.extend(["-c:v".into(), "libx264".into(), "-pix_fmt".into(), "yuv420p".into()]);
 
     match &config.encoding {
         EncodingMode::Crf { crf } => {
@@ -347,16 +333,7 @@ async fn export_main(video: Video) {
         return;
     }
 
-    export_render(
-        scene,
-        timeline,
-        camera,
-        config,
-        start_frame,
-        end_frame,
-        total_frames,
-    )
-    .await;
+    export_render(scene, timeline, camera, config, start_frame, end_frame, total_frames).await;
 }
 
 #[cfg(test)]

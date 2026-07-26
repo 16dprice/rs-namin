@@ -54,10 +54,7 @@ impl OrbitController {
         let raw_delta = input.mouse_delta();
         // mouse_delta_position() returns coords in -2..2 range (normalized * 2 - 1).
         // Multiply by screen/2 to get pixel deltas.
-        let delta = vec2(
-            raw_delta.x * input.screen_width() * 0.5,
-            raw_delta.y * input.screen_height() * 0.5,
-        );
+        let delta = vec2(raw_delta.x * input.screen_width() * 0.5, raw_delta.y * input.screen_height() * 0.5);
 
         // Middle-click drag: orbit
         if input.is_mouse_button_down(MouseButton::Middle) {
@@ -73,8 +70,7 @@ impl OrbitController {
             // Convert pixel movement to world units at the target's depth.
             // For perspective: world_per_pixel = 2 * distance * tan(fov/2) / screen_height
             let fov_rad = camera.fov.to_radians();
-            let world_per_pixel =
-                2.0 * self.distance * (fov_rad / 2.0).tan() / input.screen_height();
+            let world_per_pixel = 2.0 * self.distance * (fov_rad / 2.0).tan() / input.screen_height();
             self.target += (delta.x * right - delta.y * up) * world_per_pixel;
         }
 
@@ -278,11 +274,7 @@ mod tests {
     fn compute_position_at_zero_angles() {
         let orbit = OrbitController::new(Vec3::ZERO, 10.0);
         // azimuth=0, elevation=0.3 → camera at (0, sin(0.3)*10, cos(0.3)*10) roughly
-        let pos = OrbitController {
-            elevation: 0.0,
-            ..orbit
-        }
-        .compute_position();
+        let pos = OrbitController { elevation: 0.0, ..orbit }.compute_position();
         // With azimuth=0, elevation=0: position should be (0, 0, distance)
         assert!((pos.x).abs() < 1e-5);
         assert!((pos.y).abs() < 1e-5);

@@ -11,11 +11,7 @@ const DOT_SEGMENTS: usize = 8;
 const MAX_DOTS_PER_MESH: usize = {
     let by_verts = 10_000 / (DOT_SEGMENTS + 1);
     let by_indices = 5_000 / (DOT_SEGMENTS * 3);
-    if by_verts < by_indices {
-        by_verts
-    } else {
-        by_indices
-    }
+    if by_verts < by_indices { by_verts } else { by_indices }
 };
 
 pub struct Spiral {
@@ -28,22 +24,9 @@ pub struct Spiral {
 }
 
 impl Spiral {
-    const PROPERTY_NAMES: &[&str] = &[
-        "center_position",
-        "delta_radius",
-        "delta_theta",
-        "color",
-        "dot_radius",
-    ];
+    const PROPERTY_NAMES: &[&str] = &["center_position", "delta_radius", "delta_theta", "color", "dot_radius"];
 
-    pub fn new(
-        center_position: Vec3,
-        delta_radius: f32,
-        delta_theta: f32,
-        color: Color,
-        num_points: usize,
-        dot_radius: f32,
-    ) -> Self {
+    pub fn new(center_position: Vec3, delta_radius: f32, delta_theta: f32, color: Color, num_points: usize, dot_radius: f32) -> Self {
         Self {
             center_position,
             delta_radius,
@@ -55,8 +38,7 @@ impl Spiral {
     }
 
     fn build_dot(&self, i: usize, vertices: &mut Vec<Vertex>, indices: &mut Vec<u16>) {
-        let color_bytes: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color_bytes: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
 
         let r = self.delta_radius * i as f32;
@@ -79,11 +61,7 @@ impl Spiral {
         for j in 0..DOT_SEGMENTS {
             let angle = (j as f32 / DOT_SEGMENTS as f32) * std::f32::consts::TAU;
             vertices.push(Vertex {
-                position: vec3(
-                    cx + self.dot_radius * angle.cos(),
-                    cy + self.dot_radius * angle.sin(),
-                    cz,
-                ),
+                position: vec3(cx + self.dot_radius * angle.cos(), cy + self.dot_radius * angle.sin(), cz),
                 uv: vec2(0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()),
                 color: color_bytes,
                 normal,
@@ -123,8 +101,7 @@ impl SceneObject for Spiral {
     }
 
     fn bounding_box(&self) -> BoundingBox {
-        let max_r =
-            self.delta_radius * (self.num_points.saturating_sub(1)) as f32 + self.dot_radius;
+        let max_r = self.delta_radius * (self.num_points.saturating_sub(1)) as f32 + self.dot_radius;
         BoundingBox {
             min: vec3(
                 self.center_position.x - max_r,

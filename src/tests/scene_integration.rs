@@ -34,12 +34,7 @@ fn remove_nonexistent_returns_none() {
 fn multiple_objects() {
     let mut scene = Scene::new();
     let id1 = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
-    let id2 = scene.add(Line::new(
-        vec3(0.0, 0.0, 0.0),
-        vec3(100.0, 100.0, 0.0),
-        2.0,
-        RED,
-    ));
+    let id2 = scene.add(Line::new(vec3(0.0, 0.0, 0.0), vec3(100.0, 100.0, 0.0), 2.0, RED));
     assert_ne!(id1, id2);
     assert_eq!(scene.len(), 2);
 }
@@ -95,11 +90,7 @@ fn circle_get_unknown_property_returns_none() {
 fn circle_property_names_match_getters() {
     let circle = Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE);
     for name in circle.property_names() {
-        assert!(
-            circle.get(name).is_some(),
-            "property '{}' returned None",
-            name
-        );
+        assert!(circle.get(name).is_some(), "property '{}' returned None", name);
     }
 }
 
@@ -133,11 +124,7 @@ fn line_property_roundtrip_thickness() {
 fn line_property_names_match_getters() {
     let line = Line::new(vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), 2.0, RED);
     for name in line.property_names() {
-        assert!(
-            line.get(name).is_some(),
-            "property '{}' returned None",
-            name
-        );
+        assert!(line.get(name).is_some(), "property '{}' returned None", name);
     }
 }
 
@@ -171,11 +158,7 @@ fn rectangle_property_roundtrip_color() {
 fn rectangle_property_names_match_getters() {
     let rect = Rectangle::new(vec3(0.0, 0.0, 0.0), vec2(2.0, 3.0), GREEN);
     for name in rect.property_names() {
-        assert!(
-            rect.get(name).is_some(),
-            "property '{}' returned None",
-            name
-        );
+        assert!(rect.get(name).is_some(), "property '{}' returned None", name);
     }
 }
 
@@ -231,11 +214,7 @@ fn polygon_property_roundtrip_color() {
 fn polygon_property_names_match_getters() {
     let poly = Polygon::new(vec3(0.0, 0.0, 0.0), 1.0, 6, YELLOW);
     for name in poly.property_names() {
-        assert!(
-            poly.get(name).is_some(),
-            "property '{}' returned None",
-            name
-        );
+        assert!(poly.get(name).is_some(), "property '{}' returned None", name);
     }
 }
 
@@ -291,10 +270,6 @@ fn torus_property_roundtrip_color() {
 fn torus_property_names_match_getters() {
     let torus = Torus::new(Vec3::ZERO, 2.0, 0.5, BLUE);
     for name in torus.property_names() {
-        assert!(
-            torus.get(name).is_some(),
-            "property '{}' returned None",
-            name
-        );
+        assert!(torus.get(name).is_some(), "property '{}' returned None", name);
     }
 }

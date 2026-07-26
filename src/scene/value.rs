@@ -28,16 +28,12 @@ impl AnimValue {
             (AnimValue::Vec2(a), AnimValue::Vec2(b)) => AnimValue::Vec2(a.lerp(*b, t)),
             (AnimValue::Vec3(a), AnimValue::Vec3(b)) => AnimValue::Vec3(a.lerp(*b, t)),
             (AnimValue::Vec4(a), AnimValue::Vec4(b)) => AnimValue::Vec4(a.lerp(*b, t)),
-            (AnimValue::Bool(_), AnimValue::Bool(b)) => {
-                AnimValue::Bool(if t >= 0.5 { *b } else { false })
-            }
-            (AnimValue::Transform2D(a), AnimValue::Transform2D(b)) => {
-                AnimValue::Transform2D(Transform2D {
-                    position: a.position.lerp(b.position, t),
-                    rotation: a.rotation + (b.rotation - a.rotation) * t,
-                    scale: a.scale.lerp(b.scale, t),
-                })
-            }
+            (AnimValue::Bool(_), AnimValue::Bool(b)) => AnimValue::Bool(if t >= 0.5 { *b } else { false }),
+            (AnimValue::Transform2D(a), AnimValue::Transform2D(b)) => AnimValue::Transform2D(Transform2D {
+                position: a.position.lerp(b.position, t),
+                rotation: a.rotation + (b.rotation - a.rotation) * t,
+                scale: a.scale.lerp(b.scale, t),
+            }),
             (AnimValue::Mat4(a), AnimValue::Mat4(b)) => {
                 let (s_a, r_a, t_a) = a.to_scale_rotation_translation();
                 let (s_b, r_b, t_b) = b.to_scale_rotation_translation();

@@ -21,10 +21,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut rot_track = Track::new(torus_id, "rotation");
     for i in 0..=4 {
         let angle = FRAC_PI_2 * i as f32;
-        rot_track.add_keyframe(Keyframe::new(
-            i as f32,
-            AnimValue::Mat4(Mat4::from_rotation_y(angle)),
-        ));
+        rot_track.add_keyframe(Keyframe::new(i as f32, AnimValue::Mat4(Mat4::from_rotation_y(angle))));
     }
     timeline.add_track(rot_track);
 

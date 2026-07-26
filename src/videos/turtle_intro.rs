@@ -13,10 +13,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // ── Scene ─────────────────────────────────────────────────────────
     let mut sb = SceneBuilder::new();
 
-    let texture = Texture2D::from_file_with_format(
-        include_bytes!("../../assets/aseprite-files/tutle.png"),
-        None,
-    );
+    let texture = Texture2D::from_file_with_format(include_bytes!("../../assets/aseprite-files/tutle.png"), None);
     texture.set_filter(FilterMode::Nearest);
     let mut sprite = Sprite::new(texture, vec3(0.0, 0.0, 0.0), Some(vec2(1.0, 1.0)), WHITE);
     sprite.center = vec2(0.0, -0.5);
@@ -26,8 +23,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let s = apply_rules(&config, iterations);
     let lines = get_lines(&s, theta, 1.0);
 
-    let mut l_system = LSystem::new(config, theta, BLUE)
-        .with_colors(vec![RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE]);
+    let mut l_system = LSystem::new(config, theta, BLUE).with_colors(vec![RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE]);
     l_system.iterations = iterations as f32;
     l_system.scale = 1.0;
 
@@ -48,10 +44,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     axiom_text.stagger = 0.5;
     axiom_text.position = vec3(13.0, top_text_y - 1.0 * text_horizontal_spacing, 0.0);
 
-    let mut production_rules_text = VectorText::from_latex(
-        r"$P = \{ F \rightarrow F + G,\; G \rightarrow F - G \}$",
-        WHITE,
-    );
+    let mut production_rules_text = VectorText::from_latex(r"$P = \{ F \rightarrow F + G,\; G \rightarrow F - G \}$", WHITE);
     production_rules_text.scale = 1.4;
     production_rules_text.progress = 0.0;
     production_rules_text.stagger = 0.5;
@@ -83,10 +76,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     sb.parallel(|p| {
         p.animate_camera("position", |mut tb| {
-            tb = tb.keyframe(
-                0.0,
-                AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 6.0)),
-            );
+            tb = tb.keyframe(0.0, AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 6.0)));
 
             for (i, seg) in lines.iter().enumerate() {
                 let time = (i + 1) as f32 * seconds_per_segment;
@@ -98,8 +88,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
                     AnimValue::Vec3(vec3(
                         seg.end.x,
                         seg.end.y,
-                        (camera_position_final_z - 6.0) * ((i + 1) as f32 / lines.len() as f32)
-                            + 6.0,
+                        (camera_position_final_z - 6.0) * ((i + 1) as f32 / lines.len() as f32) + 6.0,
                     )),
                     easing::sine_in_out,
                 );
@@ -113,10 +102,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
         });
 
         p.animate_camera("target", |mut tb| {
-            tb = tb.keyframe(
-                0.0,
-                AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 0.0)),
-            );
+            tb = tb.keyframe(0.0, AnimValue::Vec3(vec3(lines[0].start.x, lines[0].start.y, 0.0)));
 
             for (i, seg) in lines.iter().enumerate() {
                 let time = (i + 1) as f32 * seconds_per_segment;
@@ -172,38 +158,26 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     sb.set_cursor(text_sequence_start);
     sb.animate_seq(&alphabet_text_ref, "progress", |tb| {
-        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
-            3.0,
-            AnimValue::Float(1.0),
-            easing::sine_in_out,
-        )
+        tb.keyframe(0.0, AnimValue::Float(0.0))
+            .animate_for(3.0, AnimValue::Float(1.0), easing::sine_in_out)
     });
 
     sb.set_cursor(text_sequence_start + 1.0);
     sb.animate_seq(&axiom_text_ref, "progress", |tb| {
-        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
-            3.0,
-            AnimValue::Float(1.0),
-            easing::sine_in_out,
-        )
+        tb.keyframe(0.0, AnimValue::Float(0.0))
+            .animate_for(3.0, AnimValue::Float(1.0), easing::sine_in_out)
     });
 
     sb.set_cursor(text_sequence_start + 2.0);
     sb.animate_seq(&production_rules_text_ref, "progress", |tb| {
-        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
-            4.0,
-            AnimValue::Float(1.0),
-            easing::sine_in_out,
-        )
+        tb.keyframe(0.0, AnimValue::Float(0.0))
+            .animate_for(4.0, AnimValue::Float(1.0), easing::sine_in_out)
     });
 
     sb.set_cursor(text_sequence_start + 3.0);
     sb.animate_seq(&theta_text_ref, "progress", |tb| {
-        tb.keyframe(0.0, AnimValue::Float(0.0)).animate_for(
-            3.0,
-            AnimValue::Float(1.0),
-            easing::sine_in_out,
-        )
+        tb.keyframe(0.0, AnimValue::Float(0.0))
+            .animate_for(3.0, AnimValue::Float(1.0), easing::sine_in_out)
     });
     // cursor is now at theta_text_end equivalent
 

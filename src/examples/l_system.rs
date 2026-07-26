@@ -14,8 +14,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut timeline = Timeline::new();
 
     let (config, theta) = lsys::my3();
-    let mut l_system =
-        LSystem::new(config, theta, GREEN).with_colors(vec![RED, YELLOW, GREEN, BLUE, PURPLE]);
+    let mut l_system = LSystem::new(config, theta, GREEN).with_colors(vec![RED, YELLOW, GREEN, BLUE, PURPLE]);
     l_system.iterations = 5.0;
     l_system.progress = 0.0;
     l_system.line_width = 0.1;
@@ -25,21 +24,11 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // Then animate progress 0 → 1 over 3 seconds (held at 0 until t=4)
     let mut progress_track = Track::new(l_system_id, "progress");
     progress_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
-    progress_track.add_keyframe(Keyframe::with_easing(
-        7.0,
-        AnimValue::Float(1.0),
-        cubic_in_out,
-    ));
+    progress_track.add_keyframe(Keyframe::with_easing(7.0, AnimValue::Float(1.0), cubic_in_out));
 
     let mut theta_track = Track::new(l_system_id, "theta");
-    theta_track.add_keyframe(Keyframe::new(
-        8.0,
-        AnimValue::Float(std::f32::consts::FRAC_PI_2),
-    ));
-    theta_track.add_keyframe(Keyframe::new(
-        28.0,
-        AnimValue::Float(3.0 * std::f32::consts::FRAC_PI_2),
-    ));
+    theta_track.add_keyframe(Keyframe::new(8.0, AnimValue::Float(std::f32::consts::FRAC_PI_2)));
+    theta_track.add_keyframe(Keyframe::new(28.0, AnimValue::Float(3.0 * std::f32::consts::FRAC_PI_2)));
 
     timeline.add_track(progress_track);
     timeline.add_track(theta_track);

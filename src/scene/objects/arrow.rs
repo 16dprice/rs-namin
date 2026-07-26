@@ -17,14 +17,7 @@ pub struct Arrow {
 }
 
 impl Arrow {
-    const PROPERTY_NAMES: &[&str] = &[
-        "start",
-        "end",
-        "shaft_width",
-        "head_width",
-        "head_length",
-        "color",
-    ];
+    const PROPERTY_NAMES: &[&str] = &["start", "end", "shaft_width", "head_width", "head_length", "color"];
 
     pub fn new(start: Vec3, end: Vec3, color: Color) -> Self {
         let length = (end - start).length();
@@ -38,14 +31,7 @@ impl Arrow {
         }
     }
 
-    pub fn with_dimensions(
-        start: Vec3,
-        end: Vec3,
-        shaft_width: f32,
-        head_width: f32,
-        head_length: f32,
-        color: Color,
-    ) -> Self {
+    pub fn with_dimensions(start: Vec3, end: Vec3, shaft_width: f32, head_width: f32, head_length: f32, color: Color) -> Self {
         Self {
             start,
             end,
@@ -57,8 +43,7 @@ impl Arrow {
     }
 
     fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
 
         let dir = self.end - self.start;
@@ -212,11 +197,7 @@ mod tests {
         for name in Arrow::PROPERTY_NAMES {
             let val = arrow.get(name).unwrap();
             arrow.set(name, val.clone());
-            assert_eq!(
-                arrow.get(name).unwrap(),
-                val,
-                "round-trip failed for {name}"
-            );
+            assert_eq!(arrow.get(name).unwrap(), val, "round-trip failed for {name}");
         }
     }
 
@@ -273,14 +254,7 @@ mod tests {
 
     #[test]
     fn with_dimensions_constructor() {
-        let arrow = Arrow::with_dimensions(
-            vec3(0.0, 0.0, 0.0),
-            vec3(5.0, 0.0, 0.0),
-            0.5,
-            1.0,
-            2.0,
-            BLUE,
-        );
+        let arrow = Arrow::with_dimensions(vec3(0.0, 0.0, 0.0), vec3(5.0, 0.0, 0.0), 0.5, 1.0, 2.0, BLUE);
         assert_eq!(arrow.shaft_width, 0.5);
         assert_eq!(arrow.head_width, 1.0);
         assert_eq!(arrow.head_length, 2.0);

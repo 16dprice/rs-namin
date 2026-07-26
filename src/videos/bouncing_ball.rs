@@ -20,12 +20,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let rest_y = radius;
 
     let circle_id = scene.add(Disk::new(vec3(0.0, rest_y, 0.0), radius, BLUE));
-    scene.add(Line::new(
-        vec3(-10.0, 0.0, 0.0),
-        vec3(10.0, 0.0, 0.0),
-        1.0,
-        WHITE,
-    ));
+    scene.add(Line::new(vec3(-10.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), 1.0, WHITE));
 
     let rect_id = scene.add(Rectangle::new(vec3(-3.0, 1.5, 0.0), vec2(2.0, 3.0), GREEN));
     let hex_id = scene.add(Polygon::new(vec3(3.0, 2.0, 0.0), 1.0, 6, YELLOW));
@@ -37,11 +32,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut pos_track = Track::new(circle_id, "position");
     let mut t = 0.0_f32;
 
-    pos_track.add_keyframe(Keyframe::with_easing(
-        t,
-        AnimValue::Vec3(vec3(0.0, rest_y, 0.0)),
-        quad_out,
-    ));
+    pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), quad_out));
 
     while t < DURATION {
         for i in 0..bounce_heights.len() {
@@ -49,18 +40,10 @@ pub fn build() -> (Scene, Timeline, Camera) {
             let dur = bounce_durations[i];
 
             t += dur;
-            pos_track.add_keyframe(Keyframe::with_easing(
-                t,
-                AnimValue::Vec3(vec3(0.0, peak_y, 0.0)),
-                quad_in,
-            ));
+            pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, peak_y, 0.0)), quad_in));
 
             t += dur;
-            pos_track.add_keyframe(Keyframe::with_easing(
-                t,
-                AnimValue::Vec3(vec3(0.0, rest_y, 0.0)),
-                quad_out,
-            ));
+            pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), quad_out));
         }
     }
     timeline.add_track(pos_track);
@@ -68,10 +51,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // Rectangle pulses over the full duration
     let mut rect_track = Track::new(rect_id, "size");
     rect_track.add_keyframe(Keyframe::new(0.0, AnimValue::Vec2(vec2(2.0, 3.0))));
-    rect_track.add_keyframe(Keyframe::new(
-        DURATION / 2.0,
-        AnimValue::Vec2(vec2(3.0, 1.5)),
-    ));
+    rect_track.add_keyframe(Keyframe::new(DURATION / 2.0, AnimValue::Vec2(vec2(3.0, 1.5))));
     rect_track.add_keyframe(Keyframe::new(DURATION, AnimValue::Vec2(vec2(2.0, 3.0))));
     timeline.add_track(rect_track);
 

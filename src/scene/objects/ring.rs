@@ -33,8 +33,7 @@ impl Ring {
     /// (radius + thickness/2), sweeping `sweep` fraction of the full arc.
     fn build_mesh(&self) -> Mesh {
         let sweep_angle = self.sweep.clamp(0.0, 1.0) * TAU;
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
 
         let inner_r = (self.radius - self.thickness * 0.5).max(0.0);
@@ -106,16 +105,8 @@ impl SceneObject for Ring {
     fn bounding_box(&self) -> BoundingBox {
         let outer_r = self.radius + self.thickness * 0.5;
         BoundingBox {
-            min: vec3(
-                self.position.x - outer_r,
-                self.position.y - outer_r,
-                self.position.z,
-            ),
-            max: vec3(
-                self.position.x + outer_r,
-                self.position.y + outer_r,
-                self.position.z,
-            ),
+            min: vec3(self.position.x - outer_r, self.position.y - outer_r, self.position.z),
+            max: vec3(self.position.x + outer_r, self.position.y + outer_r, self.position.z),
         }
     }
 }

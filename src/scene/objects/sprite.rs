@@ -42,8 +42,7 @@ impl Sprite {
 
     /// Build a textured quad mesh on the XY plane, rotated around `center`.
     fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
         let hw = self.size.x / 2.0;
         let hh = self.size.y / 2.0;

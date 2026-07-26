@@ -31,12 +31,7 @@ mod tests {
 
     #[test]
     fn rgb_flipped_strips_alpha_and_flips() {
-        let rgba: Vec<[u8; 4]> = vec![
-            [255, 0, 0, 255],
-            [0, 255, 0, 255],
-            [0, 0, 255, 255],
-            [255, 255, 255, 128],
-        ];
+        let rgba: Vec<[u8; 4]> = vec![[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 255, 255, 128]];
         let mut out = Vec::new();
         rgba_to_rgb_flipped(&rgba, 2, 2, &mut out);
         assert_eq!(out, vec![0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 0,]);
@@ -44,20 +39,10 @@ mod tests {
 
     #[test]
     fn rgba_flipped_preserves_alpha_and_flips() {
-        let rgba: Vec<[u8; 4]> = vec![
-            [255, 0, 0, 255],
-            [0, 255, 0, 128],
-            [0, 0, 255, 64],
-            [255, 255, 255, 0],
-        ];
+        let rgba: Vec<[u8; 4]> = vec![[255, 0, 0, 255], [0, 255, 0, 128], [0, 0, 255, 64], [255, 255, 255, 0]];
         let mut out = Vec::new();
         rgba_flipped(&rgba, 2, 2, &mut out);
-        assert_eq!(
-            out,
-            vec![
-                0, 0, 255, 64, 255, 255, 255, 0, 255, 0, 0, 255, 0, 255, 0, 128,
-            ]
-        );
+        assert_eq!(out, vec![0, 0, 255, 64, 255, 255, 255, 0, 255, 0, 0, 255, 0, 255, 0, 128,]);
     }
 
     #[test]

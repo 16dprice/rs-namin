@@ -45,13 +45,7 @@ impl Text {
 impl SceneObject for Text {
     fn draw(&self) {
         let color = Color::new(self.color.x, self.color.y, self.color.z, self.color.w);
-        draw_text(
-            self.visible_text(),
-            self.position.x,
-            self.position.y,
-            self.font_size,
-            color,
-        );
+        draw_text(self.visible_text(), self.position.x, self.position.y, self.font_size, color);
     }
 
     fn bounding_box(&self) -> BoundingBox {

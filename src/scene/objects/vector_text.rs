@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use lyon::math::point;
 use lyon::path::Path;
 use lyon::tessellation::geometry_builder::VertexBuffers;
-use lyon::tessellation::{
-    BuffersBuilder, FillOptions, FillTessellator, FillVertex, StrokeOptions, StrokeTessellator,
-    StrokeVertex,
-};
+use lyon::tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, StrokeOptions, StrokeTessellator, StrokeVertex};
 use macroquad::prelude::*;
 
 use crate::scene::bezier::{BezierContour, GlyphOutline};
@@ -43,15 +40,7 @@ pub struct VectorText {
 }
 
 impl VectorText {
-    const PROPERTY_NAMES: &[&str] = &[
-        "position",
-        "color",
-        "progress",
-        "fill_opacity",
-        "stroke_width",
-        "scale",
-        "stagger",
-    ];
+    const PROPERTY_NAMES: &[&str] = &["position", "color", "progress", "fill_opacity", "stroke_width", "scale", "stagger"];
 
     /// Create from text string and font data.
     /// `scale` controls the display size (1.0 = 1 em per world unit).
@@ -73,8 +62,7 @@ impl VectorText {
     ///
     /// Panics if compilation fails (e.g. missing `latex`/`dvisvgm` or invalid LaTeX).
     pub fn from_latex(latex: &str, color: Color) -> Self {
-        let glyphs = latex::latex_to_glyphs(latex)
-            .unwrap_or_else(|e| panic!("LaTeX compilation failed: {e}"));
+        let glyphs = latex::latex_to_glyphs(latex).unwrap_or_else(|e| panic!("LaTeX compilation failed: {e}"));
         Self::from_glyphs(glyphs, color)
     }
 
@@ -103,11 +91,7 @@ impl VectorText {
         let stagger = self.stagger.clamp(0.0, 1.0);
         // duration = 1 - (n-1)*stagger/n
         // At stagger=1: 1/n (sequential). At stagger=0: 1 (simultaneous).
-        let glyph_duration = if n > 1 {
-            1.0 - (n as f32 - 1.0) * stagger / n as f32
-        } else {
-            1.0
-        };
+        let glyph_duration = if n > 1 { 1.0 - (n as f32 - 1.0) * stagger / n as f32 } else { 1.0 };
 
         let start = glyph_index as f32 * stagger / n as f32;
         if glyph_duration > 0.0 {
@@ -213,11 +197,7 @@ impl VectorText {
 
     /// Convenience: all visible stroke contours.
     fn visible_contours(&self) -> Vec<BezierContour> {
-        self.compute_visibility()
-            .0
-            .into_iter()
-            .flat_map(|b| b.contours)
-            .collect()
+        self.compute_visibility().0.into_iter().flat_map(|b| b.contours).collect()
     }
 
     /// Build lyon path from contours, scaling coordinates.
@@ -242,11 +222,7 @@ impl VectorText {
     }
 
     /// Convert tessellated buffers into chunked macroquad Meshes.
-    fn buffers_to_meshes(
-        buffers: &VertexBuffers<[f32; 2], u16>,
-        position: Vec3,
-        color_bytes: [u8; 4],
-    ) -> Vec<Mesh> {
+    fn buffers_to_meshes(buffers: &VertexBuffers<[f32; 2], u16>, position: Vec3, color_bytes: [u8; 4]) -> Vec<Mesh> {
         if buffers.vertices.is_empty() || buffers.indices.is_empty() {
             return vec![];
         }
@@ -283,9 +259,7 @@ impl VectorText {
 
             let new_verts = tri.iter().filter(|i| !vertex_map.contains_key(i)).count();
 
-            if chunk_vertices.len() + new_verts > MAX_VERTICES
-                || chunk_indices.len() + 3 > max_indices_per_chunk
-            {
+            if chunk_vertices.len() + new_verts > MAX_VERTICES || chunk_indices.len() + 3 > max_indices_per_chunk {
                 meshes.push(Mesh {
                     vertices: std::mem::take(&mut chunk_vertices),
                     indices: std::mem::take(&mut chunk_indices),
@@ -333,8 +307,7 @@ impl VectorText {
             for batch in &fill_batches {
                 let fill_path = Self::contours_to_path(&batch.contours, self.scale);
                 let fill_alpha = (self.color.w * self.fill_opacity * batch.alpha).clamp(0.0, 1.0);
-                let fill_color: [u8; 4] =
-                    Color::new(self.color.x, self.color.y, self.color.z, fill_alpha).into();
+                let fill_color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, fill_alpha).into();
 
                 let mut tessellator = FillTessellator::new();
                 let mut buffers: VertexBuffers<[f32; 2], u16> = VertexBuffers::new();
@@ -363,8 +336,7 @@ impl VectorText {
             for batch in &stroke_batches {
                 let stroke_path = Self::contours_to_path(&batch.contours, self.scale);
                 let stroke_alpha = (self.color.w * batch.alpha).clamp(0.0, 1.0);
-                let stroke_color: [u8; 4] =
-                    Color::new(self.color.x, self.color.y, self.color.z, stroke_alpha).into();
+                let stroke_color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, stroke_alpha).into();
 
                 let mut tessellator = StrokeTessellator::new();
                 let mut buffers: VertexBuffers<[f32; 2], u16> = VertexBuffers::new();
@@ -379,11 +351,7 @@ impl VectorText {
                 );
 
                 if result.is_ok() {
-                    meshes.extend(Self::buffers_to_meshes(
-                        &buffers,
-                        self.position,
-                        stroke_color,
-                    ));
+                    meshes.extend(Self::buffers_to_meshes(&buffers, self.position, stroke_color));
                 }
             }
         }
@@ -476,12 +444,7 @@ mod tests {
     use crate::scene::bezier::{BezierContour, CubicBezier, GlyphOutline};
 
     fn make_test_glyph() -> GlyphOutline {
-        let seg = CubicBezier::new(
-            vec2(0.0, 0.0),
-            vec2(0.5, 1.0),
-            vec2(1.0, 1.0),
-            vec2(1.0, 0.0),
-        );
+        let seg = CubicBezier::new(vec2(0.0, 0.0), vec2(0.5, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0));
         GlyphOutline {
             contours: vec![BezierContour {
                 segments: vec![seg],

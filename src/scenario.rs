@@ -37,26 +37,19 @@ impl Scenario {
 
     /// Assert a condition on the camera. Panics with `msg` if the closure returns false.
     pub fn assert_camera(mut self, msg: &str, check: impl Fn(&Camera) -> bool + 'static) -> Self {
-        self.steps
-            .push(Step::AssertCamera(Box::new(check), msg.to_string()));
+        self.steps.push(Step::AssertCamera(Box::new(check), msg.to_string()));
         self
     }
 
     /// Assert a condition on the orbit controller state.
-    pub fn assert_orbit(
-        mut self,
-        msg: &str,
-        check: impl Fn(&OrbitController) -> bool + 'static,
-    ) -> Self {
-        self.steps
-            .push(Step::AssertOrbit(Box::new(check), msg.to_string()));
+    pub fn assert_orbit(mut self, msg: &str, check: impl Fn(&OrbitController) -> bool + 'static) -> Self {
+        self.steps.push(Step::AssertOrbit(Box::new(check), msg.to_string()));
         self
     }
 
     /// Assert a condition on the scene.
     pub fn assert_scene(mut self, msg: &str, check: impl Fn(&Scene) -> bool + 'static) -> Self {
-        self.steps
-            .push(Step::AssertScene(Box::new(check), msg.to_string()));
+        self.steps.push(Step::AssertScene(Box::new(check), msg.to_string()));
         self
     }
 
@@ -119,9 +112,7 @@ mod tests {
         let initial_pos = camera.position;
         Scenario::new()
             .idle(60)
-            .assert_camera("position unchanged after idle", move |c| {
-                (c.position - initial_pos).length() < 1e-5
-            })
+            .assert_camera("position unchanged after idle", move |c| (c.position - initial_pos).length() < 1e-5)
             .run(&mut scene, &timeline, &mut camera);
     }
 

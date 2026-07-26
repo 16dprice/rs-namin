@@ -56,13 +56,7 @@ impl Tube {
     fn sample_color(&self, u: f32) -> [u8; 4] {
         let n = self.colors.len();
         if n == 1 {
-            return Color::new(
-                self.colors[0].x,
-                self.colors[0].y,
-                self.colors[0].z,
-                self.colors[0].w,
-            )
-            .into();
+            return Color::new(self.colors[0].x, self.colors[0].y, self.colors[0].z, self.colors[0].w).into();
         }
         let scaled = u * n as f32;
         let idx = (scaled.floor() as usize) % n;
@@ -90,11 +84,7 @@ impl Tube {
 
     /// Compute an initial perpendicular frame for a given tangent.
     fn initial_frame(tangent: Vec3) -> (Vec3, Vec3) {
-        let up = if tangent.dot(Vec3::Y).abs() > 0.9 {
-            Vec3::X
-        } else {
-            Vec3::Y
-        };
+        let up = if tangent.dot(Vec3::Y).abs() > 0.9 { Vec3::X } else { Vec3::Y };
         let normal = tangent.cross(up).normalize_or_zero();
         let binormal = tangent.cross(normal).normalize_or_zero();
         (normal, binormal)
@@ -102,12 +92,7 @@ impl Tube {
 
     /// Propagate a frame from one tangent to the next, keeping it smooth.
     /// Rotates (prev_normal, prev_binormal) so they stay perpendicular to new_tangent.
-    fn propagate_frame(
-        prev_tangent: Vec3,
-        prev_normal: Vec3,
-        _prev_binormal: Vec3,
-        new_tangent: Vec3,
-    ) -> (Vec3, Vec3) {
+    fn propagate_frame(prev_tangent: Vec3, prev_normal: Vec3, _prev_binormal: Vec3, new_tangent: Vec3) -> (Vec3, Vec3) {
         let dot = prev_tangent.dot(new_tangent).clamp(-1.0, 1.0);
         let rotated_normal = if dot > 0.9999 {
             // Tangents nearly identical — start from previous normal
@@ -173,9 +158,7 @@ impl Tube {
             let mut vertices = Vec::with_capacity(chunk_rings * verts_per_ring);
             let mut indices = Vec::with_capacity((chunk_rings - 1) * RING_SEGMENTS * 6);
 
-            for (ring, &(_tangent, normal, binormal)) in
-                frames.iter().enumerate().take(chunk_end).skip(chunk_start)
-            {
+            for (ring, &(_tangent, normal, binormal)) in frames.iter().enumerate().take(chunk_end).skip(chunk_start) {
                 let point_idx = ring % n;
 
                 let u = ring as f32 / (num_rings - 1) as f32;
@@ -286,28 +269,11 @@ mod tests {
     use super::*;
 
     fn make_straight_tube() -> Tube {
-        Tube::new(
-            vec![
-                vec3(0.0, 0.0, 0.0),
-                vec3(1.0, 0.0, 0.0),
-                vec3(2.0, 0.0, 0.0),
-            ],
-            0.5,
-            WHITE,
-        )
+        Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(2.0, 0.0, 0.0)], 0.5, WHITE)
     }
 
     fn make_triangle_tube() -> Tube {
-        Tube::new(
-            vec![
-                vec3(0.0, 0.0, 0.0),
-                vec3(1.0, 0.0, 0.0),
-                vec3(0.5, 1.0, 0.0),
-            ],
-            0.2,
-            WHITE,
-        )
-        .closed(true)
+        Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.0)], 0.2, WHITE).closed(true)
     }
 
     #[test]

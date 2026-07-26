@@ -167,11 +167,7 @@ impl DebugOverlay {
         let t = camera.target;
         let fwd = camera.forward();
 
-        let cam_mode = if self.camera_follow_timeline {
-            "Timeline"
-        } else {
-            "Orbit"
-        };
+        let cam_mode = if self.camera_follow_timeline { "Timeline" } else { "Orbit" };
 
         let hud_lines = [
             format!("Time: {:.2} / {:.2}s", clock.current_time, clock.duration),
@@ -344,8 +340,7 @@ mod tests {
         let mut clock = Clock::new(10.0, 60.0);
         assert!(!overlay.camera_follow_timeline);
 
-        let input =
-            ScriptedInput::default().with_key_pressed(overlay.keybindings.toggle_camera_follow);
+        let input = ScriptedInput::default().with_key_pressed(overlay.keybindings.toggle_camera_follow);
 
         overlay.handle_input(&mut clock, &input);
         assert!(overlay.camera_follow_timeline);

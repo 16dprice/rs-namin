@@ -47,10 +47,7 @@ fn apply_multiple_tracks_same_object() {
     timeline.apply(0.5, &mut scene, &mut cam);
     let obj = scene.get(id).unwrap();
     assert_eq!(obj.get("radius"), Some(AnimValue::Float(30.0)));
-    assert_eq!(
-        obj.get("position"),
-        Some(AnimValue::Vec3(vec3(50.0, 0.0, 0.0)))
-    );
+    assert_eq!(obj.get("position"), Some(AnimValue::Vec3(vec3(50.0, 0.0, 0.0))));
 }
 
 #[test]

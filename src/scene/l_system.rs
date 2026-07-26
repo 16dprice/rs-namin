@@ -406,13 +406,7 @@ mod tests {
         // Each segment's end should be the next segment's start
         for i in 0..lines.len() - 1 {
             let gap = (lines[i].end - lines[i + 1].start).length();
-            assert!(
-                gap < 1e-4,
-                "gap between segments {} and {}: {}",
-                i,
-                i + 1,
-                gap
-            );
+            assert!(gap < 1e-4, "gap between segments {} and {}: {}", i, i + 1, gap);
         }
     }
 }

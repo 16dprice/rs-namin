@@ -64,18 +64,11 @@ impl SceneBuilder {
     /// # Panics
     /// Panics if the property name doesn't exist on the object, or if a keyframe
     /// value has the wrong AnimValue variant.
-    pub fn animate(
-        &mut self,
-        obj: &ObjRef,
-        property: &str,
-        build: impl FnOnce(TrackBuilder) -> TrackBuilder,
-    ) -> &mut Self {
-        let scene_obj = self.scene.get(obj.id).unwrap_or_else(|| {
-            panic!(
-                "SceneBuilder::animate: object {:?} not found in scene",
-                obj.id
-            )
-        });
+    pub fn animate(&mut self, obj: &ObjRef, property: &str, build: impl FnOnce(TrackBuilder) -> TrackBuilder) -> &mut Self {
+        let scene_obj = self
+            .scene
+            .get(obj.id)
+            .unwrap_or_else(|| panic!("SceneBuilder::animate: object {:?} not found in scene", obj.id));
 
         // Validate property name
         let names = scene_obj.property_names();
@@ -107,11 +100,7 @@ impl SceneBuilder {
     /// # Panics
     /// Panics if the property name doesn't exist on Camera, or if a keyframe
     /// value has the wrong AnimValue variant.
-    pub fn animate_camera(
-        &mut self,
-        property: &str,
-        build: impl FnOnce(TrackBuilder) -> TrackBuilder,
-    ) -> &mut Self {
+    pub fn animate_camera(&mut self, property: &str, build: impl FnOnce(TrackBuilder) -> TrackBuilder) -> &mut Self {
         let names = self.camera.property_names();
         assert!(
             names.contains(&property),
@@ -146,18 +135,11 @@ impl SceneBuilder {
     /// });
     /// // cursor is now 8.0
     /// ```
-    pub fn animate_seq(
-        &mut self,
-        obj: &ObjRef,
-        property: &str,
-        build: impl FnOnce(TrackBuilder) -> TrackBuilder,
-    ) -> &mut Self {
-        let scene_obj = self.scene.get(obj.id).unwrap_or_else(|| {
-            panic!(
-                "SceneBuilder::animate_seq: object {:?} not found in scene",
-                obj.id
-            )
-        });
+    pub fn animate_seq(&mut self, obj: &ObjRef, property: &str, build: impl FnOnce(TrackBuilder) -> TrackBuilder) -> &mut Self {
+        let scene_obj = self
+            .scene
+            .get(obj.id)
+            .unwrap_or_else(|| panic!("SceneBuilder::animate_seq: object {:?} not found in scene", obj.id));
 
         let names = scene_obj.property_names();
         assert!(
@@ -179,11 +161,7 @@ impl SceneBuilder {
 
     /// Animate a camera property using **relative** keyframe times offset by the cursor.
     /// After the closure runs, the cursor advances by the max keyframe time.
-    pub fn animate_camera_seq(
-        &mut self,
-        property: &str,
-        build: impl FnOnce(TrackBuilder) -> TrackBuilder,
-    ) -> &mut Self {
+    pub fn animate_camera_seq(&mut self, property: &str, build: impl FnOnce(TrackBuilder) -> TrackBuilder) -> &mut Self {
         let names = self.camera.property_names();
         assert!(
             names.contains(&property),
@@ -234,11 +212,7 @@ impl SceneBuilder {
 
     /// Offset keyframes by cursor, add the track, and advance cursor by duration.
     /// Returns the duration (max keyframe time before offset).
-    fn build_seq_track(
-        &mut self,
-        keyframes: Vec<Keyframe>,
-        make_track: impl FnOnce() -> Track,
-    ) -> f32 {
+    fn build_seq_track(&mut self, keyframes: Vec<Keyframe>, make_track: impl FnOnce() -> Track) -> f32 {
         let duration = keyframes.iter().map(|kf| kf.time).fold(0.0_f32, f32::max);
         let mut track = make_track();
         for mut kf in keyframes {
@@ -281,12 +255,7 @@ pub struct ParallelGroup<'a> {
 impl<'a> ParallelGroup<'a> {
     /// Animate a scene object property in parallel. Uses relative keyframe times
     /// offset by the group's start time.
-    pub fn animate(
-        &mut self,
-        obj: &ObjRef,
-        property: &str,
-        build: impl FnOnce(TrackBuilder) -> TrackBuilder,
-    ) -> &mut Self {
+    pub fn animate(&mut self, obj: &ObjRef, property: &str, build: impl FnOnce(TrackBuilder) -> TrackBuilder) -> &mut Self {
         self.sb.cursor = self.start;
         self.sb.animate_seq(obj, property, build);
         self.max_end = self.max_end.max(self.sb.cursor);
@@ -295,11 +264,7 @@ impl<'a> ParallelGroup<'a> {
 
     /// Animate a camera property in parallel. Uses relative keyframe times
     /// offset by the group's start time.
-    pub fn animate_camera(
-        &mut self,
-        property: &str,
-        build: impl FnOnce(TrackBuilder) -> TrackBuilder,
-    ) -> &mut Self {
+    pub fn animate_camera(&mut self, property: &str, build: impl FnOnce(TrackBuilder) -> TrackBuilder) -> &mut Self {
         self.sb.cursor = self.start;
         self.sb.animate_camera_seq(property, build);
         self.max_end = self.max_end.max(self.sb.cursor);
@@ -334,8 +299,7 @@ impl TrackBuilder {
     /// Add a keyframe with a custom easing function.
     pub fn keyframe_with_easing(mut self, time: f32, value: AnimValue, easing: EasingFn) -> Self {
         self.validate_type(&value);
-        self.keyframes
-            .push(Keyframe::with_easing(time, value, easing));
+        self.keyframes.push(Keyframe::with_easing(time, value, easing));
         self.local_time = time;
         self
     }
@@ -398,9 +362,7 @@ mod tests {
     use crate::animation::easing::quad_out;
     use crate::camera::{Camera, ProjectionMode};
     use crate::scene::l_system as lsys;
-    use crate::scene::objects::{
-        Arc, Arrow, Disk, LSystem, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText,
-    };
+    use crate::scene::objects::{Arc, Arrow, Disk, LSystem, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText};
 
     #[test]
     fn build_scene_with_object() {
@@ -416,8 +378,7 @@ mod tests {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(2.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(2.0, AnimValue::Float(5.0))
         });
         let (_scene, timeline, _camera) = sb.build();
         assert!((timeline.duration() - 2.0).abs() < f32::EPSILON);
@@ -428,9 +389,7 @@ mod tests {
     fn animate_invalid_property_name_panics() {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
-        sb.animate(&circle, "raidus", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-        });
+        sb.animate(&circle, "raidus", |tb| tb.keyframe(0.0, AnimValue::Float(1.0)));
     }
 
     #[test]
@@ -480,8 +439,7 @@ mod tests {
         let rect = sb.add(Rectangle::new(Vec3::ZERO, vec2(2.0, 1.0), RED));
 
         sb.animate(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(3.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(3.0, AnimValue::Float(5.0))
         });
         sb.animate(&circle, "color", |tb| {
             tb.keyframe(0.0, AnimValue::Vec4(vec4(1.0, 1.0, 1.0, 1.0)))
@@ -522,12 +480,10 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.camera(Camera::new(vec3(0.0, 0.0, 10.0), Vec3::ZERO));
         sb.animate(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(2.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(2.0, AnimValue::Float(5.0))
         });
         sb.animate_camera("fov", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(60.0))
-                .keyframe(2.0, AnimValue::Float(90.0))
+            tb.keyframe(0.0, AnimValue::Float(60.0)).keyframe(2.0, AnimValue::Float(90.0))
         });
 
         let (mut scene, timeline, mut camera) = sb.build();
@@ -551,25 +507,13 @@ mod tests {
         let _line = sb.add(Line::new(Vec3::ZERO, Vec3::X, 1.0, WHITE));
         let _rect = sb.add(Rectangle::new(Vec3::ZERO, vec2(1.0, 1.0), WHITE));
         let _poly = sb.add(Polygon::new(Vec3::ZERO, 1.0, 6, WHITE));
-        let _arc = sb.add(Arc::new(
-            Vec3::ZERO,
-            0.5,
-            1.0,
-            0.0,
-            std::f32::consts::PI,
-            WHITE,
-        ));
+        let _arc = sb.add(Arc::new(Vec3::ZERO, 0.5, 1.0, 0.0, std::f32::consts::PI, WHITE));
         let _arrow = sb.add(Arrow::new(Vec3::ZERO, Vec3::X, WHITE));
         let _spiral = sb.add(Spiral::new(Vec3::ZERO, 0.001, 0.1, WHITE, 100, 0.01));
         let _text = sb.add(Text::new("hello", vec2(10.0, 20.0), 16.0, WHITE));
         let _torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
         let _tube = sb.add(Tube::new(vec![Vec3::ZERO, Vec3::X], 0.5, WHITE));
-        let _vector_text = sb.add(VectorText::new(
-            "test",
-            crate::scene::font::default_font(),
-            1.0,
-            WHITE,
-        ));
+        let _vector_text = sb.add(VectorText::new("test", crate::scene::font::default_font(), 1.0, WHITE));
         let (dragon_config, dragon_theta) = lsys::dragon_curve();
         let _lsystem = sb.add(LSystem::new(dragon_config, dragon_theta, WHITE));
 
@@ -586,8 +530,7 @@ mod tests {
                 .keyframe(2.0, AnimValue::Float(std::f32::consts::TAU))
         });
         sb.animate(&arc, "inner_radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(0.0))
-                .keyframe(2.0, AnimValue::Float(0.8))
+            tb.keyframe(0.0, AnimValue::Float(0.0)).keyframe(2.0, AnimValue::Float(0.8))
         });
         let (_scene, timeline, _camera) = sb.build();
         assert_eq!(timeline.tracks.len(), 2);
@@ -617,10 +560,8 @@ mod tests {
         let mut sb = SceneBuilder::new();
         let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
         sb.animate(&torus, "rotation", |tb| {
-            tb.keyframe(0.0, AnimValue::Mat4(Mat4::IDENTITY)).keyframe(
-                2.0,
-                AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-            )
+            tb.keyframe(0.0, AnimValue::Mat4(Mat4::IDENTITY))
+                .keyframe(2.0, AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)))
         });
         let (mut scene, timeline, mut camera) = sb.build();
         timeline.apply(1.0, &mut scene, &mut camera);
@@ -644,26 +585,18 @@ mod tests {
     fn animate_torus_rotation_wrong_type_panics() {
         let mut sb = SceneBuilder::new();
         let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
-        sb.animate(&torus, "rotation", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(0.0))
-        });
+        sb.animate(&torus, "rotation", |tb| tb.keyframe(0.0, AnimValue::Float(0.0)));
     }
 
     #[test]
     fn animate_tube_specific_properties() {
         let mut sb = SceneBuilder::new();
-        let tube = sb.add(Tube::new(
-            vec![Vec3::ZERO, Vec3::X, vec3(2.0, 1.0, 0.0)],
-            0.5,
-            WHITE,
-        ));
+        let tube = sb.add(Tube::new(vec![Vec3::ZERO, Vec3::X, vec3(2.0, 1.0, 0.0)], 0.5, WHITE));
         sb.animate(&tube, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(0.5))
-                .keyframe(2.0, AnimValue::Float(2.0))
+            tb.keyframe(0.0, AnimValue::Float(0.5)).keyframe(2.0, AnimValue::Float(2.0))
         });
         sb.animate(&tube, "closed", |tb| {
-            tb.keyframe(0.0, AnimValue::Bool(false))
-                .keyframe(1.0, AnimValue::Bool(true))
+            tb.keyframe(0.0, AnimValue::Bool(false)).keyframe(1.0, AnimValue::Bool(true))
         });
         let (_scene, timeline, _camera) = sb.build();
         assert_eq!(timeline.tracks.len(), 2);
@@ -674,12 +607,8 @@ mod tests {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         let circle2 = circle; // Copy
-        sb.animate(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-        });
-        sb.animate(&circle2, "color", |tb| {
-            tb.keyframe(0.0, AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0)))
-        });
+        sb.animate(&circle, "radius", |tb| tb.keyframe(0.0, AnimValue::Float(1.0)));
+        sb.animate(&circle2, "color", |tb| tb.keyframe(0.0, AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0))));
         let (_scene, timeline, _camera) = sb.build();
         assert_eq!(timeline.tracks.len(), 2);
     }
@@ -705,8 +634,7 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.set_cursor(5.0);
         sb.animate_seq(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(3.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(3.0, AnimValue::Float(5.0))
         });
 
         let (mut scene, timeline, mut camera) = sb.build();
@@ -731,8 +659,7 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.set_cursor(2.0);
         sb.animate_seq(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(4.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(4.0, AnimValue::Float(5.0))
         });
         assert!((sb.cursor() - 6.0).abs() < f32::EPSILON);
     }
@@ -743,8 +670,7 @@ mod tests {
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         // First animation: radius 1→5 over 2s starting at t=0
         sb.animate_seq(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(2.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(2.0, AnimValue::Float(5.0))
         });
         // Second animation: color over 3s starting at t=2 (after first)
         sb.animate_seq(&circle, "color", |tb| {
@@ -770,8 +696,7 @@ mod tests {
         sb.camera(Camera::new(vec3(0.0, 0.0, 10.0), Vec3::ZERO));
         sb.set_cursor(1.0);
         sb.animate_camera_seq("fov", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(60.0))
-                .keyframe(2.0, AnimValue::Float(90.0))
+            tb.keyframe(0.0, AnimValue::Float(60.0)).keyframe(2.0, AnimValue::Float(90.0))
         });
         assert!((sb.cursor() - 3.0).abs() < f32::EPSILON);
 
@@ -788,8 +713,7 @@ mod tests {
         sb.set_cursor(1.0);
         sb.parallel(|p| {
             p.animate(&circle, "radius", |tb| {
-                tb.keyframe(0.0, AnimValue::Float(1.0))
-                    .keyframe(3.0, AnimValue::Float(5.0))
+                tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(3.0, AnimValue::Float(5.0))
             });
             p.animate(&circle, "color", |tb| {
                 tb.keyframe(0.0, AnimValue::Vec4(vec4(1.0, 1.0, 1.0, 1.0)))
@@ -821,8 +745,7 @@ mod tests {
         sb.camera(Camera::new(vec3(0.0, 0.0, 10.0), Vec3::ZERO));
         sb.parallel(|p| {
             p.animate_camera("fov", |tb| {
-                tb.keyframe(0.0, AnimValue::Float(60.0))
-                    .keyframe(2.0, AnimValue::Float(90.0))
+                tb.keyframe(0.0, AnimValue::Float(60.0)).keyframe(2.0, AnimValue::Float(90.0))
             });
             p.animate_camera("position", |tb| {
                 tb.keyframe(0.0, AnimValue::Vec3(vec3(0.0, 0.0, 10.0)))
@@ -837,11 +760,8 @@ mod tests {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0)).animate_for(
-                2.0,
-                AnimValue::Float(5.0),
-                quad_out,
-            )
+            tb.keyframe(0.0, AnimValue::Float(1.0))
+                .animate_for(2.0, AnimValue::Float(5.0), quad_out)
         });
         let (mut scene, timeline, mut camera) = sb.build();
         assert!((timeline.duration() - 2.0).abs() < f32::EPSILON);
@@ -915,9 +835,7 @@ mod tests {
     fn animate_for_panics_without_starting_keyframe() {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
-        sb.animate(&circle, "radius", |tb| {
-            tb.animate_for(1.0, AnimValue::Float(5.0), easing::linear)
-        });
+        sb.animate(&circle, "radius", |tb| tb.animate_for(1.0, AnimValue::Float(5.0), easing::linear));
     }
 
     #[test]
@@ -934,8 +852,7 @@ mod tests {
 
         // Sequential animation (advances cursor)
         sb.animate_seq(&circle, "radius", |tb| {
-            tb.keyframe(0.0, AnimValue::Float(1.0))
-                .keyframe(3.0, AnimValue::Float(5.0))
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(3.0, AnimValue::Float(5.0))
         });
         assert!((sb.cursor() - 3.0).abs() < f32::EPSILON);
 

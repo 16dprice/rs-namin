@@ -14,8 +14,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut sb = SceneBuilder::new();
 
     let (config, theta) = my3();
-    let mut l_system =
-        LSystem::new(config, theta, GREEN).with_colors(vec![RED, YELLOW, GREEN, BLUE, PURPLE]);
+    let mut l_system = LSystem::new(config, theta, GREEN).with_colors(vec![RED, YELLOW, GREEN, BLUE, PURPLE]);
     l_system.iterations = 5.0;
     l_system.progress = 1.0;
     l_system.line_width = 0.1;
@@ -39,21 +38,13 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
 
     sb.animate_camera("position", |tb| {
-        tb.keyframe_with_easing(
-            32.0,
-            AnimValue::Vec3(vec3(0.0, 14.5, 25.7)),
-            easing::sine_in_out,
-        )
-        .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 5.0)))
+        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 25.7)), easing::sine_in_out)
+            .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 5.0)))
     });
 
     sb.animate_camera("target", |tb| {
-        tb.keyframe_with_easing(
-            32.0,
-            AnimValue::Vec3(vec3(0.0, 14.5, 0.0)),
-            easing::sine_in_out,
-        )
-        .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 0.0)))
+        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 0.0)), easing::sine_in_out)
+            .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 0.0)))
     });
 
     sb.build()

@@ -27,16 +27,8 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // Animate the radius pulsing
     let mut radius_track = Track::new(helix_id, "radius");
-    radius_track.add_keyframe(Keyframe::with_easing(
-        0.0,
-        AnimValue::Float(0.15),
-        cubic_in_out,
-    ));
-    radius_track.add_keyframe(Keyframe::with_easing(
-        3.0,
-        AnimValue::Float(0.4),
-        cubic_in_out,
-    ));
+    radius_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.15), cubic_in_out));
+    radius_track.add_keyframe(Keyframe::with_easing(3.0, AnimValue::Float(0.4), cubic_in_out));
     radius_track.add_keyframe(Keyframe::new(6.0, AnimValue::Float(0.15)));
     timeline.add_track(radius_track);
 
@@ -57,12 +49,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     scene.add(knot);
 
     // A simple L-shaped path
-    let l_points = vec![
-        vec3(0.0, -2.0, 0.0),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 2.0, 0.0),
-        vec3(0.0, 2.0, 2.0),
-    ];
+    let l_points = vec![vec3(0.0, -2.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 2.0, 0.0), vec3(0.0, 2.0, 2.0)];
     let mut l_tube = Tube::new(l_points, 0.25, YELLOW);
     l_tube.position = vec3(-6.0, 0.0, 0.0);
     scene.add(l_tube);
@@ -79,11 +66,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
         let t = frac * 6.0;
         cam_pos_track.add_keyframe(Keyframe::new(
             t,
-            AnimValue::Vec3(vec3(
-                cam_radius * angle.sin(),
-                3.0,
-                cam_radius * angle.cos(),
-            )),
+            AnimValue::Vec3(vec3(cam_radius * angle.sin(), 3.0, cam_radius * angle.cos())),
         ));
         cam_target_track.add_keyframe(Keyframe::new(t, AnimValue::Vec3(vec3(0.0, 0.0, 0.0))));
     }

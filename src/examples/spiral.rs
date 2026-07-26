@@ -13,14 +13,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut scene = Scene::new();
     let mut timeline = Timeline::new();
 
-    let spiral_id = scene.add(Spiral::new(
-        vec3(0.0, 0.0, 0.0),
-        0.0001,
-        1.0 / PI,
-        BLUE,
-        10_000,
-        0.002,
-    ));
+    let spiral_id = scene.add(Spiral::new(vec3(0.0, 0.0, 0.0), 0.0001, 1.0 / PI, BLUE, 10_000, 0.002));
 
     let mut delta_theta_track = Track::new(spiral_id, "delta_theta");
     delta_theta_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.001)));

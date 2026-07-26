@@ -48,10 +48,7 @@ impl Timeline {
     }
 
     pub fn duration(&self) -> f32 {
-        self.tracks
-            .iter()
-            .filter_map(|track| track.max_time())
-            .fold(0.0_f32, f32::max)
+        self.tracks.iter().filter_map(|track| track.max_time()).fold(0.0_f32, f32::max)
     }
 }
 

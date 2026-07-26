@@ -17,13 +17,7 @@ pub struct Torus {
 }
 
 impl Torus {
-    const PROPERTY_NAMES: &[&str] = &[
-        "position",
-        "major_radius",
-        "minor_radius",
-        "rotation",
-        "color",
-    ];
+    const PROPERTY_NAMES: &[&str] = &["position", "major_radius", "minor_radius", "rotation", "color"];
 
     pub fn new(position: Vec3, major_radius: f32, minor_radius: f32, color: Color) -> Self {
         Self {
@@ -36,8 +30,7 @@ impl Torus {
     }
 
     fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
 
         let vert_count = (MAJOR_SEGMENTS + 1) * (MINOR_SEGMENTS + 1);
         let idx_count = MAJOR_SEGMENTS * MINOR_SEGMENTS * 6;
@@ -69,10 +62,7 @@ impl Torus {
 
                 vertices.push(Vertex {
                     position: rotated_pos,
-                    uv: vec2(
-                        i as f32 / MAJOR_SEGMENTS as f32,
-                        j as f32 / MINOR_SEGMENTS as f32,
-                    ),
+                    uv: vec2(i as f32 / MAJOR_SEGMENTS as f32, j as f32 / MINOR_SEGMENTS as f32),
                     color,
                     normal: vec4(rotated_normal.x, rotated_normal.y, rotated_normal.z, 0.0),
                 });
@@ -160,11 +150,7 @@ mod tests {
         for name in Torus::PROPERTY_NAMES {
             let val = torus.get(name).unwrap();
             torus.set(name, val.clone());
-            assert_eq!(
-                torus.get(name).unwrap(),
-                val,
-                "round-trip failed for {name}"
-            );
+            assert_eq!(torus.get(name).unwrap(), val, "round-trip failed for {name}");
         }
     }
 
@@ -207,10 +193,7 @@ mod tests {
     fn mesh_vertex_count() {
         let torus = make_torus();
         let mesh = torus.build_mesh();
-        assert_eq!(
-            mesh.vertices.len(),
-            (MAJOR_SEGMENTS + 1) * (MINOR_SEGMENTS + 1)
-        );
+        assert_eq!(mesh.vertices.len(), (MAJOR_SEGMENTS + 1) * (MINOR_SEGMENTS + 1));
     }
 
     #[test]
@@ -232,10 +215,8 @@ mod tests {
 
         // After 90-degree X rotation, what was Z should now be -Y (approximately)
         // Just verify the meshes are different
-        let identity_positions: Vec<Vec3> =
-            mesh_identity.vertices.iter().map(|v| v.position).collect();
-        let rotated_positions: Vec<Vec3> =
-            mesh_rotated.vertices.iter().map(|v| v.position).collect();
+        let identity_positions: Vec<Vec3> = mesh_identity.vertices.iter().map(|v| v.position).collect();
+        let rotated_positions: Vec<Vec3> = mesh_rotated.vertices.iter().map(|v| v.position).collect();
 
         let mut any_different = false;
         for (a, b) in identity_positions.iter().zip(rotated_positions.iter()) {

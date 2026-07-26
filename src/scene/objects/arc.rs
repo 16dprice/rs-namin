@@ -19,23 +19,9 @@ pub struct Arc {
 const ARC_SEGMENTS: usize = 64;
 
 impl Arc {
-    const PROPERTY_NAMES: &[&str] = &[
-        "position",
-        "inner_radius",
-        "outer_radius",
-        "start_angle",
-        "sweep_angle",
-        "color",
-    ];
+    const PROPERTY_NAMES: &[&str] = &["position", "inner_radius", "outer_radius", "start_angle", "sweep_angle", "color"];
 
-    pub fn new(
-        position: Vec3,
-        inner_radius: f32,
-        outer_radius: f32,
-        start_angle: f32,
-        sweep_angle: f32,
-        color: Color,
-    ) -> Self {
+    pub fn new(position: Vec3, inner_radius: f32, outer_radius: f32, start_angle: f32, sweep_angle: f32, color: Color) -> Self {
         Self {
             position,
             inner_radius,
@@ -47,19 +33,12 @@ impl Arc {
     }
 
     /// Convenience: full-radius arc (disk sector) with inner_radius = 0.
-    pub fn sector(
-        position: Vec3,
-        radius: f32,
-        start_angle: f32,
-        sweep_angle: f32,
-        color: Color,
-    ) -> Self {
+    pub fn sector(position: Vec3, radius: f32, start_angle: f32, sweep_angle: f32, color: Color) -> Self {
         Self::new(position, 0.0, radius, start_angle, sweep_angle, color)
     }
 
     fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] =
-            Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
+        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
 
         // Each segment has 4 vertices (inner/outer at two angles) and 2 triangles.
@@ -174,14 +153,7 @@ mod tests {
     use super::*;
 
     fn make_arc() -> Arc {
-        Arc::new(
-            vec3(1.0, 2.0, 0.0),
-            0.5,
-            1.0,
-            0.0,
-            std::f32::consts::PI,
-            WHITE,
-        )
+        Arc::new(vec3(1.0, 2.0, 0.0), 0.5, 1.0, 0.0, std::f32::consts::PI, WHITE)
     }
 
     #[test]

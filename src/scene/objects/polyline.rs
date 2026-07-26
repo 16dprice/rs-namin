@@ -1,8 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::polyline::{
-    self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh,
-};
+use crate::scene::polyline::{self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh};
 use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
 use crate::scene::value::AnimValue;
 
@@ -32,10 +30,7 @@ impl Polyline {
     }
 
     pub fn with_colors(mut self, colors: Vec<Color>) -> Self {
-        self.colors = colors
-            .into_iter()
-            .map(|c| vec4(c.r, c.g, c.b, c.a))
-            .collect();
+        self.colors = colors.into_iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect();
         self
     }
 }
@@ -134,10 +129,7 @@ mod tests {
     }
 
     fn make_polyline() -> Polyline {
-        Polyline::new(
-            vec![seg(0.0, 0.0, 1.0, 0.0), seg(1.0, 0.0, 1.0, 1.0)],
-            WHITE,
-        )
+        Polyline::new(vec![seg(0.0, 0.0, 1.0, 0.0), seg(1.0, 0.0, 1.0, 1.0)], WHITE)
     }
 
     #[test]

@@ -63,11 +63,7 @@ impl CameraLog {
         if self.count == 0 {
             return None;
         }
-        let idx = if self.head == 0 {
-            self.capacity - 1
-        } else {
-            self.head - 1
-        };
+        let idx = if self.head == 0 { self.capacity - 1 } else { self.head - 1 };
         Some(&self.entries[idx])
     }
 
@@ -82,11 +78,7 @@ impl CameraLog {
 
     /// Iterate snapshots from oldest to newest.
     pub fn iter(&self) -> impl Iterator<Item = &CameraSnapshot> {
-        let start = if self.count < self.capacity {
-            0
-        } else {
-            self.head
-        };
+        let start = if self.count < self.capacity { 0 } else { self.head };
         (0..self.count).map(move |i| &self.entries[(start + i) % self.capacity])
     }
 }

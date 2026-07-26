@@ -85,19 +85,11 @@ pub fn sine_in_out(t: f32) -> f32 {
 }
 
 pub fn expo_in(t: f32) -> f32 {
-    if t == 0.0 {
-        0.0
-    } else {
-        (2.0_f32).powf(10.0 * t - 10.0)
-    }
+    if t == 0.0 { 0.0 } else { (2.0_f32).powf(10.0 * t - 10.0) }
 }
 
 pub fn expo_out(t: f32) -> f32 {
-    if t == 1.0 {
-        1.0
-    } else {
-        1.0 - (2.0_f32).powf(-10.0 * t)
-    }
+    if t == 1.0 { 1.0 } else { 1.0 - (2.0_f32).powf(-10.0 * t) }
 }
 
 pub fn expo_in_out(t: f32) -> f32 {
@@ -245,10 +237,7 @@ mod tests {
     #[test]
     fn all_easings_return_one_at_one() {
         for (name, easing) in EASINGS {
-            assert!(
-                (easing(1.0) - 1.0).abs() < f32::EPSILON,
-                "{name} failed at t=1.0"
-            );
+            assert!((easing(1.0) - 1.0).abs() < f32::EPSILON, "{name} failed at t=1.0");
         }
     }
 

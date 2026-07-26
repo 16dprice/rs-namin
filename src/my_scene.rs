@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::PI;
 
 use macroquad::prelude::*;
 
@@ -13,7 +13,7 @@ use crate::scene_builder::SceneBuilder;
 
 fn get_star_line_segments() -> Vec<LineSegment> {
     let delta = 2.0 * PI / 5.0;
-    let offset = 0.31415926535;
+    let offset = PI / 10.0;
     let radius = 2.0;
 
     let top_right_angle = offset;
@@ -51,7 +51,7 @@ fn get_star_line_segments() -> Vec<LineSegment> {
         });
     }
 
-    return segments;
+    segments
 }
 
 pub fn build() -> (Scene, Timeline, Camera) {

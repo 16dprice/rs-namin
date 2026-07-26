@@ -42,22 +42,10 @@ impl ValueInspector {
         }
 
         let panel_h = total_lines as f32 * line_h + panel_margin * 2.0;
-        draw_rectangle(
-            panel_x - panel_margin,
-            y - line_h,
-            260.0,
-            panel_h,
-            PANEL_COLOR,
-        );
+        draw_rectangle(panel_x - panel_margin, y - line_h, 260.0, panel_h, PANEL_COLOR);
 
         for (id, obj) in scene.iter() {
-            draw_text(
-                &format!("Object {:?}", id),
-                panel_x,
-                y,
-                font_size,
-                TITLE_COLOR,
-            );
+            draw_text(&format!("Object {:?}", id), panel_x, y, font_size, TITLE_COLOR);
             y += line_h;
 
             for name in obj.property_names() {
@@ -70,11 +58,7 @@ impl ValueInspector {
                     panel_x,
                     y,
                     font_size,
-                    if !name.is_empty() {
-                        LABEL_COLOR
-                    } else {
-                        VALUE_COLOR
-                    },
+                    if !name.is_empty() { LABEL_COLOR } else { VALUE_COLOR },
                 );
                 y += line_h;
             }
@@ -107,10 +91,7 @@ fn format_value(value: &AnimValue) -> String {
         }
         AnimValue::Mat4(m) => {
             let cols = m.to_cols_array();
-            format!(
-                "[{:.1},{:.1},{:.1},{:.1}; ...]",
-                cols[0], cols[1], cols[2], cols[3]
-            )
+            format!("[{:.1},{:.1},{:.1},{:.1}; ...]", cols[0], cols[1], cols[2], cols[3])
         }
     }
 }

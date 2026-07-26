@@ -26,7 +26,7 @@ pub const EXAMPLES: &[Example] = &[
     },
     Example {
         name: "l_system",
-        description: "Dragon curve L-system with animated iterations and write-on",
+        description: "Gradient-colored L-system with write-on progress and animated theta",
         build: l_system::build,
     },
     Example {

@@ -99,8 +99,7 @@ impl ttf_parser::OutlineBuilder for OutlineCollector {
         let p0 = self.current_pos;
         let p1 = p0.lerp(end, 1.0 / 3.0);
         let p2 = p0.lerp(end, 2.0 / 3.0);
-        self.current_segments
-            .push(CubicBezier::new(p0, p1, p2, end));
+        self.current_segments.push(CubicBezier::new(p0, p1, p2, end));
         self.current_pos = end;
     }
 
@@ -116,8 +115,7 @@ impl ttf_parser::OutlineBuilder for OutlineCollector {
         let cp1 = self.scaled(x1, y1);
         let cp2 = self.scaled(x2, y2);
         let end = self.scaled(x, y);
-        self.current_segments
-            .push(CubicBezier::new(self.current_pos, cp1, cp2, end));
+        self.current_segments.push(CubicBezier::new(self.current_pos, cp1, cp2, end));
         self.current_pos = end;
     }
 
@@ -128,8 +126,7 @@ impl ttf_parser::OutlineBuilder for OutlineCollector {
             let end = self.contour_start;
             let p1 = p0.lerp(end, 1.0 / 3.0);
             let p2 = p0.lerp(end, 2.0 / 3.0);
-            self.current_segments
-                .push(CubicBezier::new(p0, p1, p2, end));
+            self.current_segments.push(CubicBezier::new(p0, p1, p2, end));
         }
         self.contours.push(BezierContour {
             segments: std::mem::take(&mut self.current_segments),
@@ -161,10 +158,7 @@ mod tests {
         assert!(glyphs[1].advance_x > 0.0);
         // Second glyph's contours should be offset by first glyph's advance
         if let Some(first_seg) = glyphs[1].contours.first().and_then(|c| c.segments.first()) {
-            assert!(
-                first_seg.p0.x >= glyphs[0].advance_x * 0.5,
-                "second glyph should be offset"
-            );
+            assert!(first_seg.p0.x >= glyphs[0].advance_x * 0.5, "second glyph should be offset");
         }
     }
 

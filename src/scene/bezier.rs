@@ -60,10 +60,7 @@ impl CubicBezier {
     /// Evaluate point on curve at parameter t.
     pub fn evaluate(&self, t: f32) -> Vec2 {
         let u = 1.0 - t;
-        self.p0 * (u * u * u)
-            + self.p1 * (3.0 * u * u * t)
-            + self.p2 * (3.0 * u * t * t)
-            + self.p3 * (t * t * t)
+        self.p0 * (u * u * u) + self.p1 * (3.0 * u * u * t) + self.p2 * (3.0 * u * t * t) + self.p3 * (t * t * t)
     }
 }
 
@@ -125,12 +122,7 @@ mod tests {
     use super::*;
 
     fn sample_curve() -> CubicBezier {
-        CubicBezier::new(
-            vec2(0.0, 0.0),
-            vec2(1.0, 0.0),
-            vec2(1.0, 1.0),
-            vec2(0.0, 1.0),
-        )
+        CubicBezier::new(vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0))
     }
 
     #[test]
@@ -170,12 +162,7 @@ mod tests {
 
     #[test]
     fn subcurve_endpoints_match_evaluate() {
-        let c = CubicBezier::new(
-            vec2(0.0, 0.0),
-            vec2(4.0, 0.0),
-            vec2(4.0, 4.0),
-            vec2(0.0, 4.0),
-        );
+        let c = CubicBezier::new(vec2(0.0, 0.0), vec2(4.0, 0.0), vec2(4.0, 4.0), vec2(0.0, 4.0));
         let sub = c.subcurve(0.25, 0.75);
         let expected_start = c.evaluate(0.25);
         let expected_end = c.evaluate(0.75);
@@ -254,18 +241,8 @@ mod tests {
 
     #[test]
     fn truncate_half_of_two_segments() {
-        let seg1 = CubicBezier::new(
-            vec2(0.0, 0.0),
-            vec2(1.0, 0.0),
-            vec2(1.0, 1.0),
-            vec2(1.0, 1.0),
-        );
-        let seg2 = CubicBezier::new(
-            vec2(1.0, 1.0),
-            vec2(2.0, 1.0),
-            vec2(2.0, 0.0),
-            vec2(2.0, 0.0),
-        );
+        let seg1 = CubicBezier::new(vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(1.0, 1.0));
+        let seg2 = CubicBezier::new(vec2(1.0, 1.0), vec2(2.0, 1.0), vec2(2.0, 0.0), vec2(2.0, 0.0));
         let contour = BezierContour {
             segments: vec![seg1, seg2],
             closed: false,

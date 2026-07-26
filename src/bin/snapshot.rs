@@ -35,11 +35,7 @@ fn parse_args() -> SnapshotConfig {
                 i += 1;
                 let ts: Vec<f32> = args[i]
                     .split(',')
-                    .map(|s| {
-                        s.trim()
-                            .parse()
-                            .expect("--times requires comma-separated floats")
-                    })
+                    .map(|s| s.trim().parse().expect("--times requires comma-separated floats"))
                     .collect();
                 times = Some(ts);
             }
@@ -61,9 +57,7 @@ fn parse_args() -> SnapshotConfig {
             }
             other => {
                 eprintln!("Unknown argument: {other}");
-                eprintln!(
-                    "Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]"
-                );
+                eprintln!("Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]");
                 eprintln!("Available scenes: {}", examples::names().join(", "));
                 std::process::exit(1);
             }
@@ -113,13 +107,7 @@ fn main() {
 
     macroquad::Window::from_config(
         conf,
-        snapshot_render(
-            build_fn,
-            config.times,
-            config.width,
-            config.height,
-            config.output,
-        ),
+        snapshot_render(build_fn, config.times, config.width, config.height, config.output),
     );
 }
 
@@ -143,10 +131,7 @@ async fn snapshot_render(
     let (mut scene, timeline, initial_camera) = build_fn();
 
     let duration = timeline.duration();
-    let times: Vec<f32> = requested_times
-        .iter()
-        .map(|t| t.clamp(0.0, duration))
-        .collect();
+    let times: Vec<f32> = requested_times.iter().map(|t| t.clamp(0.0, duration)).collect();
 
     let rt = render_target_ex(
         width,
@@ -224,11 +209,7 @@ fn output_path(base: &Path, multiple: bool, time: f32, _idx: usize) -> PathBuf {
     } else {
         // Single file output
         let p = base.to_path_buf();
-        if p.extension().is_none() {
-            p.with_extension("png")
-        } else {
-            p
-        }
+        if p.extension().is_none() { p.with_extension("png") } else { p }
     }
 }
 
