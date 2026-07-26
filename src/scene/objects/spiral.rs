@@ -1,7 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const DOT_SEGMENTS: usize = 8;
 
@@ -15,7 +14,7 @@ const MAX_DOTS_PER_MESH: usize = {
 };
 
 pub struct Spiral {
-    pub center_position: Vec3,
+    pub position: Vec3,
     pub delta_radius: f32,
     pub delta_theta: f32,
     pub color: Vec4,
@@ -24,11 +23,9 @@ pub struct Spiral {
 }
 
 impl Spiral {
-    const PROPERTY_NAMES: &[&str] = &["center_position", "delta_radius", "delta_theta", "color", "dot_radius"];
-
-    pub fn new(center_position: Vec3, delta_radius: f32, delta_theta: f32, color: Color, num_points: usize, dot_radius: f32) -> Self {
+    pub fn new(position: Vec3, delta_radius: f32, delta_theta: f32, color: Color, num_points: usize, dot_radius: f32) -> Self {
         Self {
-            center_position,
+            position,
             delta_radius,
             delta_theta,
             color: vec4(color.r, color.g, color.b, color.a),
@@ -43,9 +40,9 @@ impl Spiral {
 
         let r = self.delta_radius * i as f32;
         let theta = self.delta_theta * i as f32;
-        let cx = self.center_position.x + r * theta.cos();
-        let cy = self.center_position.y + r * theta.sin();
-        let cz = self.center_position.z;
+        let cx = self.position.x + r * theta.cos();
+        let cy = self.position.y + r * theta.sin();
+        let cz = self.position.z;
 
         let base = vertices.len() as u16;
 
@@ -103,44 +100,27 @@ impl SceneObject for Spiral {
     fn bounding_box(&self) -> BoundingBox {
         let max_r = self.delta_radius * (self.num_points.saturating_sub(1)) as f32 + self.dot_radius;
         BoundingBox {
-            min: vec3(
-                self.center_position.x - max_r,
-                self.center_position.y - max_r,
-                self.center_position.z,
-            ),
-            max: vec3(
-                self.center_position.x + max_r,
-                self.center_position.y + max_r,
-                self.center_position.z,
-            ),
+            min: vec3(self.position.x - max_r, self.position.y - max_r, self.position.z),
+            max: vec3(self.position.x + max_r, self.position.y + max_r, self.position.z),
         }
     }
 }
 
-impl Animatable for Spiral {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "center_position" => Some(AnimValue::Vec3(self.center_position)),
-            "delta_radius" => Some(AnimValue::Float(self.delta_radius)),
-            "delta_theta" => Some(AnimValue::Float(self.delta_theta)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            "dot_radius" => Some(AnimValue::Float(self.dot_radius)),
-            _ => None,
-        }
-    }
+animatable!(Spiral {
+    position: Vec3,
+    delta_radius: Float,
+    delta_theta: Float,
+    color: Vec4,
+    dot_radius: Float,
+});
 
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("center_position", AnimValue::Vec3(v)) => self.center_position = v,
-            ("delta_radius", AnimValue::Float(v)) => self.delta_radius = v,
-            ("delta_theta", AnimValue::Float(v)) => self.delta_theta = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            ("dot_radius", AnimValue::Float(v)) => self.dot_radius = v,
-            _ => {}
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
+    #[test]
+    fn property_round_trip() {
+        assert_property_roundtrip(&mut Spiral::new(Vec3::ZERO, 0.1, 0.5, WHITE, 100, 0.05));
     }
 }

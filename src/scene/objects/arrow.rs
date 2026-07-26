@@ -1,7 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 /// An arrow on the XY plane: a rectangular shaft with a triangular head.
 pub struct Arrow {
@@ -17,8 +16,6 @@ pub struct Arrow {
 }
 
 impl Arrow {
-    const PROPERTY_NAMES: &[&str] = &["start", "end", "shaft_width", "head_width", "head_length", "color"];
-
     pub fn new(start: Vec3, end: Vec3, color: Color) -> Self {
         let length = (end - start).length();
         Self {
@@ -153,39 +150,19 @@ impl SceneObject for Arrow {
     }
 }
 
-impl Animatable for Arrow {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "start" => Some(AnimValue::Vec3(self.start)),
-            "end" => Some(AnimValue::Vec3(self.end)),
-            "shaft_width" => Some(AnimValue::Float(self.shaft_width)),
-            "head_width" => Some(AnimValue::Float(self.head_width)),
-            "head_length" => Some(AnimValue::Float(self.head_length)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("start", AnimValue::Vec3(v)) => self.start = v,
-            ("end", AnimValue::Vec3(v)) => self.end = v,
-            ("shaft_width", AnimValue::Float(v)) => self.shaft_width = v,
-            ("head_width", AnimValue::Float(v)) => self.head_width = v,
-            ("head_length", AnimValue::Float(v)) => self.head_length = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(Arrow {
+    start: Vec3,
+    end: Vec3,
+    shaft_width: Float,
+    head_width: Float,
+    head_length: Float,
+    color: Vec4,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn make_arrow() -> Arrow {
         Arrow::new(vec3(0.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), WHITE)
@@ -193,12 +170,7 @@ mod tests {
 
     #[test]
     fn property_round_trip() {
-        let mut arrow = make_arrow();
-        for name in Arrow::PROPERTY_NAMES {
-            let val = arrow.get(name).unwrap();
-            arrow.set(name, val.clone());
-            assert_eq!(arrow.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
+        assert_property_roundtrip(&mut make_arrow());
     }
 
     #[test]
@@ -208,12 +180,6 @@ mod tests {
         assert!((arrow.shaft_width - 0.4).abs() < 1e-5);
         assert!((arrow.head_width - 1.2).abs() < 1e-5);
         assert!((arrow.head_length - 1.5).abs() < 1e-5);
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let arrow = make_arrow();
-        assert!(arrow.get("nonexistent").is_none());
     }
 
     #[test]
@@ -258,18 +224,5 @@ mod tests {
         assert_eq!(arrow.shaft_width, 0.5);
         assert_eq!(arrow.head_width, 1.0);
         assert_eq!(arrow.head_length, 2.0);
-    }
-
-    #[test]
-    fn property_names_complete() {
-        let arrow = make_arrow();
-        let names = arrow.property_names();
-        assert_eq!(names.len(), 6);
-        assert!(names.contains(&"start"));
-        assert!(names.contains(&"end"));
-        assert!(names.contains(&"shaft_width"));
-        assert!(names.contains(&"head_width"));
-        assert!(names.contains(&"head_length"));
-        assert!(names.contains(&"color"));
     }
 }

@@ -2,8 +2,7 @@ use macroquad::prelude::*;
 
 use crate::scene::l_system::{self, LSystemConfig};
 use crate::scene::polyline::{self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh};
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct LSystem {
     config: LSystemConfig,
@@ -20,8 +19,6 @@ pub struct LSystem {
 }
 
 impl LSystem {
-    const PROPERTY_NAMES: &[&str] = &["position", "color", "theta", "scale", "iterations", "progress", "line_width"];
-
     pub fn new(config: LSystemConfig, theta: f32, color: Color) -> Self {
         Self {
             config,
@@ -114,42 +111,21 @@ impl SceneObject for LSystem {
     }
 }
 
-impl Animatable for LSystem {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            "theta" => Some(AnimValue::Float(self.theta)),
-            "scale" => Some(AnimValue::Float(self.scale)),
-            "iterations" => Some(AnimValue::Float(self.iterations)),
-            "progress" => Some(AnimValue::Float(self.progress)),
-            "line_width" => Some(AnimValue::Float(self.line_width)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            ("theta", AnimValue::Float(v)) => self.theta = v,
-            ("scale", AnimValue::Float(v)) => self.scale = v,
-            ("iterations", AnimValue::Float(v)) => self.iterations = v,
-            ("progress", AnimValue::Float(v)) => self.progress = v,
-            ("line_width", AnimValue::Float(v)) => self.line_width = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(LSystem {
+    position: Vec3,
+    color: Vec4,
+    theta: Float,
+    scale: Float,
+    iterations: Float,
+    progress: Float,
+    line_width: Float,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::scene::l_system::dragon_curve;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn make_lsystem() -> LSystem {
         let (config, theta) = dragon_curve();
@@ -158,18 +134,7 @@ mod tests {
 
     #[test]
     fn property_round_trip() {
-        let mut ls = make_lsystem();
-        for name in LSystem::PROPERTY_NAMES {
-            let val = ls.get(name).unwrap();
-            ls.set(name, val.clone());
-            assert_eq!(ls.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let ls = make_lsystem();
-        assert!(ls.get("nonexistent").is_none());
+        assert_property_roundtrip(&mut make_lsystem());
     }
 
     #[test]
@@ -216,19 +181,5 @@ mod tests {
         let w1 = bb1.max.x - bb1.min.x;
         let w2 = bb2.max.x - bb2.min.x;
         assert!((w2 - w1 * 2.0).abs() < 1e-4);
-    }
-
-    #[test]
-    fn property_names_complete() {
-        let ls = make_lsystem();
-        let names = ls.property_names();
-        assert_eq!(names.len(), 7);
-        assert!(names.contains(&"position"));
-        assert!(names.contains(&"color"));
-        assert!(names.contains(&"theta"));
-        assert!(names.contains(&"scale"));
-        assert!(names.contains(&"iterations"));
-        assert!(names.contains(&"progress"));
-        assert!(names.contains(&"line_width"));
     }
 }

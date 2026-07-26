@@ -2,8 +2,7 @@ pub mod orbit;
 
 use macroquad::prelude::*;
 
-use crate::scene::traits::Animatable;
-use crate::scene::value::AnimValue;
+use crate::scene::traits::animatable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProjectionMode {
@@ -82,51 +81,17 @@ impl Default for Camera {
     }
 }
 
-impl Animatable for Camera {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "target" => Some(AnimValue::Vec3(self.target)),
-            "up" => Some(AnimValue::Vec3(self.up)),
-            "fov" => Some(AnimValue::Float(self.fov)),
-            "near" => Some(AnimValue::Float(self.near)),
-            "far" => Some(AnimValue::Float(self.far)),
-            "rotation_x" => Some(AnimValue::Float(self.rotation_x)),
-            "rotation_y" => Some(AnimValue::Float(self.rotation_y)),
-            "rotation_z" => Some(AnimValue::Float(self.rotation_z)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("target", AnimValue::Vec3(v)) => self.target = v,
-            ("up", AnimValue::Vec3(v)) => self.up = v,
-            ("fov", AnimValue::Float(v)) => self.fov = v,
-            ("near", AnimValue::Float(v)) => self.near = v,
-            ("far", AnimValue::Float(v)) => self.far = v,
-            ("rotation_x", AnimValue::Float(v)) => self.rotation_x = v,
-            ("rotation_y", AnimValue::Float(v)) => self.rotation_y = v,
-            ("rotation_z", AnimValue::Float(v)) => self.rotation_z = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        &[
-            "position",
-            "target",
-            "up",
-            "fov",
-            "near",
-            "far",
-            "rotation_x",
-            "rotation_y",
-            "rotation_z",
-        ]
-    }
-}
+animatable!(Camera {
+    position: Vec3,
+    target: Vec3,
+    up: Vec3,
+    fov: Float,
+    near: Float,
+    far: Float,
+    rotation_x: Float,
+    rotation_y: Float,
+    rotation_z: Float,
+});
 
 #[cfg(test)]
 mod tests {
@@ -182,39 +147,8 @@ mod tests {
     }
 
     #[test]
-    fn property_roundtrip_position() {
-        let mut cam = Camera::default();
-        let new_pos = AnimValue::Vec3(vec3(1.0, 2.0, 3.0));
-        cam.set("position", new_pos.clone());
-        assert_eq!(cam.get("position"), Some(new_pos));
-    }
-
-    #[test]
-    fn property_roundtrip_target() {
-        let mut cam = Camera::default();
-        let new_target = AnimValue::Vec3(vec3(10.0, 0.0, 0.0));
-        cam.set("target", new_target.clone());
-        assert_eq!(cam.get("target"), Some(new_target));
-    }
-
-    #[test]
-    fn property_roundtrip_fov() {
-        let mut cam = Camera::default();
-        cam.set("fov", AnimValue::Float(90.0));
-        assert_eq!(cam.get("fov"), Some(AnimValue::Float(90.0)));
-    }
-
-    #[test]
-    fn property_names_all_gettable() {
-        let cam = Camera::default();
-        for name in cam.property_names() {
-            assert!(cam.get(name).is_some(), "property '{}' returned None", name);
-        }
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let cam = Camera::default();
-        assert_eq!(cam.get("nonexistent"), None);
+    fn property_round_trip() {
+        use crate::scene::traits::test_support::assert_property_roundtrip;
+        assert_property_roundtrip(&mut Camera::default());
     }
 }

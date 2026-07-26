@@ -51,7 +51,7 @@ pub async fn run(mut scene: Scene, timeline: Timeline, mut camera: Camera) {
         // Screen-space UI pass
         set_default_camera();
         scene.draw_screen();
-        debug_overlay.draw(&clock, &scene, &camera);
+        debug_overlay.draw(&clock, &scene, &camera, &input);
         debug_overlay.scrub_bar.draw_ticks(&timeline, clock.duration);
 
         // Orbit controller runs last so it doesn't consume input before UI.

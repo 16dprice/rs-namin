@@ -5,8 +5,8 @@ pub mod value_inspector;
 
 use macroquad::prelude::*;
 
-use crate::camera::Camera;
 use crate::camera::orbit::OrbitController;
+use crate::camera::{Camera, ProjectionMode};
 use crate::clock::{Clock, LoopMode, PlaybackState};
 use crate::input::InputProvider;
 use crate::scene::Scene;
@@ -134,12 +134,12 @@ impl DebugOverlay {
     }
 
     /// Draw all visible screen-space overlays. Call after set_default_camera().
-    pub fn draw(&self, clock: &Clock, scene: &Scene, camera: &Camera) {
+    pub fn draw(&self, clock: &Clock, scene: &Scene, camera: &Camera, input: &dyn InputProvider) {
         if self.hud_visible {
             self.draw_hud(clock, scene, camera);
         }
         if self.mouse_coords_visible {
-            self.draw_mouse_coords(camera);
+            self.draw_mouse_coords(camera, input);
         }
         self.scrub_bar.draw(clock);
         self.value_inspector.draw(scene);
@@ -224,11 +224,12 @@ impl DebugOverlay {
         draw_line_3d(t - vec3(0.0, 0.0, size), t + vec3(0.0, 0.0, size), color);
     }
 
-    /// Draw mouse cursor world coordinates (raycast onto Y=0 ground plane).
-    fn draw_mouse_coords(&self, camera: &Camera) {
-        let (mx, my) = mouse_position();
-        let sw = screen_width();
-        let sh = screen_height();
+    /// Draw mouse cursor world coordinates (raycast onto the Z=0 scene plane).
+    fn draw_mouse_coords(&self, camera: &Camera, input: &dyn InputProvider) {
+        let mouse = input.mouse_position();
+        let (mx, my) = (mouse.x, mouse.y);
+        let sw = input.screen_width();
+        let sh = input.screen_height();
 
         // Convert mouse to NDC (-1..1)
         let ndc_x = (mx / sw) * 2.0 - 1.0;
@@ -237,9 +238,17 @@ impl DebugOverlay {
         let mq_cam = camera.to_macroquad();
         let aspect = sw / sh;
 
-        // Build view and projection matrices
+        // Build view and projection matrices, matching the active projection mode.
         let view = Mat4::look_at_rh(mq_cam.position, mq_cam.target, mq_cam.up);
-        let proj = Mat4::perspective_rh_gl(mq_cam.fovy, aspect, mq_cam.z_near, mq_cam.z_far);
+        let proj = match camera.projection {
+            ProjectionMode::Perspective => Mat4::perspective_rh_gl(mq_cam.fovy, aspect, mq_cam.z_near, mq_cam.z_far),
+            // Orthographic: fovy is the vertical extent in world units.
+            ProjectionMode::Orthographic => {
+                let half_h = mq_cam.fovy / 2.0;
+                let half_w = half_h * aspect;
+                Mat4::orthographic_rh_gl(-half_w, half_w, -half_h, half_h, mq_cam.z_near, mq_cam.z_far)
+            }
+        };
         let inv_vp = (proj * view).inverse();
 
         // Unproject near and far points

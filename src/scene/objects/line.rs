@@ -1,23 +1,18 @@
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Line {
     pub start: Vec3,
     pub end: Vec3,
-    pub thickness: f32,
     pub color: Vec4,
 }
 
 impl Line {
-    const PROPERTY_NAMES: &[&str] = &["start", "end", "thickness", "color"];
-
-    pub fn new(start: Vec3, end: Vec3, thickness: f32, color: Color) -> Self {
+    pub fn new(start: Vec3, end: Vec3, color: Color) -> Self {
         Self {
             start,
             end,
-            thickness,
             color: vec4(color.r, color.g, color.b, color.a),
         }
     }
@@ -45,28 +40,19 @@ impl SceneObject for Line {
     }
 }
 
-impl Animatable for Line {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "start" => Some(AnimValue::Vec3(self.start)),
-            "end" => Some(AnimValue::Vec3(self.end)),
-            "thickness" => Some(AnimValue::Float(self.thickness)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
+animatable!(Line {
+    start: Vec3,
+    end: Vec3,
+    color: Vec4,
+});
 
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("start", AnimValue::Vec3(v)) => self.start = v,
-            ("end", AnimValue::Vec3(v)) => self.end = v,
-            ("thickness", AnimValue::Float(v)) => self.thickness = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
+    #[test]
+    fn property_round_trip() {
+        assert_property_roundtrip(&mut Line::new(Vec3::ZERO, vec3(1.0, 2.0, 3.0), WHITE));
     }
 }

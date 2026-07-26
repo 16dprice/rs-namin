@@ -70,19 +70,15 @@ pub fn build() -> (Scene, Timeline, Camera) {
         })
         .collect();
 
-    let mut knot = Tube::with_colors(
-        points,
-        0.15,
-        vec![
-            RED,                              // red
-            ORANGE,                           // orange
-            YELLOW,                           // yellow
-            GREEN,                            // green
-            BLUE,                             // blue
-            Color::new(0.29, 0.0, 0.51, 1.0), // indigo
-            Color::new(0.56, 0.0, 1.0, 1.0),  // violet
-        ],
-    );
+    let mut knot = Tube::new(points, 0.15, WHITE).with_colors(vec![
+        RED,                              // red
+        ORANGE,                           // orange
+        YELLOW,                           // yellow
+        GREEN,                            // green
+        BLUE,                             // blue
+        Color::new(0.29, 0.0, 0.51, 1.0), // indigo
+        Color::new(0.56, 0.0, 1.0, 1.0),  // violet
+    ]);
     knot.closed = true;
     let knot_tube = sb.add(knot);
 
@@ -127,15 +123,15 @@ pub fn build() -> (Scene, Timeline, Camera) {
             .keyframe(dolly_end, AnimValue::Float(fov_end))
     });
 
-    sb.animate(&ring1, "sweep", |tb| {
+    sb.animate(&ring1, "progress", |tb| {
         tb.keyframe_with_easing(ring1_start, AnimValue::Float(0.0), easing::quart_out)
             .keyframe(ring1_end, AnimValue::Float(1.0))
     });
-    sb.animate(&ring2, "sweep", |tb| {
+    sb.animate(&ring2, "progress", |tb| {
         tb.keyframe_with_easing(ring2_start, AnimValue::Float(0.0), easing::quart_out)
             .keyframe(ring2_end, AnimValue::Float(1.0))
     });
-    sb.animate(&ring3, "sweep", |tb| {
+    sb.animate(&ring3, "progress", |tb| {
         tb.keyframe_with_easing(ring3_start, AnimValue::Float(0.0), easing::quart_out)
             .keyframe(ring3_end, AnimValue::Float(1.0))
     });

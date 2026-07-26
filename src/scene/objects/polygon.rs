@@ -2,27 +2,25 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Polygon {
     pub position: Vec3,
     pub radius: f32,
     /// Number of sides (3 = triangle, 5 = pentagon, 6 = hexagon, etc.).
-    pub sides: u32,
+    /// Stored as f32 so it can be keyframed; floored and clamped to >= 3 at draw time.
+    pub sides: f32,
     /// Rotation in radians. 0 = first vertex points along +X.
     pub rotation: f32,
     pub color: Vec4,
 }
 
 impl Polygon {
-    const PROPERTY_NAMES: &[&str] = &["position", "radius", "sides", "rotation", "color"];
-
     pub fn new(position: Vec3, radius: f32, sides: u32, color: Color) -> Self {
         Self {
             position,
             radius,
-            sides: sides.max(3),
+            sides: sides as f32,
             rotation: 0.0,
             color: vec4(color.r, color.g, color.b, color.a),
         }
@@ -32,7 +30,7 @@ impl Polygon {
     fn build_mesh(&self) -> Mesh {
         let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
-        let n = self.sides as usize;
+        let n = (self.sides.floor() as usize).max(3);
         let mut vertices = Vec::with_capacity(n + 1);
         let mut indices = Vec::with_capacity(n * 3);
 
@@ -86,30 +84,31 @@ impl SceneObject for Polygon {
     }
 }
 
-impl Animatable for Polygon {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "radius" => Some(AnimValue::Float(self.radius)),
-            "sides" => Some(AnimValue::Float(self.sides as f32)),
-            "rotation" => Some(AnimValue::Float(self.rotation)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
+animatable!(Polygon {
+    position: Vec3,
+    radius: Float,
+    sides: Float,
+    rotation: Float,
+    color: Vec4,
+});
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
+
+    #[test]
+    fn property_round_trip() {
+        assert_property_roundtrip(&mut Polygon::new(Vec3::ZERO, 1.0, 6, WHITE));
     }
 
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("radius", AnimValue::Float(v)) => self.radius = v,
-            ("sides", AnimValue::Float(v)) => self.sides = (v as u32).max(3),
-            ("rotation", AnimValue::Float(v)) => self.rotation = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
+    #[test]
+    fn mesh_clamps_sides_to_minimum_three() {
+        let mut poly = Polygon::new(Vec3::ZERO, 1.0, 6, WHITE);
+        poly.sides = 1.7;
+        // 3 sides → center + 3 edge vertices, 3 triangles
+        let mesh = poly.build_mesh();
+        assert_eq!(mesh.vertices.len(), 4);
+        assert_eq!(mesh.indices.len(), 9);
     }
 }

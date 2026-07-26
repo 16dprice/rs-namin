@@ -89,6 +89,9 @@ impl SceneObject for Turtle {
     }
 }
 
+/// Implemented by hand rather than with `animatable!` because `set` has side
+/// effects: setting `progress` derives `position` and `rotation` from the path,
+/// and every set re-syncs the child sprite.
 impl Animatable for Turtle {
     fn get(&self, property_name: &str) -> Option<AnimValue> {
         match property_name {

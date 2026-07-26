@@ -15,7 +15,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let rest_y = radius;
 
     let circle_id = scene.add(Disk::new(vec3(0.0, rest_y, 0.0), radius, BLUE));
-    scene.add(Line::new(vec3(-10.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), 1.0, WHITE));
+    scene.add(Line::new(vec3(-10.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), WHITE));
 
     let rect_id = scene.add(Rectangle::new(vec3(-3.0, 1.5, 0.0), vec2(2.0, 3.0), GREEN));
     let hex_id = scene.add(Polygon::new(vec3(3.0, 2.0, 0.0), 1.0, 6, YELLOW));
@@ -56,9 +56,9 @@ pub fn build() -> (Scene, Timeline, Camera) {
     timeline.add_track(hex_track);
 
     let mut label = Text::new("bouncing ball", vec2(40.0, 40.0), 48.0, WHITE);
-    label.percentage_shown = 0.0;
+    label.progress = 0.0;
     let text_id = scene.add(label);
-    let mut text_track = Track::new(text_id, "percentage_shown");
+    let mut text_track = Track::new(text_id, "progress");
     text_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
     text_track.add_keyframe(Keyframe::new(duration / 2.0, AnimValue::Float(1.0)));
     timeline.add_track(text_track);

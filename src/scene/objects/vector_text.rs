@@ -9,8 +9,7 @@ use macroquad::prelude::*;
 use crate::scene::bezier::{BezierContour, GlyphOutline};
 use crate::scene::font;
 use crate::scene::latex;
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const MAX_VERTICES: usize = 10_000;
 const MAX_INDICES: usize = 5_000;
@@ -40,8 +39,6 @@ pub struct VectorText {
 }
 
 impl VectorText {
-    const PROPERTY_NAMES: &[&str] = &["position", "color", "progress", "fill_opacity", "stroke_width", "scale", "stagger"];
-
     /// Create from text string and font data.
     /// `scale` controls the display size (1.0 = 1 em per world unit).
     pub fn new(text: &str, font_data: &[u8], scale: f32, color: Color) -> Self {
@@ -196,6 +193,7 @@ impl VectorText {
     }
 
     /// Convenience: all visible stroke contours.
+    #[cfg(test)]
     fn visible_contours(&self) -> Vec<BezierContour> {
         self.compute_visibility().0.into_iter().flat_map(|b| b.contours).collect()
     }
@@ -406,42 +404,21 @@ impl SceneObject for VectorText {
     }
 }
 
-impl Animatable for VectorText {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            "progress" => Some(AnimValue::Float(self.progress)),
-            "fill_opacity" => Some(AnimValue::Float(self.fill_opacity)),
-            "stroke_width" => Some(AnimValue::Float(self.stroke_width)),
-            "scale" => Some(AnimValue::Float(self.scale)),
-            "stagger" => Some(AnimValue::Float(self.stagger)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            ("progress", AnimValue::Float(v)) => self.progress = v,
-            ("fill_opacity", AnimValue::Float(v)) => self.fill_opacity = v,
-            ("stroke_width", AnimValue::Float(v)) => self.stroke_width = v,
-            ("scale", AnimValue::Float(v)) => self.scale = v,
-            ("stagger", AnimValue::Float(v)) => self.stagger = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(VectorText {
+    position: Vec3,
+    color: Vec4,
+    progress: Float,
+    fill_opacity: Float,
+    stroke_width: Float,
+    scale: Float,
+    stagger: Float,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::scene::bezier::{BezierContour, CubicBezier, GlyphOutline};
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn make_test_glyph() -> GlyphOutline {
         let seg = CubicBezier::new(vec2(0.0, 0.0), vec2(0.5, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0));
@@ -469,12 +446,7 @@ mod tests {
 
     #[test]
     fn property_round_trip() {
-        let mut vt = make_vector_text();
-        for name in VectorText::PROPERTY_NAMES {
-            let val = vt.get(name).unwrap();
-            vt.set(name, val.clone());
-            assert_eq!(vt.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
+        assert_property_roundtrip(&mut make_vector_text());
     }
 
     #[test]
@@ -618,14 +590,6 @@ mod tests {
     }
 
     #[test]
-    fn fill_opacity_round_trip() {
-        let mut vt = make_vector_text();
-        vt.set("fill_opacity", AnimValue::Float(0.5));
-        assert_eq!(vt.fill_opacity, 0.5);
-        assert_eq!(vt.get("fill_opacity").unwrap(), AnimValue::Float(0.5));
-    }
-
-    #[test]
     fn stagger_zero_all_simultaneous() {
         let mut vt = VectorText {
             glyphs: vec![make_test_glyph(), make_test_glyph()],
@@ -700,14 +664,6 @@ mod tests {
     }
 
     #[test]
-    fn stagger_round_trip() {
-        let mut vt = make_vector_text();
-        vt.set("stagger", AnimValue::Float(0.5));
-        assert_eq!(vt.stagger, 0.5);
-        assert_eq!(vt.get("stagger").unwrap(), AnimValue::Float(0.5));
-    }
-
-    #[test]
     fn bounding_box_empty_glyphs() {
         let vt = VectorText {
             glyphs: vec![],
@@ -733,11 +689,5 @@ mod tests {
         let w1 = bb1.max.x - bb1.min.x;
         let w2 = bb2.max.x - bb2.min.x;
         assert!((w2 - w1 * 2.0).abs() < 1e-5);
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let vt = make_vector_text();
-        assert!(vt.get("nonexistent").is_none());
     }
 }

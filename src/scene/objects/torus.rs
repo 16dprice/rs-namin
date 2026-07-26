@@ -2,8 +2,7 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const MAJOR_SEGMENTS: usize = 32;
 const MINOR_SEGMENTS: usize = 16;
@@ -12,19 +11,19 @@ pub struct Torus {
     pub position: Vec3,
     pub major_radius: f32,
     pub minor_radius: f32,
-    pub rotation: Mat4,
+    /// Full 3D orientation applied to the mesh. A `Mat4`, unlike the planar
+    /// Z-axis `rotation` (Float) property on 2D objects.
+    pub orientation: Mat4,
     pub color: Vec4,
 }
 
 impl Torus {
-    const PROPERTY_NAMES: &[&str] = &["position", "major_radius", "minor_radius", "rotation", "color"];
-
     pub fn new(position: Vec3, major_radius: f32, minor_radius: f32, color: Color) -> Self {
         Self {
             position,
             major_radius,
             minor_radius,
-            rotation: Mat4::IDENTITY,
+            orientation: Mat4::IDENTITY,
             color: vec4(color.r, color.g, color.b, color.a),
         }
     }
@@ -57,8 +56,8 @@ impl Torus {
                 // Local normal (points outward from tube surface)
                 let local_normal = vec3(cos_phi * cos_theta, cos_phi * sin_theta, sin_phi);
 
-                let rotated_pos = self.rotation.transform_point3(local_pos) + self.position;
-                let rotated_normal = self.rotation.transform_vector3(local_normal).normalize();
+                let rotated_pos = self.orientation.transform_point3(local_pos) + self.position;
+                let rotated_normal = self.orientation.transform_vector3(local_normal).normalize();
 
                 vertices.push(Vertex {
                     position: rotated_pos,
@@ -108,37 +107,18 @@ impl SceneObject for Torus {
     }
 }
 
-impl Animatable for Torus {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "major_radius" => Some(AnimValue::Float(self.major_radius)),
-            "minor_radius" => Some(AnimValue::Float(self.minor_radius)),
-            "rotation" => Some(AnimValue::Mat4(self.rotation)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("major_radius", AnimValue::Float(v)) => self.major_radius = v,
-            ("minor_radius", AnimValue::Float(v)) => self.minor_radius = v,
-            ("rotation", AnimValue::Mat4(v)) => self.rotation = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(Torus {
+    position: Vec3,
+    major_radius: Float,
+    minor_radius: Float,
+    orientation: Mat4,
+    color: Vec4,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn make_torus() -> Torus {
         Torus::new(vec3(1.0, 2.0, 0.0), 2.0, 0.5, WHITE)
@@ -146,38 +126,13 @@ mod tests {
 
     #[test]
     fn property_round_trip() {
-        let mut torus = make_torus();
-        for name in Torus::PROPERTY_NAMES {
-            let val = torus.get(name).unwrap();
-            torus.set(name, val.clone());
-            assert_eq!(torus.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
+        assert_property_roundtrip(&mut make_torus());
     }
 
     #[test]
-    fn set_major_radius() {
-        let mut torus = make_torus();
-        torus.set("major_radius", AnimValue::Float(5.0));
-        assert_eq!(torus.major_radius, 5.0);
-    }
-
-    #[test]
-    fn set_minor_radius() {
-        let mut torus = make_torus();
-        torus.set("minor_radius", AnimValue::Float(1.0));
-        assert_eq!(torus.minor_radius, 1.0);
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
+    fn default_orientation_is_identity() {
         let torus = make_torus();
-        assert!(torus.get("nonexistent").is_none());
-    }
-
-    #[test]
-    fn default_rotation_is_identity() {
-        let torus = make_torus();
-        assert_eq!(torus.rotation, Mat4::IDENTITY);
+        assert_eq!(torus.orientation, Mat4::IDENTITY);
     }
 
     #[test]
@@ -204,13 +159,13 @@ mod tests {
     }
 
     #[test]
-    fn rotation_transforms_vertices() {
+    fn orientation_transforms_vertices() {
         let mut torus = Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE);
-        // With identity rotation, vertices should have Z components from the tube
+        // With identity orientation, vertices should have Z components from the tube
         let mesh_identity = torus.build_mesh();
 
         // Rotate 90 degrees around X axis
-        torus.rotation = Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2);
+        torus.orientation = Mat4::from_rotation_x(std::f32::consts::FRAC_PI_2);
         let mesh_rotated = torus.build_mesh();
 
         // After 90-degree X rotation, what was Z should now be -Y (approximately)
@@ -225,18 +180,6 @@ mod tests {
                 break;
             }
         }
-        assert!(any_different, "rotation should change vertex positions");
-    }
-
-    #[test]
-    fn property_names_complete() {
-        let torus = make_torus();
-        let names = torus.property_names();
-        assert_eq!(names.len(), 5);
-        assert!(names.contains(&"position"));
-        assert!(names.contains(&"major_radius"));
-        assert!(names.contains(&"minor_radius"));
-        assert!(names.contains(&"rotation"));
-        assert!(names.contains(&"color"));
+        assert!(any_different, "orientation should change vertex positions");
     }
 }

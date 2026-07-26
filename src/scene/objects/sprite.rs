@@ -1,7 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Sprite {
     pub position: Vec3,
@@ -21,8 +20,6 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    const PROPERTY_NAMES: &[&str] = &["position", "rotation", "size", "color"];
-
     /// Create a sprite from a pre-loaded texture.
     ///
     /// `size` sets the dimensions in world units. Pass `None` to derive size
@@ -127,35 +124,17 @@ impl SceneObject for Sprite {
     }
 }
 
-impl Animatable for Sprite {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "rotation" => Some(AnimValue::Float(self.rotation)),
-            "size" => Some(AnimValue::Vec2(self.size)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("rotation", AnimValue::Float(v)) => self.rotation = v,
-            ("size", AnimValue::Vec2(v)) => self.size = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(Sprite {
+    position: Vec3,
+    rotation: Float,
+    size: Vec2,
+    color: Vec4,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
     /// Build a Sprite without a GPU context for property/bounding-box tests.
@@ -172,43 +151,8 @@ mod tests {
     }
 
     #[test]
-    fn property_names_match_getters() {
-        let sprite = test_sprite(Vec3::ZERO, vec2(2.0, 1.0));
-        for name in sprite.property_names() {
-            assert!(sprite.get(name).is_some(), "get({name}) returned None");
-        }
-    }
-
-    #[test]
-    fn property_roundtrip_position() {
-        let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
-        let val = AnimValue::Vec3(vec3(3.0, 4.0, 5.0));
-        sprite.set("position", val.clone());
-        assert_eq!(sprite.get("position"), Some(val));
-    }
-
-    #[test]
-    fn property_roundtrip_rotation() {
-        let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
-        let val = AnimValue::Float(1.5);
-        sprite.set("rotation", val.clone());
-        assert_eq!(sprite.get("rotation"), Some(val));
-    }
-
-    #[test]
-    fn property_roundtrip_size() {
-        let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
-        let val = AnimValue::Vec2(vec2(10.0, 20.0));
-        sprite.set("size", val.clone());
-        assert_eq!(sprite.get("size"), Some(val));
-    }
-
-    #[test]
-    fn property_roundtrip_color() {
-        let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
-        let val = AnimValue::Vec4(vec4(0.5, 0.6, 0.7, 0.8));
-        sprite.set("color", val.clone());
-        assert_eq!(sprite.get("color"), Some(val));
+    fn property_round_trip() {
+        assert_property_roundtrip(&mut test_sprite(Vec3::ZERO, vec2(2.0, 1.0)));
     }
 
     #[test]

@@ -43,7 +43,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
         })
         .collect();
 
-    let mut knot = Tube::with_colors(knot_points, 0.1, vec![RED, GREEN, BLUE]);
+    let mut knot = Tube::new(knot_points, 0.1, WHITE).with_colors(vec![RED, GREEN, BLUE]);
     knot.position = vec3(6.0, 0.0, 0.0);
     knot.closed = true;
     scene.add(knot);

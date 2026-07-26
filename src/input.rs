@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use macroquad::prelude::{KeyCode, MouseButton, Vec2, vec2};
 
 pub trait InputProvider {
+    fn mouse_position(&self) -> Vec2;
     fn mouse_delta(&self) -> Vec2;
     fn mouse_wheel(&self) -> (f32, f32);
     fn is_mouse_button_down(&self, button: MouseButton) -> bool;
@@ -16,6 +17,11 @@ pub trait InputProvider {
 pub struct MacroquadInput;
 
 impl InputProvider for MacroquadInput {
+    fn mouse_position(&self) -> Vec2 {
+        let (x, y) = macroquad::prelude::mouse_position();
+        vec2(x, y)
+    }
+
     fn mouse_delta(&self) -> Vec2 {
         macroquad::prelude::mouse_delta_position()
     }
@@ -50,6 +56,7 @@ impl InputProvider for MacroquadInput {
 }
 
 pub struct ScriptedInput {
+    pub mouse_position: Vec2,
     pub mouse_delta: Vec2,
     pub mouse_wheel: (f32, f32),
     pub mouse_buttons_down: HashSet<MouseButton>,
@@ -63,6 +70,7 @@ pub struct ScriptedInput {
 impl Default for ScriptedInput {
     fn default() -> Self {
         Self {
+            mouse_position: vec2(0.0, 0.0),
             mouse_delta: vec2(0.0, 0.0),
             mouse_wheel: (0.0, 0.0),
             mouse_buttons_down: HashSet::new(),
@@ -76,6 +84,11 @@ impl Default for ScriptedInput {
 }
 
 impl ScriptedInput {
+    pub fn with_mouse_position(mut self, position: Vec2) -> Self {
+        self.mouse_position = position;
+        self
+    }
+
     pub fn with_mouse_delta(mut self, delta: Vec2) -> Self {
         self.mouse_delta = delta;
         self
@@ -114,6 +127,10 @@ impl ScriptedInput {
 }
 
 impl InputProvider for ScriptedInput {
+    fn mouse_position(&self) -> Vec2 {
+        self.mouse_position
+    }
+
     fn mouse_delta(&self) -> Vec2 {
         self.mouse_delta
     }

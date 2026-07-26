@@ -20,7 +20,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let bg = vec4(0.15, 0.15, 0.15, 1.0);
 
     // ── Objects ───────────────────────────────────────────────────────
-    let ground = sb.add(Line::new(vec3(-10.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), 1.0, WHITE));
+    let ground = sb.add(Line::new(vec3(-10.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), WHITE));
 
     let red_circle = sb.add(Disk::new(vec3(-3.0, 2.0, 0.0), 0.0, RED));
     let green_circle = sb.add(Disk::new(vec3(0.0, 2.0, 0.0), 0.0, GREEN));

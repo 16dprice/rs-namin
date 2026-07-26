@@ -504,7 +504,7 @@ mod tests {
     fn all_object_types_work() {
         let mut sb = SceneBuilder::new();
         let _circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
-        let _line = sb.add(Line::new(Vec3::ZERO, Vec3::X, 1.0, WHITE));
+        let _line = sb.add(Line::new(Vec3::ZERO, Vec3::X, WHITE));
         let _rect = sb.add(Rectangle::new(Vec3::ZERO, vec2(1.0, 1.0), WHITE));
         let _poly = sb.add(Polygon::new(Vec3::ZERO, 1.0, 6, WHITE));
         let _arc = sb.add(Arc::new(Vec3::ZERO, 0.5, 1.0, 0.0, std::f32::consts::PI, WHITE));
@@ -556,10 +556,10 @@ mod tests {
     }
 
     #[test]
-    fn animate_torus_rotation() {
+    fn animate_torus_orientation() {
         let mut sb = SceneBuilder::new();
         let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
-        sb.animate(&torus, "rotation", |tb| {
+        sb.animate(&torus, "orientation", |tb| {
             tb.keyframe(0.0, AnimValue::Mat4(Mat4::IDENTITY))
                 .keyframe(2.0, AnimValue::Mat4(Mat4::from_rotation_z(std::f32::consts::FRAC_PI_2)))
         });
@@ -567,7 +567,7 @@ mod tests {
         timeline.apply(1.0, &mut scene, &mut camera);
 
         let obj = scene.get(torus.id).unwrap();
-        let AnimValue::Mat4(rot) = obj.get("rotation").unwrap() else {
+        let AnimValue::Mat4(rot) = obj.get("orientation").unwrap() else {
             panic!("expected Mat4");
         };
         // At t=1.0 (midpoint), should be ~45 degrees
@@ -582,10 +582,10 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "keyframe value type mismatch")]
-    fn animate_torus_rotation_wrong_type_panics() {
+    fn animate_torus_orientation_wrong_type_panics() {
         let mut sb = SceneBuilder::new();
         let torus = sb.add(Torus::new(Vec3::ZERO, 2.0, 0.5, WHITE));
-        sb.animate(&torus, "rotation", |tb| tb.keyframe(0.0, AnimValue::Float(0.0)));
+        sb.animate(&torus, "orientation", |tb| tb.keyframe(0.0, AnimValue::Float(0.0)));
     }
 
     #[test]

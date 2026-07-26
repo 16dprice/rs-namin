@@ -1,8 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::scene::polyline::{self, LineSegment, PolylineStyle, PolylineTransform, draw_polyline_mesh};
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Polyline {
     pub segments: Vec<LineSegment>,
@@ -15,8 +14,6 @@ pub struct Polyline {
 }
 
 impl Polyline {
-    const PROPERTY_NAMES: &[&str] = &["position", "color", "scale", "progress", "line_width"];
-
     pub fn new(segments: Vec<LineSegment>, color: Color) -> Self {
         Self {
             segments,
@@ -89,37 +86,18 @@ impl SceneObject for Polyline {
     }
 }
 
-impl Animatable for Polyline {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            "scale" => Some(AnimValue::Float(self.scale)),
-            "progress" => Some(AnimValue::Float(self.progress)),
-            "line_width" => Some(AnimValue::Float(self.line_width)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            ("scale", AnimValue::Float(v)) => self.scale = v,
-            ("progress", AnimValue::Float(v)) => self.progress = v,
-            ("line_width", AnimValue::Float(v)) => self.line_width = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(Polyline {
+    position: Vec3,
+    color: Vec4,
+    scale: Float,
+    progress: Float,
+    line_width: Float,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn seg(x0: f32, y0: f32, x1: f32, y1: f32) -> LineSegment {
         LineSegment {
@@ -134,18 +112,7 @@ mod tests {
 
     #[test]
     fn property_round_trip() {
-        let mut pl = make_polyline();
-        for name in Polyline::PROPERTY_NAMES {
-            let val = pl.get(name).unwrap();
-            pl.set(name, val.clone());
-            assert_eq!(pl.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let pl = make_polyline();
-        assert!(pl.get("nonexistent").is_none());
+        assert_property_roundtrip(&mut make_polyline());
     }
 
     #[test]

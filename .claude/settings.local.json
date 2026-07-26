@@ -23,7 +23,17 @@
       "Bash(dvisvgm --no-fonts --exact test_latex.dvi -o test_latex.svg)",
       "Bash(git -C /home/dj/Code/rs-namin log --oneline)",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(cargo clippy *)"
+      "Bash(cargo clippy *)",
+      "WebFetch(domain:crates.io)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:lib.rs)",
+      "Bash(cargo check *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(echo \"remaining: $?\")",
+      "Bash(echo \"grep exit: $?\")",
+      "Bash(echo \"check grep exit: $?\")",
+      "Bash(echo \"clippy grep exit: $?\")"
     ]
   }
 }

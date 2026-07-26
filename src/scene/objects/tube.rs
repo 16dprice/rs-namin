@@ -2,8 +2,7 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const RING_SEGMENTS: usize = 16;
 
@@ -22,8 +21,6 @@ pub struct Tube {
 }
 
 impl Tube {
-    const PROPERTY_NAMES: &[&str] = &["position", "radius", "closed", "scale"];
-
     pub fn new(points: Vec<Vec3>, radius: f32, color: Color) -> Self {
         Self {
             position: Vec3::ZERO,
@@ -35,18 +32,12 @@ impl Tube {
         }
     }
 
-    pub fn with_colors(points: Vec<Vec3>, radius: f32, colors: Vec<Color>) -> Self {
-        Self {
-            position: Vec3::ZERO,
-            points,
-            radius,
-            colors: colors.iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect(),
-            closed: false,
-            scale: 1.0,
-        }
+    pub fn with_colors(mut self, colors: Vec<Color>) -> Self {
+        self.colors = colors.into_iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect();
+        self
     }
 
-    pub fn closed(mut self, val: bool) -> Self {
+    pub fn with_closed(mut self, val: bool) -> Self {
         self.closed = val;
         self
     }
@@ -238,73 +229,29 @@ impl SceneObject for Tube {
     }
 }
 
-impl Animatable for Tube {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "radius" => Some(AnimValue::Float(self.radius)),
-            "closed" => Some(AnimValue::Bool(self.closed)),
-            "scale" => Some(AnimValue::Float(self.scale)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("radius", AnimValue::Float(v)) => self.radius = v,
-            ("closed", AnimValue::Bool(v)) => self.closed = v,
-            ("scale", AnimValue::Float(v)) => self.scale = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(Tube {
+    position: Vec3,
+    radius: Float,
+    closed: Bool,
+    scale: Float,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn make_straight_tube() -> Tube {
         Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(2.0, 0.0, 0.0)], 0.5, WHITE)
     }
 
     fn make_triangle_tube() -> Tube {
-        Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.0)], 0.2, WHITE).closed(true)
+        Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.0)], 0.2, WHITE).with_closed(true)
     }
 
     #[test]
     fn property_round_trip() {
-        let mut tube = make_straight_tube();
-        for name in Tube::PROPERTY_NAMES {
-            let val = tube.get(name).unwrap();
-            tube.set(name, val.clone());
-            assert_eq!(tube.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
-    }
-
-    #[test]
-    fn set_radius() {
-        let mut tube = make_straight_tube();
-        tube.set("radius", AnimValue::Float(2.0));
-        assert_eq!(tube.radius, 2.0);
-    }
-
-    #[test]
-    fn set_closed() {
-        let mut tube = make_straight_tube();
-        assert!(!tube.closed);
-        tube.set("closed", AnimValue::Bool(true));
-        assert!(tube.closed);
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let tube = make_straight_tube();
-        assert!(tube.get("nonexistent").is_none());
+        assert_property_roundtrip(&mut make_straight_tube());
     }
 
     #[test]
@@ -317,17 +264,6 @@ mod tests {
     fn default_position_is_zero() {
         let tube = make_straight_tube();
         assert_eq!(tube.position, Vec3::ZERO);
-    }
-
-    #[test]
-    fn property_names_complete() {
-        let tube = make_straight_tube();
-        let names = tube.property_names();
-        assert_eq!(names.len(), 4);
-        assert!(names.contains(&"position"));
-        assert!(names.contains(&"radius"));
-        assert!(names.contains(&"closed"));
-        assert!(names.contains(&"scale"));
     }
 
     #[test]
@@ -428,8 +364,8 @@ mod tests {
     }
 
     #[test]
-    fn closed_builder_method() {
-        let tube = Tube::new(vec![Vec3::ZERO, Vec3::X, Vec3::Y], 0.5, WHITE).closed(true);
+    fn with_closed_builder_method() {
+        let tube = Tube::new(vec![Vec3::ZERO, Vec3::X, Vec3::Y], 0.5, WHITE).with_closed(true);
         assert!(tube.closed);
     }
 }

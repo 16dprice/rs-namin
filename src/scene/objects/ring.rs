@@ -2,8 +2,7 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const SEGMENTS: usize = 64;
 
@@ -11,36 +10,34 @@ pub struct Ring {
     pub position: Vec3,
     pub radius: f32,
     pub thickness: f32,
-    pub sweep: f32, // 0.0 to 1.0 — fraction of the full arc to draw
+    pub progress: f32, // 0.0 to 1.0 — fraction of the full arc to draw
     pub color: Vec4,
 }
 
 impl Ring {
-    const PROPERTY_NAMES: &[&str] = &["position", "radius", "thickness", "sweep", "color"];
-
-    pub fn new(position: Vec3, radius: f32, color: Color, sweep: f32) -> Self {
+    pub fn new(position: Vec3, radius: f32, color: Color, progress: f32) -> Self {
         Self {
             position,
             radius,
             thickness: 0.05,
-            sweep,
+            progress,
             color: vec4(color.r, color.g, color.b, color.a),
         }
     }
 
     /// Build a flat ring mesh on the XY plane. The ring is a triangle strip
     /// between an inner circle (radius - thickness/2) and outer circle
-    /// (radius + thickness/2), sweeping `sweep` fraction of the full arc.
+    /// (radius + thickness/2), sweeping `progress` fraction of the full arc.
     fn build_mesh(&self) -> Mesh {
-        let sweep_angle = self.sweep.clamp(0.0, 1.0) * TAU;
+        let sweep_angle = self.progress.clamp(0.0, 1.0) * TAU;
         let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
         let normal = vec4(0.0, 0.0, 1.0, 0.0);
 
         let inner_r = (self.radius - self.thickness * 0.5).max(0.0);
         let outer_r = self.radius + self.thickness * 0.5;
 
-        // Number of segments proportional to sweep
-        let num_segs = ((SEGMENTS as f32 * self.sweep.clamp(0.0, 1.0)).ceil() as usize).max(1);
+        // Number of segments proportional to progress
+        let num_segs = ((SEGMENTS as f32 * self.progress.clamp(0.0, 1.0)).ceil() as usize).max(1);
 
         let mut vertices = Vec::with_capacity((num_segs + 1) * 2);
         let mut indices = Vec::with_capacity(num_segs * 6);
@@ -97,7 +94,7 @@ impl Ring {
 
 impl SceneObject for Ring {
     fn draw(&self) {
-        if self.sweep > 0.0 {
+        if self.progress > 0.0 {
             draw_mesh(&self.build_mesh());
         }
     }
@@ -111,37 +108,18 @@ impl SceneObject for Ring {
     }
 }
 
-impl Animatable for Ring {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "radius" => Some(AnimValue::Float(self.radius)),
-            "thickness" => Some(AnimValue::Float(self.thickness)),
-            "sweep" => Some(AnimValue::Float(self.sweep)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
-
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("radius", AnimValue::Float(v)) => self.radius = v,
-            ("thickness", AnimValue::Float(v)) => self.thickness = v,
-            ("sweep", AnimValue::Float(v)) => self.sweep = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
-
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
-    }
-}
+animatable!(Ring {
+    position: Vec3,
+    radius: Float,
+    thickness: Float,
+    progress: Float,
+    color: Vec4,
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
     fn make_circle() -> Ring {
         Ring::new(Vec3::ZERO, 1.0, WHITE, 1.0)
@@ -149,18 +127,13 @@ mod tests {
 
     #[test]
     fn property_round_trip() {
-        let mut c = make_circle();
-        for name in Ring::PROPERTY_NAMES {
-            let val = c.get(name).unwrap();
-            c.set(name, val.clone());
-            assert_eq!(c.get(name).unwrap(), val, "round-trip failed for {name}");
-        }
+        assert_property_roundtrip(&mut make_circle());
     }
 
     #[test]
-    fn default_sweep_is_full() {
+    fn default_progress_is_full() {
         let c = make_circle();
-        assert_eq!(c.sweep, 1.0);
+        assert_eq!(c.progress, 1.0);
     }
 
     #[test]
@@ -181,7 +154,7 @@ mod tests {
     #[test]
     fn mesh_half_sweep() {
         let mut c = make_circle();
-        c.sweep = 0.5;
+        c.progress = 0.5;
         let mesh = c.build_mesh();
         let expected_segs = (SEGMENTS as f32 * 0.5).ceil() as usize;
         assert_eq!(mesh.vertices.len(), (expected_segs + 1) * 2);
@@ -189,11 +162,11 @@ mod tests {
     }
 
     #[test]
-    fn zero_sweep_skips_draw() {
+    fn zero_progress_skips_draw() {
         let mut c = make_circle();
-        c.sweep = 0.0;
-        // draw() skips when sweep is 0 — no mesh is rendered
-        assert_eq!(c.sweep, 0.0);
+        c.progress = 0.0;
+        // draw() skips when progress is 0 — no mesh is rendered
+        assert_eq!(c.progress, 0.0);
     }
 
     #[test]
@@ -215,18 +188,5 @@ mod tests {
         // First vertex (inner) should be at position (clamped to 0 radius)
         let inner_pos = mesh.vertices[0].position;
         assert_eq!(inner_pos, Vec3::ZERO);
-    }
-
-    #[test]
-    fn unknown_property_returns_none() {
-        let c = make_circle();
-        assert!(c.get("nonexistent").is_none());
-    }
-
-    #[test]
-    fn set_sweep() {
-        let mut c = make_circle();
-        c.set("sweep", AnimValue::Float(0.75));
-        assert_eq!(c.sweep, 0.75);
     }
 }

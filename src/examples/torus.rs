@@ -18,7 +18,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // Tumble the torus around Y so the rotation is clearly visible.
     // Chain quarter-turn keyframes (slerp takes shortest path, so ≤ 180° each).
-    let mut rot_track = Track::new(torus_id, "rotation");
+    let mut rot_track = Track::new(torus_id, "orientation");
     for i in 0..=4 {
         let angle = FRAC_PI_2 * i as f32;
         rot_track.add_keyframe(Keyframe::new(i as f32, AnimValue::Mat4(Mat4::from_rotation_y(angle))));

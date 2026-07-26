@@ -1,7 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Rectangle {
     pub position: Vec3,
@@ -11,8 +10,6 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-    const PROPERTY_NAMES: &[&str] = &["position", "size", "color"];
-
     pub fn new(position: Vec3, size: Vec2, color: Color) -> Self {
         Self {
             position,
@@ -84,26 +81,19 @@ impl SceneObject for Rectangle {
     }
 }
 
-impl Animatable for Rectangle {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "size" => Some(AnimValue::Vec2(self.size)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
+animatable!(Rectangle {
+    position: Vec3,
+    size: Vec2,
+    color: Vec4,
+});
 
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("size", AnimValue::Vec2(v)) => self.size = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
+    #[test]
+    fn property_round_trip() {
+        assert_property_roundtrip(&mut Rectangle::new(Vec3::ZERO, vec2(2.0, 1.0), WHITE));
     }
 }

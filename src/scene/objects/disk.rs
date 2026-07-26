@@ -2,8 +2,7 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
-use crate::scene::traits::{Animatable, BoundingBox, SceneObject};
-use crate::scene::value::AnimValue;
+use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const DISK_SEGMENTS: usize = 32;
 
@@ -14,8 +13,6 @@ pub struct Disk {
 }
 
 impl Disk {
-    const PROPERTY_NAMES: &[&str] = &["position", "radius", "color"];
-
     pub fn new(position: Vec3, radius: f32, color: Color) -> Self {
         Self {
             position,
@@ -81,26 +78,19 @@ impl SceneObject for Disk {
     }
 }
 
-impl Animatable for Disk {
-    fn get(&self, property_name: &str) -> Option<AnimValue> {
-        match property_name {
-            "position" => Some(AnimValue::Vec3(self.position)),
-            "radius" => Some(AnimValue::Float(self.radius)),
-            "color" => Some(AnimValue::Vec4(self.color)),
-            _ => None,
-        }
-    }
+animatable!(Disk {
+    position: Vec3,
+    radius: Float,
+    color: Vec4,
+});
 
-    fn set(&mut self, property_name: &str, value: AnimValue) {
-        match (property_name, value) {
-            ("position", AnimValue::Vec3(v)) => self.position = v,
-            ("radius", AnimValue::Float(v)) => self.radius = v,
-            ("color", AnimValue::Vec4(v)) => self.color = v,
-            _ => {}
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::traits::test_support::assert_property_roundtrip;
 
-    fn property_names(&self) -> &[&str] {
-        Self::PROPERTY_NAMES
+    #[test]
+    fn property_round_trip() {
+        assert_property_roundtrip(&mut Disk::new(Vec3::ZERO, 1.0, WHITE));
     }
 }
