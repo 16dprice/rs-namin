@@ -1,57 +1,7 @@
+//! Full video productions intended for MP4 export.
+//! Registered in `crate::registry`.
+
 pub mod basic_l_system;
 pub mod bouncing_ball;
 pub mod torus_knot;
 pub mod turtle_intro;
-
-use std::fmt;
-
-use crate::animation::timeline::Timeline;
-use crate::camera::Camera;
-use crate::scene::Scene;
-
-type BuildFn = fn() -> (Scene, Timeline, Camera);
-
-#[derive(Clone)]
-pub struct Video {
-    pub name: &'static str,
-    pub description: &'static str,
-    pub build: BuildFn,
-    pub audio: Option<&'static str>,
-}
-
-impl fmt::Display for Video {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} — {}", self.name, self.description)
-    }
-}
-
-pub const VIDEOS: &[Video] = &[
-    Video {
-        name: "bouncing_ball",
-        description: "Bouncing ball with easing, rectangle pulse, hexagon rotation",
-        build: bouncing_ball::build,
-        audio: None,
-    },
-    Video {
-        name: "torus_knot",
-        description: "Rainbow torus knot with dolly zoom and ring sweep animations",
-        build: torus_knot::build,
-        audio: None,
-    },
-    Video {
-        name: "basic_l_system",
-        description: "A basic l system that animates theta and progress changing",
-        build: basic_l_system::build,
-        audio: None,
-    },
-    Video {
-        name: "turtle_intro",
-        description: "An intro to drawing with turtle graphics and the L-System rules",
-        build: turtle_intro::build,
-        audio: None,
-    },
-];
-
-pub fn find(name: &str) -> Option<&'static Video> {
-    VIDEOS.iter().find(|v| v.name == name)
-}

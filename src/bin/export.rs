@@ -7,8 +7,8 @@ use inquire::{CustomType, InquireError, Select, Text};
 use macroquad::prelude::*;
 use macroquad::texture::{RenderTargetParams, render_target_ex};
 
+use rs_namin::registry::{self, SceneEntry};
 use rs_namin::render_util::rgba_to_rgb_flipped;
-use rs_namin::videos::{self, Video};
 
 #[derive(Clone)]
 struct ResolutionPreset {
@@ -54,13 +54,15 @@ fn prompt_cancelled(err: &InquireError) -> bool {
 }
 
 struct ExportConfig {
-    video: Video,
+    scene: SceneEntry,
     resolution: ResolutionPreset,
     fps: u32,
     encoding: EncodingMode,
     start_time: f32,
     end_time: f32,
     audio_path: Option<String>,
+    /// Explicit output path; None = timestamped file under renders/.
+    output: Option<String>,
 }
 
 /// YouTube recommended bitrate (kbps) for given resolution and frame rate.
@@ -78,15 +80,15 @@ fn recommended_bitrate(label: &str, fps: u32) -> u32 {
     }
 }
 
-fn prompt_video() -> Option<Video> {
-    match Select::new("Video", videos::VIDEOS.to_vec()).prompt() {
+fn prompt_scene() -> Option<SceneEntry> {
+    match Select::new("Scene", registry::SCENES.to_vec()).prompt() {
         Ok(v) => Some(v),
         Err(e) if prompt_cancelled(&e) => None,
         Err(e) => panic!("{e}"),
     }
 }
 
-fn prompt_config(video: Video, duration: f32) -> Option<ExportConfig> {
+fn prompt_config(scene: SceneEntry, duration: f32) -> Option<ExportConfig> {
     // 1. Resolution
     let resolutions = vec![
         ResolutionPreset {
@@ -187,7 +189,7 @@ fn prompt_config(video: Video, duration: f32) -> Option<ExportConfig> {
     };
 
     // 6. Audio
-    let default_audio = video.audio.unwrap_or("");
+    let default_audio = scene.audio.unwrap_or("");
     let audio_path = match Text::new("Audio file path (empty for none)")
         .with_default(default_audio)
         .with_help_message("Path to an audio file (mp3, wav, etc.)")
@@ -209,13 +211,14 @@ fn prompt_config(video: Video, duration: f32) -> Option<ExportConfig> {
     };
 
     Some(ExportConfig {
-        video,
+        scene,
         resolution,
         fps,
         encoding,
         start_time,
         end_time,
         audio_path,
+        output: None,
     })
 }
 
@@ -288,11 +291,185 @@ fn build_ffmpeg_args(config: &ExportConfig, output_path: &str) -> Vec<String> {
     args
 }
 
-fn main() {
-    // Prompt for video selection before creating the window.
-    let video = match prompt_video() {
+const USAGE: &str = "Usage: export [--scene NAME] [--resolution 720p|1080p|1440p|4K|WxH] [--fps N] [--crf N | --bitrate KBPS] \
+                     [--start S] [--end S] [--audio PATH] [--output PATH]\n\
+                     With no arguments, prompts interactively. --scene enables non-interactive mode \
+                     (defaults: 1080p, 60 fps, CRF 18, full scene range).";
+
+/// Flags for non-interactive export. `None` from `parse_cli` means no flags
+/// were given and the interactive prompts should run instead.
+struct CliArgs {
+    scene: String,
+    resolution: Option<String>,
+    fps: Option<u32>,
+    crf: Option<u32>,
+    bitrate: Option<u32>,
+    start: Option<f32>,
+    end: Option<f32>,
+    audio: Option<String>,
+    output: Option<String>,
+}
+
+fn usage_exit(code: i32) -> ! {
+    eprintln!("{USAGE}");
+    eprintln!("Available scenes: {}", registry::names().join(", "));
+    std::process::exit(code);
+}
+
+/// Return the value following a flag, or exit with usage if it is missing.
+fn flag_value<'a>(args: &'a [String], i: &mut usize, flag: &str) -> &'a str {
+    *i += 1;
+    match args.get(*i) {
         Some(v) => v,
-        None => return,
+        None => {
+            eprintln!("{flag} requires a value");
+            usage_exit(1);
+        }
+    }
+}
+
+fn parse_cli() -> Option<CliArgs> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() <= 1 {
+        return None;
+    }
+
+    let mut scene: Option<String> = None;
+    let mut cli = CliArgs {
+        scene: String::new(),
+        resolution: None,
+        fps: None,
+        crf: None,
+        bitrate: None,
+        start: None,
+        end: None,
+        audio: None,
+        output: None,
+    };
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--help" | "-h" => usage_exit(0),
+            "--scene" => scene = Some(flag_value(&args, &mut i, "--scene").to_string()),
+            "--resolution" => cli.resolution = Some(flag_value(&args, &mut i, "--resolution").to_string()),
+            "--fps" => cli.fps = Some(flag_value(&args, &mut i, "--fps").parse().expect("--fps requires an integer")),
+            "--crf" => cli.crf = Some(flag_value(&args, &mut i, "--crf").parse().expect("--crf requires an integer")),
+            "--bitrate" => {
+                cli.bitrate = Some(
+                    flag_value(&args, &mut i, "--bitrate")
+                        .parse()
+                        .expect("--bitrate requires an integer (kbps)"),
+                )
+            }
+            "--start" => cli.start = Some(flag_value(&args, &mut i, "--start").parse().expect("--start requires a float")),
+            "--end" => cli.end = Some(flag_value(&args, &mut i, "--end").parse().expect("--end requires a float")),
+            "--audio" => cli.audio = Some(flag_value(&args, &mut i, "--audio").to_string()),
+            "--output" => cli.output = Some(flag_value(&args, &mut i, "--output").to_string()),
+            other => {
+                eprintln!("Unknown argument: {other}");
+                usage_exit(1);
+            }
+        }
+        i += 1;
+    }
+
+    match scene {
+        Some(name) => {
+            cli.scene = name;
+            Some(cli)
+        }
+        None => {
+            eprintln!("--scene is required when passing flags (omit all flags for interactive mode)");
+            usage_exit(1);
+        }
+    }
+}
+
+fn parse_resolution(s: &str) -> ResolutionPreset {
+    match s {
+        "720p" => ResolutionPreset {
+            label: "720p",
+            width: 1280,
+            height: 720,
+        },
+        "1080p" => ResolutionPreset {
+            label: "1080p",
+            width: 1920,
+            height: 1080,
+        },
+        "1440p" => ResolutionPreset {
+            label: "1440p",
+            width: 2560,
+            height: 1440,
+        },
+        "4K" | "4k" => ResolutionPreset {
+            label: "4K",
+            width: 3840,
+            height: 2160,
+        },
+        custom => {
+            let parse_dims = || -> Option<(u32, u32)> {
+                let (w, h) = custom.split_once('x')?;
+                Some((w.parse().ok()?, h.parse().ok()?))
+            };
+            match parse_dims() {
+                Some((width, height)) => ResolutionPreset {
+                    label: "custom",
+                    width,
+                    height,
+                },
+                None => {
+                    eprintln!("Invalid resolution {custom:?} (expected a preset or WxH, e.g. 1920x1080)");
+                    usage_exit(1);
+                }
+            }
+        }
+    }
+}
+
+/// Build an ExportConfig from CLI flags without prompting.
+fn config_from_cli(scene: SceneEntry, cli: CliArgs, duration: f32) -> ExportConfig {
+    let resolution = parse_resolution(cli.resolution.as_deref().unwrap_or("1080p"));
+    let fps = cli.fps.unwrap_or(60);
+    let encoding = match (cli.crf, cli.bitrate) {
+        (Some(crf), _) => EncodingMode::Crf { crf: crf.min(51) },
+        (None, Some(kbps)) => EncodingMode::Bitrate { kbps },
+        (None, None) => EncodingMode::Crf { crf: 18 },
+    };
+    let start_time = cli.start.unwrap_or(0.0).clamp(0.0, duration);
+    let end_time = cli.end.unwrap_or(duration).clamp(start_time, duration);
+    let audio_path = cli.audio.or_else(|| scene.audio.map(String::from));
+
+    ExportConfig {
+        scene,
+        resolution,
+        fps,
+        encoding,
+        start_time,
+        end_time,
+        audio_path,
+        output: cli.output,
+    }
+}
+
+fn main() {
+    let cli = parse_cli();
+
+    // Resolve the scene entry (prompting if no flags were given) before
+    // creating the window.
+    let (entry, cli) = match cli {
+        Some(cli) => {
+            let entry = registry::find(&cli.scene).unwrap_or_else(|| {
+                eprintln!("Unknown scene: {}", cli.scene);
+                usage_exit(1);
+            });
+            (entry.clone(), Some(cli))
+        }
+        None => match prompt_scene() {
+            Some(entry) => (entry, None),
+            None => return,
+        },
     };
 
     // Create window first so the GL context is available for scene building
@@ -308,17 +485,20 @@ fn main() {
         ..Default::default()
     };
 
-    macroquad::Window::from_config(conf, export_main(video));
+    macroquad::Window::from_config(conf, export_main(entry, cli));
 }
 
-async fn export_main(video: Video) {
+async fn export_main(entry: SceneEntry, cli: Option<CliArgs>) {
     // Build scene inside async context where GL is available.
-    let (scene, timeline, camera) = (video.build)();
+    let (scene, timeline, camera) = (entry.build)();
     let duration = timeline.duration();
 
-    let config = match prompt_config(video, duration) {
-        Some(c) => c,
-        None => return,
+    let config = match cli {
+        Some(cli) => config_from_cli(entry, cli, duration),
+        None => match prompt_config(entry, duration) {
+            Some(c) => c,
+            None => return,
+        },
     };
 
     let fps = config.fps;
@@ -394,9 +574,9 @@ mod tests {
 
     #[test]
     fn ffmpeg_args_crf_no_audio() {
-        let video = rs_namin::videos::find("bouncing_ball").unwrap().clone();
+        let scene = rs_namin::registry::find("bouncing_ball_long").unwrap().clone();
         let config = ExportConfig {
-            video,
+            scene,
             resolution: ResolutionPreset {
                 label: "1080p",
                 width: 1920,
@@ -407,6 +587,7 @@ mod tests {
             start_time: 0.0,
             end_time: 1.0,
             audio_path: None,
+            output: None,
         };
         let args = build_ffmpeg_args(&config, "out.mp4");
         assert!(args.contains(&"-crf".to_string()));
@@ -417,9 +598,9 @@ mod tests {
 
     #[test]
     fn ffmpeg_args_bitrate_with_audio() {
-        let video = rs_namin::videos::find("bouncing_ball").unwrap().clone();
+        let scene = rs_namin::registry::find("bouncing_ball_long").unwrap().clone();
         let config = ExportConfig {
-            video,
+            scene,
             resolution: ResolutionPreset {
                 label: "1080p",
                 width: 1920,
@@ -430,6 +611,7 @@ mod tests {
             start_time: 0.0,
             end_time: 1.0,
             audio_path: Some("/tmp/test.mp3".to_string()),
+            output: None,
         };
         let args = build_ffmpeg_args(&config, "out.mp4");
         assert!(args.contains(&"-b:v".to_string()));
@@ -466,16 +648,27 @@ async fn export_render(
     );
     rt.texture.set_filter(FilterMode::Nearest);
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    std::fs::create_dir_all("renders").ok();
-    let output_path = format!(
-        "renders/{}_{}_{}fps_{}.mp4",
-        config.video.name, config.resolution.label, fps, timestamp
-    );
+    let output_path = match &config.output {
+        Some(path) => {
+            if let Some(parent) = std::path::Path::new(path).parent()
+                && !parent.as_os_str().is_empty()
+            {
+                std::fs::create_dir_all(parent).ok();
+            }
+            path.clone()
+        }
+        None => {
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            std::fs::create_dir_all("renders").ok();
+            format!(
+                "renders/{}_{}_{}fps_{}.mp4",
+                config.scene.name, config.resolution.label, fps, timestamp
+            )
+        }
+    };
 
     let ffmpeg_args = build_ffmpeg_args(&config, &output_path);
 

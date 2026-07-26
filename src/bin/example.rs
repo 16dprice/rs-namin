@@ -1,35 +1,16 @@
-use std::fmt;
-
 use inquire::{InquireError, Select};
 use macroquad::prelude::Conf;
 
-use rs_namin::examples;
+use rs_namin::registry::{self, SceneEntry};
 use rs_namin::viewer;
 
-struct ExampleChoice {
-    name: &'static str,
-    description: &'static str,
-}
-
-impl fmt::Display for ExampleChoice {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} — {}", self.name, self.description)
-    }
-}
-
 fn main() {
-    let choices: Vec<ExampleChoice> = examples::EXAMPLES
-        .iter()
-        .map(|e| ExampleChoice {
-            name: e.name,
-            description: e.description,
-        })
-        .collect();
+    let choices: Vec<&'static SceneEntry> = registry::SCENES.iter().collect();
 
-    let selection = Select::new("Choose an example:", choices).prompt();
+    let selection = Select::new("Choose a scene:", choices).prompt();
 
-    let name = match selection {
-        Ok(choice) => choice.name,
+    let entry = match selection {
+        Ok(entry) => entry,
         Err(InquireError::OperationCanceled | InquireError::OperationInterrupted) => {
             eprintln!("Cancelled.");
             std::process::exit(0);
@@ -40,16 +21,18 @@ fn main() {
         }
     };
 
-    let example = examples::find(name).expect("selected example not found");
-    let (scene, timeline, camera) = (example.build)();
-
     let conf = Conf {
-        window_title: format!("rs-namin — {}", name),
+        window_title: format!("rs-namin — {}", entry.name),
         window_width: 1280,
         window_height: 720,
         high_dpi: true,
         ..Default::default()
     };
 
-    macroquad::Window::from_config(conf, viewer::run(scene, timeline, camera));
+    // Build inside the window future — scene builders may load textures,
+    // which requires the GL context.
+    macroquad::Window::from_config(conf, async move {
+        let (scene, timeline, camera) = (entry.build)();
+        viewer::run(scene, timeline, camera).await;
+    });
 }

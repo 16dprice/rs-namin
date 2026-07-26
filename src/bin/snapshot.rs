@@ -3,9 +3,10 @@ use std::path::{Path, PathBuf};
 use macroquad::prelude::*;
 use macroquad::texture::{RenderTargetParams, render_target_ex};
 
-use rs_namin::examples;
-use rs_namin::my_scene;
+use rs_namin::registry;
 use rs_namin::render_util::rgba_flipped;
+
+const USAGE: &str = "Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]";
 
 struct SnapshotConfig {
     times: Vec<f32>,
@@ -13,6 +14,24 @@ struct SnapshotConfig {
     height: u32,
     output: PathBuf,
     scene: Option<String>,
+}
+
+fn usage_exit(code: i32) -> ! {
+    eprintln!("{USAGE}");
+    eprintln!("Available scenes: {}", registry::names().join(", "));
+    std::process::exit(code);
+}
+
+/// Return the value following a flag, or exit with usage if it is missing.
+fn flag_value<'a>(args: &'a [String], i: &mut usize, flag: &str) -> &'a str {
+    *i += 1;
+    match args.get(*i) {
+        Some(v) => v,
+        None => {
+            eprintln!("{flag} requires a value");
+            usage_exit(1);
+        }
+    }
 }
 
 fn parse_args() -> SnapshotConfig {
@@ -26,40 +45,33 @@ fn parse_args() -> SnapshotConfig {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
+            "--help" | "-h" => usage_exit(0),
             "--time" => {
-                i += 1;
-                let t: f32 = args[i].parse().expect("--time requires a float value");
+                let t: f32 = flag_value(&args, &mut i, "--time").parse().expect("--time requires a float value");
                 times = Some(vec![t]);
             }
             "--times" => {
-                i += 1;
-                let ts: Vec<f32> = args[i]
+                let ts: Vec<f32> = flag_value(&args, &mut i, "--times")
                     .split(',')
                     .map(|s| s.trim().parse().expect("--times requires comma-separated floats"))
                     .collect();
                 times = Some(ts);
             }
             "--width" => {
-                i += 1;
-                width = args[i].parse().expect("--width requires an integer");
+                width = flag_value(&args, &mut i, "--width").parse().expect("--width requires an integer");
             }
             "--height" => {
-                i += 1;
-                height = args[i].parse().expect("--height requires an integer");
+                height = flag_value(&args, &mut i, "--height").parse().expect("--height requires an integer");
             }
             "--output" => {
-                i += 1;
-                output = PathBuf::from(&args[i]);
+                output = PathBuf::from(flag_value(&args, &mut i, "--output"));
             }
             "--scene" => {
-                i += 1;
-                scene_name = Some(args[i].clone());
+                scene_name = Some(flag_value(&args, &mut i, "--scene").to_string());
             }
             other => {
                 eprintln!("Unknown argument: {other}");
-                eprintln!("Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]");
-                eprintln!("Available scenes: {}", examples::names().join(", "));
-                std::process::exit(1);
+                usage_exit(1);
             }
         }
         i += 1;
@@ -79,20 +91,12 @@ fn main() {
 
     // Resolve the build function but don't call it yet — texture creation
     // requires the GL context which isn't available until inside the window.
-    let build_fn: fn() -> (
-        rs_namin::scene::Scene,
-        rs_namin::animation::timeline::Timeline,
-        rs_namin::camera::Camera,
-    ) = if let Some(ref name) = config.scene {
-        let example = examples::find(name).unwrap_or_else(|| {
-            eprintln!("Unknown scene: {name}");
-            eprintln!("Available: {}", examples::names().join(", "));
-            std::process::exit(1);
-        });
-        example.build
-    } else {
-        my_scene::build
-    };
+    let name = config.scene.as_deref().unwrap_or("my_scene");
+    let entry = registry::find(name).unwrap_or_else(|| {
+        eprintln!("Unknown scene: {name}");
+        usage_exit(1);
+    });
+    let build_fn = entry.build;
 
     let conf = Conf {
         window_title: "rs-namin snapshot".to_owned(),
@@ -116,17 +120,7 @@ fn save_png(rgba_data: &[u8], width: u32, height: u32, path: &std::path::Path) {
         .unwrap_or_else(|e| panic!("Failed to save PNG to {}: {e}", path.display()));
 }
 
-async fn snapshot_render(
-    build_fn: fn() -> (
-        rs_namin::scene::Scene,
-        rs_namin::animation::timeline::Timeline,
-        rs_namin::camera::Camera,
-    ),
-    requested_times: Vec<f32>,
-    width: u32,
-    height: u32,
-    output: PathBuf,
-) {
+async fn snapshot_render(build_fn: registry::BuildFn, requested_times: Vec<f32>, width: u32, height: u32, output: PathBuf) {
     // Build the scene inside the GL context so texture creation works.
     let (mut scene, timeline, initial_camera) = build_fn();
 
@@ -243,11 +237,5 @@ mod tests {
         let base = PathBuf::from("out");
         let result = output_path(&base, true, 0.0, 0);
         assert_eq!(result, PathBuf::from("out/t0.000.png"));
-    }
-
-    #[test]
-    fn parse_args_defaults() {
-        // Can't easily test parse_args since it reads std::env::args,
-        // but we test the output_path logic which is the tricky part.
     }
 }

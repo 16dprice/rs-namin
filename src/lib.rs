@@ -5,6 +5,7 @@ pub mod debug;
 pub mod examples;
 pub mod input;
 pub mod my_scene;
+pub mod registry;
 pub mod render_util;
 pub mod scenario;
 pub mod scene;
