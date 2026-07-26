@@ -4,6 +4,7 @@ pub mod camera;
 pub mod clock;
 pub mod debug;
 pub mod doc;
+pub mod editor;
 pub mod examples;
 pub mod export;
 pub mod input;

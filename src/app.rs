@@ -6,8 +6,9 @@
 
 use macroquad::prelude::*;
 
+use crate::doc;
 use crate::export::ExportMode;
-use crate::registry::SceneEntry;
+use crate::registry::{self, SceneEntry};
 use crate::ui::{self, UiRequest};
 use crate::viewer::ViewerMode;
 
@@ -37,7 +38,20 @@ fn apply_request(mode: &mut AppMode, request: UiRequest) {
     match request {
         UiRequest::OpenScene(entry) => *mode = AppMode::viewer(entry),
         UiRequest::OpenExport(entry) => *mode = AppMode::export(entry),
-        UiRequest::OpenLibrary => *mode = AppMode::Library,
+        UiRequest::OpenLibrary => {
+            // Pick up new or edited documents (and their descriptions).
+            registry::rescan();
+            *mode = AppMode::Library;
+        }
+        UiRequest::NewScene => match doc::create_untitled() {
+            Ok(name) => {
+                registry::rescan();
+                if let Some(entry) = registry::find(&name) {
+                    *mode = AppMode::viewer(entry);
+                }
+            }
+            Err(error) => eprintln!("Failed to create scene document: {error}"),
+        },
         UiRequest::None => {}
     }
 }

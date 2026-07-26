@@ -14,6 +14,7 @@ use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::clock::{Clock, LoopMode, PlaybackState};
 use crate::debug::DebugOverlay;
+use crate::editor::{self, EditorState};
 use crate::export::{ExportForm, ExportPhase, ExportUiEvent, RESOLUTION_PRESETS, recommended_bitrate};
 use crate::registry::{self, SceneEntry, SceneKind};
 use crate::scene::Scene;
@@ -33,6 +34,8 @@ pub enum UiRequest {
     OpenLibrary,
     OpenScene(&'static SceneEntry),
     OpenExport(&'static SceneEntry),
+    /// Create a new scene document and open it in the viewer/editor.
+    NewScene,
 }
 
 /// Persistent transport-bar state across frames.
@@ -72,6 +75,8 @@ pub struct ViewerUi<'a> {
     pub scene_name: &'a str,
     /// Transient message shown in the app bar (e.g. "Saved snapshots/…").
     pub status: Option<&'a str>,
+    /// Present when the open scene is an editable document.
+    pub editor: Option<&'a mut EditorState>,
 }
 
 pub struct ViewerUiResponse {
@@ -95,6 +100,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
         timeline,
         scene_name,
         status,
+        mut editor,
     } = args;
 
     let mut response = ViewerUiResponse {
@@ -140,8 +146,14 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
         if overlay.transport_visible {
             transport_panel(ctx, transport, clock, timeline);
         }
+        let has_editor = editor.is_some();
+        if let Some(editor) = editor.as_mut() {
+            editor::panels(ctx, editor);
+        }
         if overlay.hud_visible {
-            hud_window(ctx, overlay, scene, camera);
+            // Clear the editor palette when it's present.
+            let hud_x = if has_editor { 240.0 } else { 10.0 };
+            hud_window(ctx, overlay, scene, camera, hud_x);
         }
         if overlay.inspector_visible {
             inspector_window(ctx, scene);
@@ -246,8 +258,17 @@ pub fn library_layout() -> (UiCapture, UiRequest) {
     egui_macroquad::ui(|ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_space(8.0);
-            ui.heading("rs-namin");
-            ui.weak("Pick a scene to open it in the viewer.");
+            ui.horizontal(|ui| {
+                ui.heading("rs-namin");
+                if ui
+                    .button("+ New scene")
+                    .on_hover_text("Create an editable scene document in scenes/")
+                    .clicked()
+                {
+                    request = UiRequest::NewScene;
+                }
+            });
+            ui.weak("Pick a scene to open it in the viewer. Documents (doc) open with the editor.");
             ui.add_space(8.0);
             ui.separator();
 
@@ -454,31 +475,28 @@ pub fn draw() {
     egui_macroquad::draw();
 }
 
-fn hud_window(ctx: &egui::Context, overlay: &mut DebugOverlay, scene: &Scene, camera: &Camera) {
-    egui::Window::new("Camera")
-        .default_pos([10.0, 40.0])
-        .resizable(false)
-        .show(ctx, |ui| {
-            ui.checkbox(&mut overlay.camera_follow_timeline, "Camera follows timeline (F5)");
-            ui.separator();
+fn hud_window(ctx: &egui::Context, overlay: &mut DebugOverlay, scene: &Scene, camera: &Camera, x: f32) {
+    egui::Window::new("Camera").default_pos([x, 40.0]).resizable(false).show(ctx, |ui| {
+        ui.checkbox(&mut overlay.camera_follow_timeline, "Camera follows timeline (F5)");
+        ui.separator();
 
-            let p = camera.position;
-            let t = camera.target;
-            let fwd = camera.forward();
-            ui.label(format!(
-                "Cam: ({:.1}, {:.1}, {:.1})  Target: ({:.1}, {:.1}, {:.1})",
-                p.x, p.y, p.z, t.x, t.y, t.z
-            ));
-            ui.label(format!(
-                "Fwd: ({:.2}, {:.2}, {:.2})  Dist: {:.1}  FOV: {:.0}",
-                fwd.x,
-                fwd.y,
-                fwd.z,
-                camera.distance(),
-                camera.fov
-            ));
-            ui.label(format!("Objects: {}", scene.len()));
-        });
+        let p = camera.position;
+        let t = camera.target;
+        let fwd = camera.forward();
+        ui.label(format!(
+            "Cam: ({:.1}, {:.1}, {:.1})  Target: ({:.1}, {:.1}, {:.1})",
+            p.x, p.y, p.z, t.x, t.y, t.z
+        ));
+        ui.label(format!(
+            "Fwd: ({:.2}, {:.2}, {:.2})  Dist: {:.1}  FOV: {:.0}",
+            fwd.x,
+            fwd.y,
+            fwd.z,
+            camera.distance(),
+            camera.fov
+        ));
+        ui.label(format!("Objects: {}", scene.len()));
+    });
 }
 
 fn inspector_window(ctx: &egui::Context, scene: &Scene) {

@@ -5,7 +5,6 @@
 //! snapshot, export, and library all resolve scene names against one list.
 
 use std::fmt;
-use std::sync::OnceLock;
 
 use macroquad::prelude::*;
 
@@ -166,14 +165,29 @@ const BUILTIN_SCENES: &[SceneEntry] = &[
 ];
 
 /// All scenes: builtins plus documents discovered in `scenes/*.ron`.
-/// Discovered once per process; entries live for the process lifetime.
+/// Re-discover with [`rescan`]; snapshots are leaked so entries stay
+/// `&'static` for the process lifetime.
 pub fn scenes() -> &'static [SceneEntry] {
-    static ALL: OnceLock<Vec<SceneEntry>> = OnceLock::new();
-    ALL.get_or_init(|| {
-        let mut all = BUILTIN_SCENES.to_vec();
-        all.extend(discover_docs());
-        all
-    })
+    if let Some(current) = *current_scenes().read().unwrap() {
+        return current;
+    }
+    rescan()
+}
+
+/// Rebuild the scene list (picking up new/edited documents in `scenes/`).
+/// Each rescan leaks one snapshot; call on user action (e.g. entering the
+/// library), not per frame.
+pub fn rescan() -> &'static [SceneEntry] {
+    let mut all = BUILTIN_SCENES.to_vec();
+    all.extend(discover_docs());
+    let leaked: &'static [SceneEntry] = Box::leak(all.into_boxed_slice());
+    *current_scenes().write().unwrap() = Some(leaked);
+    leaked
+}
+
+fn current_scenes() -> &'static std::sync::RwLock<Option<&'static [SceneEntry]>> {
+    static CURRENT: std::sync::RwLock<Option<&'static [SceneEntry]>> = std::sync::RwLock::new(None);
+    &CURRENT
 }
 
 fn discover_docs() -> Vec<SceneEntry> {

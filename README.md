@@ -37,7 +37,7 @@ Scenes are built by creating objects, adding them to a scene, and defining anima
 
 ```rust
 use macroquad::prelude::*;
-use rs_namin::animation::easing::quad_out;
+use rs_namin::animation::easing::Easing;
 use rs_namin::animation::timeline::Timeline;
 use rs_namin::animation::track::{Keyframe, Track};
 use rs_namin::camera::Camera;
@@ -57,7 +57,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
     track.add_keyframe(Keyframe::with_easing(
         0.0,
         AnimValue::Vec3(vec3(0.0, 0.5, 0.0)),
-        quad_out,
+        Easing::QuadOut,
     ));
     track.add_keyframe(Keyframe::new(
         1.0,
@@ -79,7 +79,7 @@ let mut sb = SceneBuilder::new();
 let disk = sb.add(Disk::new(Vec3::ZERO, 1.0, RED));
 sb.animate(&disk, "radius", |tb| {
     tb.keyframe(0.0, AnimValue::Float(1.0))
-      .keyframe_with_easing(2.0, AnimValue::Float(3.0), quad_out)
+      .keyframe_with_easing(2.0, AnimValue::Float(3.0), Easing::QuadOut)
 });
 let (scene, timeline, camera) = sb.build();
 ```
@@ -89,6 +89,8 @@ let (scene, timeline, camera) = sb.build();
 ### Scene documents (no Rust required)
 
 Scenes can also be written as RON files in `scenes/` — objects, initial property overrides, keyframe tracks with named easings, and a camera. Documents are discovered at startup and appear in the library, snapshot, and export like any built-in scene. See [scenes/demo.ron](scenes/demo.ron) for a complete example and `src/doc.rs` for the format; validation errors are reported with the offending object/property named.
+
+Documents open **with the editor**: a palette to add/remove objects and an inspector that edits initial properties (auto-generated widgets per property type), saving back to the RON file. "+ New scene" in the library creates a fresh document — build a scene, hit Save, then Export, without writing any Rust.
 
 ## Scene objects
 
@@ -100,7 +102,7 @@ Most world-space objects are rendered as flat custom meshes via `draw_mesh` on t
 
 Animations are driven by **tracks** on a **timeline**. Each track targets a single property on a single object (or the camera).
 
-- **28 easing functions**: linear, quad, cubic, quart, quint, sine, expo, back, elastic, bounce -- each with in/out/in-out variants
+- **Easing as data**: the `Easing` enum with 28 named curves (linear, quad, cubic, quart, quint, sine, expo, back, elastic, bounce -- each in/out/in-out), serializable in scene documents, plus `Easing::Custom(fn)` for bespoke code-authored curves
 - **Animatable types**: `Float`, `Vec2`, `Vec3`, `Vec4`, `Bool`, `Mat4`, `Transform2D`
 - **Camera animation**: position, target, up, fov, near, far, rotation_x/y/z
 

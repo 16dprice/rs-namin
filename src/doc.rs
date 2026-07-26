@@ -143,7 +143,7 @@ fn color(v: Vec4) -> Color {
 }
 
 impl ObjectSpec {
-    fn spawn(&self) -> Box<dyn SceneNode> {
+    pub(crate) fn spawn(&self) -> Box<dyn SceneNode> {
         use crate::scene::objects::*;
         match self.clone() {
             ObjectSpec::Disk {
@@ -226,6 +226,28 @@ pub struct KeyframeDoc {
     pub value: AnimValue,
     #[serde(default)]
     pub easing: Easing,
+}
+
+/// Create a new empty scene document under `scenes/`, returning its
+/// registry name (the file stem).
+pub fn create_untitled() -> Result<String, String> {
+    std::fs::create_dir_all("scenes").map_err(|e| format!("cannot create scenes/: {e}"))?;
+    let mut n = 1;
+    loop {
+        let name = format!("untitled_{n}");
+        let path = format!("scenes/{name}.ron");
+        if !std::path::Path::new(&path).exists() {
+            let doc = SceneDoc {
+                description: "New scene".to_string(),
+                camera: CameraDoc::default(),
+                objects: Vec::new(),
+                tracks: Vec::new(),
+            };
+            std::fs::write(&path, doc.to_ron_string()?).map_err(|e| format!("cannot write {path}: {e}"))?;
+            return Ok(name);
+        }
+        n += 1;
+    }
 }
 
 impl SceneDoc {

@@ -57,7 +57,8 @@ The snapshot binary renders scenes offscreen and never runs the egui UI. To veri
 grab whatever overlaps the window, including the user's other windows).
 
 ```sh
-RS_NAMIN_FRAME_DUMP=/tmp/viewer.png@30 cargo run
+RS_NAMIN_FRAME_DUMP=/tmp/viewer.png@30 cargo run                      # default scene
+RS_NAMIN_SCENE=demo RS_NAMIN_FRAME_DUMP=/tmp/editor.png@30 cargo run  # any scene (docs open with the editor)
 ```
 
 Key file: `src/viewer.rs` (`frame_dump_spec`).

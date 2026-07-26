@@ -157,9 +157,18 @@ UI build-out (iterative; order negotiable after the design conversation):
   viewer/library, snapshots, and CLI-exports to a valid MP4. Still not representable:
   VectorText/LSystem/Sprite/Turtle (non-data constructor inputs) — they get spec entries in
   a later milestone.
-- **M2.2** Object palette + property inspector: add/select objects, edit initial properties via
-  widgets generated from `property_names()` + `AnimValue` variant (Float → drag value, Vec3 →
-  three drags, Vec4 color → color picker, Bool → checkbox).
+- **M2.2** ✅ **DONE** — `src/editor.rs`: when a document scene is open, the viewer grows a
+  left palette (object list with select/delete, add-object menu over the 11 spec templates,
+  description edit, Save with dirty dot and error display) and a right inspector (id rename
+  committed on focus loss with track cascade; property editors generated from
+  `property_names()` + `AnimValue` variant — drags, color picker for Vec4 "color" props,
+  checkbox — writing into `set` overrides; Text content as a spec-level edit). The document
+  is the single source of truth: every edit rebuilds the scene from the doc that frame,
+  preserving the user's orbit camera and clock. Doc mutations are plain unit-tested methods
+  on `EditorState`, egui-free. The library gained "+ New scene" (creates
+  `scenes/untitled_N.ron` and opens it in the editor) and the registry rescans on library
+  entry so new/edited docs appear immediately. `RS_NAMIN_SCENE=name cargo run` opens the
+  viewer on any scene (dev/agent utility).
 - **M2.3** Dope sheet: tracks × time grid, add/move/delete keyframes, scrub-synced playhead,
   per-keyframe easing picker. Hand-painted on egui 0.31, or vendor-bump first and adapt
   egui-keyframe (decide at the time).

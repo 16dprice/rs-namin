@@ -7,8 +7,10 @@ use crate::camera::Camera;
 use crate::camera::orbit::OrbitController;
 use crate::clock::{self, Clock};
 use crate::debug::{DebugOverlay, SnapView};
+use crate::doc::SceneDoc;
+use crate::editor::EditorState;
 use crate::input::{InputProvider, MacroquadInput, UiGatedInput};
-use crate::registry::SceneEntry;
+use crate::registry::{SceneEntry, SceneSource};
 use crate::render_util::{self, OffscreenRenderer};
 use crate::scene::Scene;
 use crate::ui::{self, TransportState, UiRequest};
@@ -34,6 +36,8 @@ pub struct ViewerMode {
     pending_snapshot: Option<(OffscreenRenderer, PathBuf)>,
     /// Transient app-bar message and its remaining frame count.
     status: Option<(String, u32)>,
+    /// Present when the scene is a document: palette + inspector editing.
+    editor: Option<EditorState>,
 }
 
 impl ViewerMode {
@@ -41,6 +45,14 @@ impl ViewerMode {
     /// macroquad window (scene builders may load textures).
     pub fn new(entry: &'static SceneEntry) -> Self {
         let (scene, timeline, camera) = entry.build_or_error_scene();
+
+        // Documents open with the editor attached (doc = source of truth).
+        // A doc that fails to parse has nothing to edit; it shows the error
+        // scene without an editor.
+        let editor = match entry.source {
+            SceneSource::Doc(path) => SceneDoc::load(path).ok().map(|doc| EditorState::new(doc, path)),
+            SceneSource::Builtin(_) => None,
+        };
 
         let mut clock = Clock::new(timeline.duration(), 60.0);
         clock.loop_mode = clock::LoopMode::Loop;
@@ -58,6 +70,7 @@ impl ViewerMode {
             transport: TransportState::default(),
             pending_snapshot: None,
             status: None,
+            editor,
         }
     }
 
@@ -88,7 +101,14 @@ impl ViewerMode {
             timeline: &self.timeline,
             scene_name: self.entry.name,
             status: status_text.as_deref(),
+            editor: self.editor.as_mut(),
         });
+
+        // Rebuild from the document if the editor changed it this frame.
+        if self.editor.as_ref().is_some_and(|e| e.rebuild_needed) {
+            self.editor.as_mut().unwrap().rebuild_needed = false;
+            self.rebuild_from_doc();
+        }
         let mut request = ui_response.request;
         if ui_response.export {
             request = UiRequest::OpenExport(self.entry);
@@ -159,6 +179,26 @@ impl ViewerMode {
         }
 
         request
+    }
+
+    /// Rebuild scene/timeline from the edited document. The current (orbit)
+    /// camera is kept; only the initial camera — used by follow mode, export,
+    /// and snapshots of the doc — is replaced.
+    fn rebuild_from_doc(&mut self) {
+        let Some(editor) = &self.editor else { return };
+        match editor.doc.build() {
+            Ok((scene, timeline, camera)) => {
+                self.scene = scene;
+                self.timeline = timeline;
+                self.initial_camera = camera;
+                self.clock.duration = self.timeline.duration();
+                self.clock.current_time = self.clock.current_time.min(self.clock.duration);
+                self.editor.as_mut().unwrap().error = None;
+            }
+            Err(error) => {
+                self.editor.as_mut().unwrap().error = Some(error);
+            }
+        }
     }
 
     fn begin_snapshot(&mut self) {

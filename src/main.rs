@@ -15,8 +15,12 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    // Start in the viewer on the scratch scene (the iteration workflow);
-    // the library is one click or Esc away.
-    let entry = registry::find("my_scene").expect("my_scene is registered");
+    // Start in the viewer on the scratch scene (the iteration workflow) or
+    // on RS_NAMIN_SCENE; the library is one click or Esc away.
+    let name = std::env::var("RS_NAMIN_SCENE").unwrap_or_else(|_| "my_scene".to_string());
+    let entry = registry::find(&name).unwrap_or_else(|| {
+        eprintln!("Unknown scene: {name}");
+        std::process::exit(1);
+    });
     app::run(AppMode::viewer(entry)).await;
 }
