@@ -3,6 +3,7 @@ pub mod color;
 pub mod font;
 pub mod l_system;
 pub mod latex;
+pub mod mesh;
 pub mod objects;
 pub mod polyline;
 pub mod traits;

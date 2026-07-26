@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+use crate::scene::mesh::{MeshBuilder, color_bytes, flat_vertex};
 use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 /// A circular arc (partial ring) on the XY plane.
@@ -34,68 +35,49 @@ impl Arc {
         Self::new(position, 0.0, radius, start_angle, sweep_angle, color)
     }
 
-    fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
-        let normal = vec4(0.0, 0.0, 1.0, 0.0);
+    /// Build the arc as a quad strip between the inner and outer radius rows.
+    fn build(&self, mb: &mut MeshBuilder) {
+        let color = color_bytes(self.color);
 
-        // Each segment has 4 vertices (inner/outer at two angles) and 2 triangles.
-        let seg_count = ARC_SEGMENTS;
-        let mut vertices = Vec::with_capacity(seg_count * 2 + 2);
-        let mut indices = Vec::with_capacity(seg_count * 6);
+        let mut outer_row = Vec::with_capacity(ARC_SEGMENTS + 1);
+        let mut inner_row = Vec::with_capacity(ARC_SEGMENTS + 1);
 
-        for i in 0..=seg_count {
-            let t = i as f32 / seg_count as f32;
+        for i in 0..=ARC_SEGMENTS {
+            let t = i as f32 / ARC_SEGMENTS as f32;
             let angle = self.start_angle + t * self.sweep_angle;
             let cos_a = angle.cos();
             let sin_a = angle.sin();
 
-            // Outer vertex
-            vertices.push(Vertex {
-                position: vec3(
+            outer_row.push(flat_vertex(
+                vec3(
                     self.position.x + self.outer_radius * cos_a,
                     self.position.y + self.outer_radius * sin_a,
                     self.position.z,
                 ),
-                uv: vec2(t, 0.0),
+                vec2(t, 0.0),
                 color,
-                normal,
-            });
+            ));
 
-            // Inner vertex
-            vertices.push(Vertex {
-                position: vec3(
+            inner_row.push(flat_vertex(
+                vec3(
                     self.position.x + self.inner_radius * cos_a,
                     self.position.y + self.inner_radius * sin_a,
                     self.position.z,
                 ),
-                uv: vec2(t, 1.0),
+                vec2(t, 1.0),
                 color,
-                normal,
-            });
+            ));
         }
 
-        // Two triangles per segment: (outer_i, inner_i, outer_i+1) and (inner_i, inner_i+1, outer_i+1)
-        for i in 0..seg_count {
-            let base = (i * 2) as u16;
-            indices.push(base); // outer i
-            indices.push(base + 1); // inner i
-            indices.push(base + 2); // outer i+1
-            indices.push(base + 1); // inner i
-            indices.push(base + 3); // inner i+1
-            indices.push(base + 2); // outer i+1
-        }
-
-        Mesh {
-            vertices,
-            indices,
-            texture: None,
-        }
+        mb.strip(&inner_row, &outer_row);
     }
 }
 
 impl SceneObject for Arc {
     fn draw(&self) {
-        draw_mesh(&self.build_mesh());
+        let mut mb = MeshBuilder::new();
+        self.build(&mut mb);
+        mb.draw();
     }
 
     fn bounding_box(&self) -> BoundingBox {
@@ -156,10 +138,12 @@ mod tests {
     #[test]
     fn mesh_vertex_count() {
         let arc = make_arc();
-        let mesh = arc.build_mesh();
-        // (ARC_SEGMENTS + 1) * 2 vertices
-        assert_eq!(mesh.vertices.len(), (ARC_SEGMENTS + 1) * 2);
-        // ARC_SEGMENTS * 6 indices
-        assert_eq!(mesh.indices.len(), ARC_SEGMENTS * 6);
+        let mut mb = MeshBuilder::new();
+        arc.build(&mut mb);
+        let meshes = mb.build();
+        // ARC_SEGMENTS quads of 4 vertices / 6 indices each
+        assert_eq!(meshes.len(), 1);
+        assert_eq!(meshes[0].vertices.len(), ARC_SEGMENTS * 4);
+        assert_eq!(meshes[0].indices.len(), ARC_SEGMENTS * 6);
     }
 }

@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+use crate::scene::mesh::{MeshBuilder, color_bytes, flat_vertex};
 use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 /// An arrow on the XY plane: a rectangular shaft with a triangular head.
@@ -39,18 +40,15 @@ impl Arrow {
         }
     }
 
-    fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
-        let normal = vec4(0.0, 0.0, 1.0, 0.0);
+    /// Build the shaft quad and head triangle. Appends nothing for a
+    /// zero-length arrow.
+    fn build(&self, mb: &mut MeshBuilder) {
+        let color = color_bytes(self.color);
 
         let dir = self.end - self.start;
         let length = dir.length();
         if length < 1e-6 {
-            return Mesh {
-                vertices: vec![],
-                indices: vec![],
-                texture: None,
-            };
+            return;
         }
         let fwd = dir / length;
         // Perpendicular in XY plane
@@ -80,35 +78,18 @@ impl Arrow {
         let v5 = shaft_end + perp * head_half;
         let v6 = self.end;
 
-        let mk = |pos: Vec3| Vertex {
-            position: vec3(pos.x, pos.y, z),
-            uv: vec2(0.0, 0.0),
-            color,
-            normal,
-        };
+        let mk = |pos: Vec3| flat_vertex(vec3(pos.x, pos.y, z), vec2(0.0, 0.0), color);
 
-        let vertices = vec![mk(v0), mk(v1), mk(v2), mk(v3), mk(v4), mk(v5), mk(v6)];
-
-        let indices = vec![
-            0, 1, 2, // shaft tri 1
-            0, 2, 3, // shaft tri 2
-            4, 5, 6, // head
-        ];
-
-        Mesh {
-            vertices,
-            indices,
-            texture: None,
-        }
+        mb.quad([mk(v0), mk(v1), mk(v2), mk(v3)]);
+        mb.primitive(&[mk(v4), mk(v5), mk(v6)], &[0, 1, 2]);
     }
 }
 
 impl SceneObject for Arrow {
     fn draw(&self) {
-        let mesh = self.build_mesh();
-        if !mesh.vertices.is_empty() {
-            draw_mesh(&mesh);
-        }
+        let mut mb = MeshBuilder::new();
+        self.build(&mut mb);
+        mb.draw();
     }
 
     fn bounding_box(&self) -> BoundingBox {
@@ -182,21 +163,27 @@ mod tests {
         assert!((arrow.head_length - 1.5).abs() < 1e-5);
     }
 
+    fn build_meshes(arrow: &Arrow) -> Vec<Mesh> {
+        let mut mb = MeshBuilder::new();
+        arrow.build(&mut mb);
+        mb.build()
+    }
+
     #[test]
     fn mesh_has_correct_topology() {
         let arrow = make_arrow();
-        let mesh = arrow.build_mesh();
+        let meshes = build_meshes(&arrow);
+        assert_eq!(meshes.len(), 1);
         // 7 vertices: 4 shaft + 3 head
-        assert_eq!(mesh.vertices.len(), 7);
+        assert_eq!(meshes[0].vertices.len(), 7);
         // 9 indices: 6 shaft + 3 head
-        assert_eq!(mesh.indices.len(), 9);
+        assert_eq!(meshes[0].indices.len(), 9);
     }
 
     #[test]
     fn zero_length_arrow_produces_empty_mesh() {
         let arrow = Arrow::new(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), WHITE);
-        let mesh = arrow.build_mesh();
-        assert!(mesh.vertices.is_empty());
+        assert!(build_meshes(&arrow).is_empty());
     }
 
     #[test]
@@ -212,8 +199,8 @@ mod tests {
     #[test]
     fn tip_vertex_at_end_position() {
         let arrow = make_arrow();
-        let mesh = arrow.build_mesh();
-        let tip = mesh.vertices[6].position;
+        let meshes = build_meshes(&arrow);
+        let tip = meshes[0].vertices[6].position;
         assert!((tip.x - 10.0).abs() < 1e-5);
         assert!(tip.y.abs() < 1e-5);
     }

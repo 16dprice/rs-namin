@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+use crate::scene::mesh::{MeshBuilder, color_bytes, flat_vertex};
 use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Sprite {
@@ -37,10 +38,9 @@ impl Sprite {
         }
     }
 
-    /// Build a textured quad mesh on the XY plane, rotated around `center`.
-    fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
-        let normal = vec4(0.0, 0.0, 1.0, 0.0);
+    /// Build a textured quad on the XY plane, rotated around `center`.
+    fn build(&self, mb: &mut MeshBuilder) {
+        let color = color_bytes(self.color);
         let hw = self.size.x / 2.0;
         let hh = self.size.y / 2.0;
 
@@ -62,32 +62,24 @@ impl Sprite {
         let (u0, u1) = if self.flip_x { (1.0, 0.0) } else { (0.0, 1.0) };
         let uvs = [vec2(u0, 1.0), vec2(u1, 1.0), vec2(u1, 0.0), vec2(u0, 0.0)];
 
-        let vertices: Vec<Vertex> = corners
-            .iter()
-            .zip(uvs.iter())
-            .map(|(c, &uv)| {
-                let rx = c.x * cos_r - c.y * sin_r;
-                let ry = c.x * sin_r + c.y * cos_r;
-                Vertex {
-                    position: vec3(cx + rx, cy + ry, z),
-                    uv,
-                    color,
-                    normal,
-                }
-            })
-            .collect();
-
-        Mesh {
-            vertices,
-            indices: vec![0, 1, 2, 0, 2, 3],
-            texture: self.texture.clone(),
-        }
+        let quad = std::array::from_fn(|i| {
+            let c = corners[i];
+            let rx = c.x * cos_r - c.y * sin_r;
+            let ry = c.x * sin_r + c.y * cos_r;
+            flat_vertex(vec3(cx + rx, cy + ry, z), uvs[i], color)
+        });
+        mb.quad(quad);
     }
 }
 
 impl SceneObject for Sprite {
     fn draw(&self) {
-        draw_mesh(&self.build_mesh());
+        let mut mb = match &self.texture {
+            Some(texture) => MeshBuilder::with_texture(texture.clone()),
+            None => MeshBuilder::new(),
+        };
+        self.build(&mut mb);
+        mb.draw();
     }
 
     fn bounding_box(&self) -> BoundingBox {
@@ -150,6 +142,14 @@ mod tests {
         }
     }
 
+    fn build_mesh(sprite: &Sprite) -> Mesh {
+        let mut mb = MeshBuilder::new();
+        sprite.build(&mut mb);
+        let mut meshes = mb.build();
+        assert_eq!(meshes.len(), 1);
+        meshes.remove(0)
+    }
+
     #[test]
     fn property_round_trip() {
         assert_property_roundtrip(&mut test_sprite(Vec3::ZERO, vec2(2.0, 1.0)));
@@ -192,7 +192,7 @@ mod tests {
         // lands at position. Without rotation, bottom-left should be at (-0.5, -1.0).
         let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
         sprite.center = vec2(0.0, 0.5);
-        let mesh = sprite.build_mesh();
+        let mesh = build_mesh(&sprite);
         let bl = mesh.vertices[0].position; // bottom-left corner
         assert!((bl.x - -0.5).abs() < 1e-5);
         assert!((bl.y - -1.0).abs() < 1e-5);
@@ -208,7 +208,7 @@ mod tests {
         let mut sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
         sprite.center = vec2(0.0, 0.5);
         sprite.rotation = FRAC_PI_2;
-        let mesh = sprite.build_mesh();
+        let mesh = build_mesh(&sprite);
 
         // Average of all 4 vertices = geometric center of the rotated quad.
         let avg_x: f32 = mesh.vertices.iter().map(|v| v.position.x).sum::<f32>() / 4.0;
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn mesh_no_texture_still_builds() {
         let sprite = test_sprite(Vec3::ZERO, vec2(1.0, 1.0));
-        let mesh = sprite.build_mesh();
+        let mesh = build_mesh(&sprite);
         assert!(mesh.texture.is_none());
         assert_eq!(mesh.vertices.len(), 4);
         assert_eq!(mesh.indices.len(), 6);

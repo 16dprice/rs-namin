@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+use crate::scene::mesh::{MeshBuilder, color_bytes, flat_vertex};
 use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Rectangle {
@@ -18,57 +19,29 @@ impl Rectangle {
         }
     }
 
-    /// Build a flat quad mesh on the XY plane centered at `position`.
-    fn build_mesh(&self) -> Mesh {
-        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
-        let normal = vec4(0.0, 0.0, 1.0, 0.0);
+    /// Build a flat quad on the XY plane centered at `position`.
+    fn build(&self, mb: &mut MeshBuilder) {
+        let color = color_bytes(self.color);
         let hw = self.size.x / 2.0;
         let hh = self.size.y / 2.0;
         let z = self.position.z;
         let cx = self.position.x;
         let cy = self.position.y;
 
-        let vertices = vec![
-            Vertex {
-                position: vec3(cx - hw, cy - hh, z),
-                uv: vec2(0.0, 0.0),
-                color,
-                normal,
-            },
-            Vertex {
-                position: vec3(cx + hw, cy - hh, z),
-                uv: vec2(1.0, 0.0),
-                color,
-                normal,
-            },
-            Vertex {
-                position: vec3(cx + hw, cy + hh, z),
-                uv: vec2(1.0, 1.0),
-                color,
-                normal,
-            },
-            Vertex {
-                position: vec3(cx - hw, cy + hh, z),
-                uv: vec2(0.0, 1.0),
-                color,
-                normal,
-            },
-        ];
-
-        // Two triangles: 0-1-2 and 0-2-3
-        let indices = vec![0, 1, 2, 0, 2, 3];
-
-        Mesh {
-            vertices,
-            indices,
-            texture: None,
-        }
+        mb.quad([
+            flat_vertex(vec3(cx - hw, cy - hh, z), vec2(0.0, 0.0), color),
+            flat_vertex(vec3(cx + hw, cy - hh, z), vec2(1.0, 0.0), color),
+            flat_vertex(vec3(cx + hw, cy + hh, z), vec2(1.0, 1.0), color),
+            flat_vertex(vec3(cx - hw, cy + hh, z), vec2(0.0, 1.0), color),
+        ]);
     }
 }
 
 impl SceneObject for Rectangle {
     fn draw(&self) {
-        draw_mesh(&self.build_mesh());
+        let mut mb = MeshBuilder::new();
+        self.build(&mut mb);
+        mb.draw();
     }
 
     fn bounding_box(&self) -> BoundingBox {

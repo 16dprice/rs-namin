@@ -2,14 +2,10 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
+use crate::scene::mesh::MeshBuilder;
 use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const RING_SEGMENTS: usize = 16;
-
-// macroquad's default draw call buffer is 10,000 vertices / 5,000 indices.
-// Each ring has RING_SEGMENTS+1 vertices. Each segment between rings has RING_SEGMENTS*6 indices.
-// The index limit is binding: 5000 / (16*6) = 52 segments → 53 rings per chunk.
-const MAX_RINGS_PER_CHUNK: usize = 5_000 / (RING_SEGMENTS * 6) + 1;
 
 pub struct Tube {
     pub position: Vec3,
@@ -129,85 +125,60 @@ impl Tube {
         frames
     }
 
-    /// Build meshes for the tube, chunked to stay within draw call limits.
-    fn build_meshes(&self) -> Vec<Mesh> {
+    /// Build the tube surface: one vertex ring per frame, consecutive rings
+    /// connected by quad strips. `MeshBuilder` handles draw-call chunking.
+    fn build(&self, mb: &mut MeshBuilder) {
         let n = self.points.len();
         if n < 2 {
-            return vec![];
+            return;
         }
 
         let frames = self.compute_frames();
         let num_rings = frames.len();
 
-        let mut meshes = Vec::new();
-
-        for chunk_start in (0..num_rings).step_by(MAX_RINGS_PER_CHUNK - 1) {
-            let chunk_end = (chunk_start + MAX_RINGS_PER_CHUNK).min(num_rings);
-            let chunk_rings = chunk_end - chunk_start;
-
-            let verts_per_ring = RING_SEGMENTS + 1;
-            let mut vertices = Vec::with_capacity(chunk_rings * verts_per_ring);
-            let mut indices = Vec::with_capacity((chunk_rings - 1) * RING_SEGMENTS * 6);
-
-            for (ring, &(_tangent, normal, binormal)) in frames.iter().enumerate().take(chunk_end).skip(chunk_start) {
+        let rings: Vec<Vec<Vertex>> = frames
+            .iter()
+            .enumerate()
+            .map(|(ring, &(_tangent, normal, binormal))| {
                 let point_idx = ring % n;
 
                 let u = ring as f32 / (num_rings - 1) as f32;
                 let color = self.sample_color(u);
 
-                for j in 0..=RING_SEGMENTS {
-                    let angle = (j as f32 / RING_SEGMENTS as f32) * TAU;
-                    let cos_a = angle.cos();
-                    let sin_a = angle.sin();
+                (0..=RING_SEGMENTS)
+                    .map(|j| {
+                        let angle = (j as f32 / RING_SEGMENTS as f32) * TAU;
+                        let cos_a = angle.cos();
+                        let sin_a = angle.sin();
 
-                    let r = self.radius * self.scale;
-                    let offset = normal * cos_a * r + binormal * sin_a * r;
-                    let world_pos = self.points[point_idx] * self.scale + offset + self.position;
+                        let r = self.radius * self.scale;
+                        let offset = normal * cos_a * r + binormal * sin_a * r;
+                        let world_pos = self.points[point_idx] * self.scale + offset + self.position;
 
-                    let vert_normal = (normal * cos_a + binormal * sin_a).normalize_or_zero();
+                        let vert_normal = (normal * cos_a + binormal * sin_a).normalize_or_zero();
 
-                    vertices.push(Vertex {
-                        position: world_pos,
-                        uv: vec2(u, j as f32 / RING_SEGMENTS as f32),
-                        color,
-                        normal: vec4(vert_normal.x, vert_normal.y, vert_normal.z, 0.0),
-                    });
-                }
-            }
+                        Vertex {
+                            position: world_pos,
+                            uv: vec2(u, j as f32 / RING_SEGMENTS as f32),
+                            color,
+                            normal: vec4(vert_normal.x, vert_normal.y, vert_normal.z, 0.0),
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
 
-            // Indices connecting adjacent rings within this chunk
-            for i in 0..(chunk_rings - 1) {
-                let row_len = verts_per_ring as u16;
-                for j in 0..RING_SEGMENTS {
-                    let cur = (i as u16) * row_len + (j as u16);
-                    let next_row = cur + row_len;
-
-                    indices.push(cur);
-                    indices.push(next_row);
-                    indices.push(cur + 1);
-
-                    indices.push(cur + 1);
-                    indices.push(next_row);
-                    indices.push(next_row + 1);
-                }
-            }
-
-            meshes.push(Mesh {
-                vertices,
-                indices,
-                texture: None,
-            });
+        for pair in rings.windows(2) {
+            mb.strip(&pair[0], &pair[1]);
         }
-
-        meshes
     }
 }
 
 impl SceneObject for Tube {
     fn draw(&self) {
-        for mesh in self.build_meshes() {
-            draw_mesh(&mesh);
-        }
+        let mut mb = MeshBuilder::new();
+        self.build(&mut mb);
+        mb.draw();
     }
 
     fn bounding_box(&self) -> BoundingBox {
@@ -247,6 +218,12 @@ mod tests {
 
     fn make_triangle_tube() -> Tube {
         Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.0)], 0.2, WHITE).with_closed(true)
+    }
+
+    fn build_meshes(tube: &Tube) -> Vec<Mesh> {
+        let mut mb = MeshBuilder::new();
+        tube.build(&mut mb);
+        mb.build()
     }
 
     #[test]
@@ -294,17 +271,15 @@ mod tests {
     #[test]
     fn mesh_vertex_count_open() {
         let tube = make_straight_tube();
-        let meshes = tube.build_meshes();
-        let total_verts: usize = meshes.iter().map(|m| m.vertices.len()).sum();
-        // 3 rings × (RING_SEGMENTS + 1) vertices per ring
-        assert_eq!(total_verts, 3 * (RING_SEGMENTS + 1));
+        let total_verts: usize = build_meshes(&tube).iter().map(|m| m.vertices.len()).sum();
+        // 2 strips (3 rings) × RING_SEGMENTS quads × 4 vertices per quad
+        assert_eq!(total_verts, 2 * RING_SEGMENTS * 4);
     }
 
     #[test]
     fn mesh_index_count_open() {
         let tube = make_straight_tube();
-        let meshes = tube.build_meshes();
-        let total_indices: usize = meshes.iter().map(|m| m.indices.len()).sum();
+        let total_indices: usize = build_meshes(&tube).iter().map(|m| m.indices.len()).sum();
         // 2 segments × RING_SEGMENTS × 6 indices per quad
         assert_eq!(total_indices, 2 * RING_SEGMENTS * 6);
     }
@@ -312,17 +287,15 @@ mod tests {
     #[test]
     fn mesh_vertex_count_closed() {
         let tube = make_triangle_tube();
-        let meshes = tube.build_meshes();
-        let total_verts: usize = meshes.iter().map(|m| m.vertices.len()).sum();
-        // 4 rings (3 points + 1 wrap) × (RING_SEGMENTS + 1) vertices per ring
-        assert_eq!(total_verts, 4 * (RING_SEGMENTS + 1));
+        let total_verts: usize = build_meshes(&tube).iter().map(|m| m.vertices.len()).sum();
+        // 3 strips (3 points + 1 wrap ring) × RING_SEGMENTS quads × 4 vertices per quad
+        assert_eq!(total_verts, 3 * RING_SEGMENTS * 4);
     }
 
     #[test]
     fn mesh_index_count_closed() {
         let tube = make_triangle_tube();
-        let meshes = tube.build_meshes();
-        let total_indices: usize = meshes.iter().map(|m| m.indices.len()).sum();
+        let total_indices: usize = build_meshes(&tube).iter().map(|m| m.indices.len()).sum();
         // 3 segments × RING_SEGMENTS × 6 indices per quad
         assert_eq!(total_indices, 3 * RING_SEGMENTS * 6);
     }
@@ -330,35 +303,34 @@ mod tests {
     #[test]
     fn empty_points_produces_no_mesh() {
         let tube = Tube::new(vec![], 1.0, WHITE);
-        assert!(tube.build_meshes().is_empty());
+        assert!(build_meshes(&tube).is_empty());
     }
 
     #[test]
     fn single_point_produces_no_mesh() {
         let tube = Tube::new(vec![Vec3::ZERO], 1.0, WHITE);
-        assert!(tube.build_meshes().is_empty());
+        assert!(build_meshes(&tube).is_empty());
     }
 
     #[test]
     fn two_point_path_works() {
         let tube = Tube::new(vec![Vec3::ZERO, Vec3::X], 0.5, WHITE);
-        let meshes = tube.build_meshes();
-        let total_verts: usize = meshes.iter().map(|m| m.vertices.len()).sum();
-        assert_eq!(total_verts, 2 * (RING_SEGMENTS + 1));
+        let total_verts: usize = build_meshes(&tube).iter().map(|m| m.vertices.len()).sum();
+        // 1 strip × RING_SEGMENTS quads × 4 vertices per quad
+        assert_eq!(total_verts, RING_SEGMENTS * 4);
     }
 
     #[test]
     fn straight_path_rings_are_circular() {
         let tube = Tube::new(vec![vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0)], 1.0, WHITE);
-        let meshes = tube.build_meshes();
-        let verts = &meshes[0].vertices;
-        // Check first ring: all vertices should be distance 1.0 from the path point (0,0,0)
-        for j in 0..RING_SEGMENTS {
-            let pos = verts[j].position;
+        let meshes = build_meshes(&tube);
+        // A straight tube along X: every vertex should be distance 1.0 from the axis.
+        for (j, vert) in meshes.iter().flat_map(|m| m.vertices.iter()).enumerate() {
+            let pos = vert.position;
             let dist_from_axis = vec2(pos.y, pos.z).length();
             assert!(
                 (dist_from_axis - 1.0).abs() < 1e-5,
-                "ring vertex {j} distance from axis: {dist_from_axis}"
+                "vertex {j} distance from axis: {dist_from_axis}"
             );
         }
     }

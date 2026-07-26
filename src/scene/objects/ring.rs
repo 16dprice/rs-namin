@@ -2,6 +2,7 @@ use std::f32::consts::TAU;
 
 use macroquad::prelude::*;
 
+use crate::scene::mesh::{MeshBuilder, color_bytes, flat_vertex};
 use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 const SEGMENTS: usize = 64;
@@ -25,13 +26,12 @@ impl Ring {
         }
     }
 
-    /// Build a flat ring mesh on the XY plane. The ring is a triangle strip
-    /// between an inner circle (radius - thickness/2) and outer circle
-    /// (radius + thickness/2), sweeping `progress` fraction of the full arc.
-    fn build_mesh(&self) -> Mesh {
+    /// Build a flat ring on the XY plane: a quad strip between an inner
+    /// circle (radius - thickness/2) and outer circle (radius + thickness/2),
+    /// sweeping `progress` fraction of the full arc.
+    fn build(&self, mb: &mut MeshBuilder) {
         let sweep_angle = self.progress.clamp(0.0, 1.0) * TAU;
-        let color: [u8; 4] = Color::new(self.color.x, self.color.y, self.color.z, self.color.w).into();
-        let normal = vec4(0.0, 0.0, 1.0, 0.0);
+        let color = color_bytes(self.color);
 
         let inner_r = (self.radius - self.thickness * 0.5).max(0.0);
         let outer_r = self.radius + self.thickness * 0.5;
@@ -39,63 +39,46 @@ impl Ring {
         // Number of segments proportional to progress
         let num_segs = ((SEGMENTS as f32 * self.progress.clamp(0.0, 1.0)).ceil() as usize).max(1);
 
-        let mut vertices = Vec::with_capacity((num_segs + 1) * 2);
-        let mut indices = Vec::with_capacity(num_segs * 6);
+        let mut inner_row = Vec::with_capacity(num_segs + 1);
+        let mut outer_row = Vec::with_capacity(num_segs + 1);
 
         for i in 0..=num_segs {
-            let angle = (i as f32 / num_segs as f32) * sweep_angle;
+            let t = i as f32 / num_segs as f32;
+            let angle = t * sweep_angle;
             let cos_a = angle.cos();
             let sin_a = angle.sin();
 
-            // Inner vertex
-            vertices.push(Vertex {
-                position: vec3(
+            inner_row.push(flat_vertex(
+                vec3(
                     self.position.x + inner_r * cos_a,
                     self.position.y + inner_r * sin_a,
                     self.position.z,
                 ),
-                uv: vec2(i as f32 / num_segs as f32, 0.0),
+                vec2(t, 0.0),
                 color,
-                normal,
-            });
+            ));
 
-            // Outer vertex
-            vertices.push(Vertex {
-                position: vec3(
+            outer_row.push(flat_vertex(
+                vec3(
                     self.position.x + outer_r * cos_a,
                     self.position.y + outer_r * sin_a,
                     self.position.z,
                 ),
-                uv: vec2(i as f32 / num_segs as f32, 1.0),
+                vec2(t, 1.0),
                 color,
-                normal,
-            });
+            ));
         }
 
-        for i in 0..num_segs {
-            let base = (i * 2) as u16;
-            // Triangle 1: inner[i], outer[i], inner[i+1]
-            indices.push(base);
-            indices.push(base + 1);
-            indices.push(base + 2);
-            // Triangle 2: inner[i+1], outer[i], outer[i+1]
-            indices.push(base + 2);
-            indices.push(base + 1);
-            indices.push(base + 3);
-        }
-
-        Mesh {
-            vertices,
-            indices,
-            texture: None,
-        }
+        mb.strip(&inner_row, &outer_row);
     }
 }
 
 impl SceneObject for Ring {
     fn draw(&self) {
         if self.progress > 0.0 {
-            draw_mesh(&self.build_mesh());
+            let mut mb = MeshBuilder::new();
+            self.build(&mut mb);
+            mb.draw();
         }
     }
 
@@ -142,23 +125,31 @@ mod tests {
         assert_eq!(c.thickness, 0.05);
     }
 
+    fn build_meshes(c: &Ring) -> Vec<Mesh> {
+        let mut mb = MeshBuilder::new();
+        c.build(&mut mb);
+        mb.build()
+    }
+
     #[test]
     fn mesh_full_sweep() {
         let c = make_circle();
-        let mesh = c.build_mesh();
-        // 64 segments → 65 pairs of inner/outer = 130 vertices
-        assert_eq!(mesh.vertices.len(), (SEGMENTS + 1) * 2);
-        assert_eq!(mesh.indices.len(), SEGMENTS * 6);
+        let meshes = build_meshes(&c);
+        // 64 segments → 64 quads of 4 vertices / 6 indices each
+        assert_eq!(meshes.len(), 1);
+        assert_eq!(meshes[0].vertices.len(), SEGMENTS * 4);
+        assert_eq!(meshes[0].indices.len(), SEGMENTS * 6);
     }
 
     #[test]
     fn mesh_half_sweep() {
         let mut c = make_circle();
         c.progress = 0.5;
-        let mesh = c.build_mesh();
+        let meshes = build_meshes(&c);
         let expected_segs = (SEGMENTS as f32 * 0.5).ceil() as usize;
-        assert_eq!(mesh.vertices.len(), (expected_segs + 1) * 2);
-        assert_eq!(mesh.indices.len(), expected_segs * 6);
+        assert_eq!(meshes.len(), 1);
+        assert_eq!(meshes[0].vertices.len(), expected_segs * 4);
+        assert_eq!(meshes[0].indices.len(), expected_segs * 6);
     }
 
     #[test]
@@ -184,9 +175,9 @@ mod tests {
         let mut c = make_circle();
         c.radius = 0.01;
         c.thickness = 1.0; // inner would be -0.49, clamped to 0
-        let mesh = c.build_mesh();
-        // First vertex (inner) should be at position (clamped to 0 radius)
-        let inner_pos = mesh.vertices[0].position;
+        let meshes = build_meshes(&c);
+        // First vertex of the first quad is inner[0] (clamped to 0 radius)
+        let inner_pos = meshes[0].vertices[0].position;
         assert_eq!(inner_pos, Vec3::ZERO);
     }
 }

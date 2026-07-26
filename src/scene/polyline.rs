@@ -1,16 +1,13 @@
 use macroquad::prelude::*;
 
 use crate::scene::color::gradient_sample;
+use crate::scene::mesh::{MeshBuilder, flat_vertex};
 
 #[derive(Debug, Clone, Copy)]
 pub struct LineSegment {
     pub start: Vec2,
     pub end: Vec2,
 }
-
-/// Maximum line segments per `draw_mesh` call.
-/// Each segment uses 4 vertices and 6 indices. Limit: 5000 indices / 6 = 833.
-const MAX_SEGMENTS_PER_MESH: usize = 833;
 
 pub struct PolylineStyle<'a> {
     pub line_width: f32,
@@ -51,67 +48,42 @@ pub fn take_progress(segments: &[LineSegment], progress: f32) -> Vec<LineSegment
     result
 }
 
-/// Tessellate `segments` into screen-aligned quad strips and emit `draw_mesh`
-/// calls. Segment `i` is colored by sampling `style.colors` at position
+/// Tessellate `segments` into screen-aligned quads (one per segment) and emit
+/// `draw_mesh` calls via `MeshBuilder`, which handles draw-call chunking.
+/// Segment `i` is colored by sampling `style.colors` at position
 /// `i / (style.color_total - 1)`, falling back to `style.color` when the
 /// gradient has fewer than 2 entries.
 pub fn draw_polyline_mesh(segments: &[LineSegment], style: &PolylineStyle, xform: &PolylineTransform) {
     if segments.is_empty() {
         return;
     }
-    let normal = vec4(0.0, 0.0, 1.0, 0.0);
     let half_w = style.line_width / 2.0;
     let z = xform.position.z;
-    let visible = segments.len();
 
-    for chunk_start in (0..visible).step_by(MAX_SEGMENTS_PER_MESH) {
-        let chunk_end = (chunk_start + MAX_SEGMENTS_PER_MESH).min(visible);
-        let chunk_len = chunk_end - chunk_start;
+    let mut mb = MeshBuilder::new();
+    for (i, seg) in segments.iter().enumerate() {
+        let color = gradient_sample(style.colors, style.color, i, style.color_total);
+        let dir = seg.end - seg.start;
+        let len = dir.length();
+        let perp = if len > 1e-8 {
+            let fwd = dir / len;
+            vec2(-fwd.y, fwd.x)
+        } else {
+            vec2(0.0, 1.0)
+        };
+        let p = perp * half_w;
 
-        let mut vertices = Vec::with_capacity(chunk_len * 4);
-        let mut indices = Vec::with_capacity(chunk_len * 6);
+        let mk = |v: Vec2| {
+            flat_vertex(
+                vec3(v.x * xform.scale + xform.position.x, v.y * xform.scale + xform.position.y, z),
+                vec2(0.0, 0.0),
+                color,
+            )
+        };
 
-        for (i, seg) in segments[chunk_start..chunk_end].iter().enumerate() {
-            let seg_index = chunk_start + i;
-            let color_bytes = gradient_sample(style.colors, style.color, seg_index, style.color_total);
-            let dir = seg.end - seg.start;
-            let len = dir.length();
-            let perp = if len > 1e-8 {
-                let fwd = dir / len;
-                vec2(-fwd.y, fwd.x)
-            } else {
-                vec2(0.0, 1.0)
-            };
-
-            let base = vertices.len() as u16;
-            let p = perp * half_w;
-
-            let mk = |v: Vec2| Vertex {
-                position: vec3(v.x * xform.scale + xform.position.x, v.y * xform.scale + xform.position.y, z),
-                uv: vec2(0.0, 0.0),
-                color: color_bytes,
-                normal,
-            };
-
-            vertices.push(mk(seg.start - p));
-            vertices.push(mk(seg.start + p));
-            vertices.push(mk(seg.end + p));
-            vertices.push(mk(seg.end - p));
-
-            indices.push(base);
-            indices.push(base + 1);
-            indices.push(base + 2);
-            indices.push(base);
-            indices.push(base + 2);
-            indices.push(base + 3);
-        }
-
-        draw_mesh(&Mesh {
-            vertices,
-            indices,
-            texture: None,
-        });
+        mb.quad([mk(seg.start - p), mk(seg.start + p), mk(seg.end + p), mk(seg.end - p)]);
     }
+    mb.draw();
 }
 
 #[cfg(test)]
