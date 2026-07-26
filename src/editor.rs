@@ -611,13 +611,25 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
             );
             ui.horizontal(|ui| {
                 let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
-                ui.painter().text(
-                    label_rect.left_center() + egui::vec2(4.0, 0.0),
-                    egui::Align2::LEFT_CENTER,
-                    &label,
-                    egui::FontId::proportional(12.0),
-                    ui.visuals().weak_text_color(),
-                );
+                {
+                    let text_area = egui::Rect::from_min_max(label_rect.min, egui::pos2(label_rect.right() - 40.0, label_rect.bottom()));
+                    let clip = ui.painter().with_clip_rect(text_area);
+                    clip.text(
+                        label_rect.left_center() + egui::vec2(4.0, 0.0),
+                        egui::Align2::LEFT_CENTER,
+                        &label,
+                        egui::FontId::proportional(12.0),
+                        ui.visuals().weak_text_color(),
+                    );
+                }
+                let add_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(38.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
+                if ui
+                    .put(add_rect, egui::Button::new("+").small())
+                    .on_hover_text("Add keyframe at the playhead (or double-click the lane at any time)")
+                    .clicked()
+                {
+                    action = Some(SheetAction::AddKeyframe(track_index, clock.current_time));
+                }
                 let delete_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(18.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
                 if ui
                     .put(delete_rect, egui::Button::new("x").small())
@@ -628,6 +640,8 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
                 }
 
                 let (lane_rect, lane_resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), SHEET_ROW_H), egui::Sense::click());
+                let lane_resp = lane_resp
+                    .on_hover_text("Double-click: add keyframe · drag a diamond to retime · a track needs 2+ keyframes to animate");
                 if track_index % 2 == 0 {
                     ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
                 }
