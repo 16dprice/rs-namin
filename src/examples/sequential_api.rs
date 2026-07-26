@@ -96,20 +96,23 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // ── Camera: slow zoom using absolute-time animate ─────────────────
     // Runs from t=0 alongside everything else, showing that both APIs coexist.
     sb.animate_camera("position", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Vec3(vec3(0.0, 2.5, 10.0)), Easing::SineInOut)
-            .keyframe(5.0, AnimValue::Vec3(vec3(0.0, 2.5, 8.0)))
+        tb.keyframe(0.0, AnimValue::Vec3(vec3(0.0, 2.5, 10.0))).keyframe_with_easing(
+            5.0,
+            AnimValue::Vec3(vec3(0.0, 2.5, 8.0)),
+            Easing::SineInOut,
+        )
     });
 
     // ── Ground line fade-in: absolute-time animate (independent of cursor) ──
     sb.animate(&ground, "color", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Vec4(vec4(1.0, 1.0, 1.0, 0.0)), Easing::Linear)
+        tb.keyframe(0.0, AnimValue::Vec4(vec4(1.0, 1.0, 1.0, 0.0)))
             .keyframe(1.0, AnimValue::Vec4(white))
     });
 
     // ── Backdrop fade-in: absolute-time animate ───────────────────────
     sb.animate(&backdrop, "color", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Vec4(vec4(bg.x, bg.y, bg.z, 0.0)), Easing::SineOut)
-            .keyframe(1.5, AnimValue::Vec4(bg))
+        tb.keyframe(0.0, AnimValue::Vec4(vec4(bg.x, bg.y, bg.z, 0.0)))
+            .keyframe_with_easing(1.5, AnimValue::Vec4(bg), Easing::SineOut)
     });
 
     sb.build()

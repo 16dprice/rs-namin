@@ -6,6 +6,9 @@ use super::easing::Easing;
 pub struct Keyframe {
     pub time: f32,
     pub value: AnimValue,
+    /// How motion eases *into* this keyframe: the segment from the previous
+    /// keyframe to this one uses this curve. The first keyframe's easing is
+    /// unused (there is no incoming segment).
     pub easing: Easing,
 }
 
@@ -95,7 +98,8 @@ impl Track {
 
         let segment_duration = k1.time - k0.time;
         let t = (time - k0.time) / segment_duration;
-        let eased_t = k0.easing.eval(t);
+        // Easing belongs to the arrival keyframe: k1's curve shapes k0 -> k1.
+        let eased_t = k1.easing.eval(t);
 
         Some(AnimValue::lerp(&k0.value, &k1.value, eased_t))
     }
@@ -160,8 +164,8 @@ mod tests {
         linear_track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(100.0)));
 
         let mut eased_track = Track::new(dummy_id(), "radius");
-        eased_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.0), Easing::QuadIn));
-        eased_track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(100.0)));
+        eased_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+        eased_track.add_keyframe(Keyframe::with_easing(2.0, AnimValue::Float(100.0), Easing::QuadIn));
 
         let linear_val = linear_track.evaluate(1.0);
         let eased_val = eased_track.evaluate(1.0);

@@ -27,9 +27,9 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // Animate the radius pulsing
     let mut radius_track = Track::new(helix_id, "radius");
-    radius_track.add_keyframe(Keyframe::with_easing(0.0, AnimValue::Float(0.15), Easing::CubicInOut));
+    radius_track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.15)));
     radius_track.add_keyframe(Keyframe::with_easing(3.0, AnimValue::Float(0.4), Easing::CubicInOut));
-    radius_track.add_keyframe(Keyframe::new(6.0, AnimValue::Float(0.15)));
+    radius_track.add_keyframe(Keyframe::with_easing(6.0, AnimValue::Float(0.15), Easing::CubicInOut));
     timeline.add_track(radius_track);
 
     // A closed trefoil knot

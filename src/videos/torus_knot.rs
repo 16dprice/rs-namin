@@ -102,14 +102,18 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // ── Animations ────────────────────────────────────────────────────
     sb.animate_camera("rotation_y", |tb| {
-        tb.keyframe_with_easing(rotation_start, AnimValue::Float(0.0), Easing::SineInOut)
-            .keyframe(rotation_end, AnimValue::Float(TAU))
+        tb.keyframe(rotation_start, AnimValue::Float(0.0))
+            .keyframe_with_easing(rotation_end, AnimValue::Float(TAU), Easing::SineInOut)
     });
 
     sb.animate_camera("position", |tb| {
         tb.keyframe(rotation_start, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
-            .keyframe_with_easing(dolly_start, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)), Easing::Custom(dolly_zoom))
-            .keyframe(dolly_end, AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)))
+            .keyframe(dolly_start, AnimValue::Vec3(vec3(0.0, 4.0, cam_radius)))
+            .keyframe_with_easing(
+                dolly_end,
+                AnimValue::Vec3(vec3(0.0, 0.0, dolly_distance)),
+                Easing::Custom(dolly_zoom),
+            )
     });
 
     sb.animate_camera("target", |tb| {
@@ -124,29 +128,29 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
 
     sb.animate(&ring1, "progress", |tb| {
-        tb.keyframe_with_easing(ring1_start, AnimValue::Float(0.0), Easing::QuartOut)
-            .keyframe(ring1_end, AnimValue::Float(1.0))
+        tb.keyframe(ring1_start, AnimValue::Float(0.0))
+            .keyframe_with_easing(ring1_end, AnimValue::Float(1.0), Easing::QuartOut)
     });
     sb.animate(&ring2, "progress", |tb| {
-        tb.keyframe_with_easing(ring2_start, AnimValue::Float(0.0), Easing::QuartOut)
-            .keyframe(ring2_end, AnimValue::Float(1.0))
+        tb.keyframe(ring2_start, AnimValue::Float(0.0))
+            .keyframe_with_easing(ring2_end, AnimValue::Float(1.0), Easing::QuartOut)
     });
     sb.animate(&ring3, "progress", |tb| {
-        tb.keyframe_with_easing(ring3_start, AnimValue::Float(0.0), Easing::QuartOut)
-            .keyframe(ring3_end, AnimValue::Float(1.0))
+        tb.keyframe(ring3_start, AnimValue::Float(0.0))
+            .keyframe_with_easing(ring3_end, AnimValue::Float(1.0), Easing::QuartOut)
     });
 
     sb.animate(&ring1, "position", |tb| {
-        tb.keyframe_with_easing(knot_zoom_move_back_start, AnimValue::Vec3(ring1_start_position), Easing::SineInOut)
-            .keyframe(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-2.87, 1.96, 2.0)))
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Vec3(ring1_start_position))
+            .keyframe_with_easing(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-2.87, 1.96, 2.0)), Easing::SineInOut)
     });
     sb.animate(&ring2, "position", |tb| {
-        tb.keyframe_with_easing(knot_zoom_move_back_start, AnimValue::Vec3(ring2_start_position), Easing::SineInOut)
-            .keyframe(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-6.24, 0.0, 2.0)))
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Vec3(ring2_start_position))
+            .keyframe_with_easing(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-6.24, 0.0, 2.0)), Easing::SineInOut)
     });
     sb.animate(&ring3, "position", |tb| {
-        tb.keyframe_with_easing(knot_zoom_move_back_start, AnimValue::Vec3(ring3_start_position), Easing::SineInOut)
-            .keyframe(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-2.87, -1.96, 2.0)))
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Vec3(ring3_start_position))
+            .keyframe_with_easing(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-2.87, -1.96, 2.0)), Easing::SineInOut)
     });
 
     sb.animate(&ring1, "radius", |tb| {
@@ -163,17 +167,20 @@ pub fn build() -> (Scene, Timeline, Camera) {
     });
 
     sb.animate(&knot_tube, "position", |tb| {
-        tb.keyframe_with_easing(knot_zoom_move_back_start, AnimValue::Vec3(Vec3::ZERO), Easing::SineInOut)
-            .keyframe(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-4.0, 0.0, 0.0)))
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Vec3(Vec3::ZERO))
+            .keyframe_with_easing(knot_zoom_move_back_end, AnimValue::Vec3(vec3(-4.0, 0.0, 0.0)), Easing::SineInOut)
     });
     sb.animate(&knot_tube, "scale", |tb| {
-        tb.keyframe_with_easing(knot_zoom_move_back_start, AnimValue::Float(1.0), Easing::SineInOut)
-            .keyframe(knot_zoom_move_back_end, AnimValue::Float(0.75))
+        tb.keyframe(knot_zoom_move_back_start, AnimValue::Float(1.0)).keyframe_with_easing(
+            knot_zoom_move_back_end,
+            AnimValue::Float(0.75),
+            Easing::SineInOut,
+        )
     });
 
     sb.animate(&text_ref, "progress", |tb| {
-        tb.keyframe_with_easing(text_anim_start, AnimValue::Float(0.0), Easing::SineInOut)
-            .keyframe(text_anim_end, AnimValue::Float(1.0))
+        tb.keyframe(text_anim_start, AnimValue::Float(0.0))
+            .keyframe_with_easing(text_anim_end, AnimValue::Float(1.0), Easing::SineInOut)
     });
 
     sb.build()

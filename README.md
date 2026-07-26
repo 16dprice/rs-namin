@@ -54,14 +54,15 @@ pub fn build() -> (Scene, Timeline, Camera) {
     // Animate it bouncing up and down
     let mut timeline = Timeline::new();
     let mut track = Track::new(disk_id, "position");
-    track.add_keyframe(Keyframe::with_easing(
+    track.add_keyframe(Keyframe::new(
         0.0,
         AnimValue::Vec3(vec3(0.0, 0.5, 0.0)),
-        Easing::QuadOut,
     ));
-    track.add_keyframe(Keyframe::new(
+    // The easing shapes the motion *into* this keyframe.
+    track.add_keyframe(Keyframe::with_easing(
         1.0,
         AnimValue::Vec3(vec3(0.0, 5.0, 0.0)),
+        Easing::QuadOut,
     ));
     timeline.add_track(track);
 

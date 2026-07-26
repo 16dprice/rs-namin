@@ -33,27 +33,27 @@
     ],
     tracks: [
         (object: "ball", property: "position", keyframes: [
-            (time: 0.0, value: Vec3((0.0, 0.5, 0.0)), easing: QuadOut),
-            (time: 1.0, value: Vec3((0.0, 4.5, 0.0)), easing: QuadIn),
-            (time: 2.0, value: Vec3((0.0, 0.5, 0.0)), easing: QuadOut),
-            (time: 3.0, value: Vec3((0.0, 3.0, 0.0)), easing: QuadIn),
-            (time: 4.0, value: Vec3((0.0, 0.5, 0.0))),
+            (time: 0.0, value: Vec3((0.0, 0.5, 0.0))),
+            (time: 1.0, value: Vec3((0.0, 4.5, 0.0)), easing: QuadOut),
+            (time: 2.0, value: Vec3((0.0, 0.5, 0.0)), easing: QuadIn),
+            (time: 3.0, value: Vec3((0.0, 3.0, 0.0)), easing: QuadOut),
+            (time: 4.0, value: Vec3((0.0, 0.5, 0.0)), easing: QuadIn),
         ]),
         (object: "hex", property: "rotation", keyframes: [
-            (time: 0.0, value: Float(0.0), easing: CubicInOut),
-            (time: 4.0, value: Float(6.2832)),
+            (time: 0.0, value: Float(0.0)),
+            (time: 4.0, value: Float(6.2832), easing: CubicInOut),
         ]),
         (object: "ring", property: "progress", keyframes: [
-            (time: 0.0, value: Float(0.0), easing: SineInOut),
-            (time: 3.0, value: Float(1.0)),
+            (time: 0.0, value: Float(0.0)),
+            (time: 3.0, value: Float(1.0), easing: SineInOut),
         ]),
         (object: "label", property: "progress", keyframes: [
             (time: 0.5, value: Float(0.0)),
             (time: 2.5, value: Float(1.0)),
         ]),
         (object: "camera", property: "rotation_y", keyframes: [
-            (time: 0.0, value: Float(0.0), easing: SineInOut),
-            (time: 4.0, value: Float(0.5)),
+            (time: 0.0, value: Float(0.0)),
+            (time: 4.0, value: Float(0.5), easing: SineInOut),
         ]),
     ],
 )

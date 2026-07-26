@@ -756,19 +756,32 @@ fn keyframe_detail_strip(ui: &mut egui::Ui, editor: &mut EditorState) {
             editor.move_keyframe(track_index, kf_index, time);
         }
 
-        let mut easing = kf.easing;
-        egui::ComboBox::from_id_salt("kf_easing")
-            .selected_text(easing_label(easing))
-            .width(110.0)
-            .show_ui(ui, |ui| {
-                for candidate in Easing::NAMED {
-                    if ui.selectable_label(easing == candidate, easing_label(candidate)).clicked() {
-                        easing = candidate;
+        // Easing shapes the segment *into* this keyframe; the track's
+        // earliest keyframe has no incoming segment, so no picker.
+        let earliest = editor.doc.tracks[track_index]
+            .keyframes
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| a.time.total_cmp(&b.time))
+            .map(|(i, _)| i);
+        if earliest == Some(kf_index) {
+            ui.weak("(first keyframe — nothing to ease in from)");
+        } else {
+            ui.weak("ease in");
+            let mut easing = kf.easing;
+            egui::ComboBox::from_id_salt("kf_easing")
+                .selected_text(easing_label(easing))
+                .width(110.0)
+                .show_ui(ui, |ui| {
+                    for candidate in Easing::NAMED {
+                        if ui.selectable_label(easing == candidate, easing_label(candidate)).clicked() {
+                            easing = candidate;
+                        }
                     }
-                }
-            });
-        if easing != kf.easing {
-            editor.set_keyframe_easing(track_index, kf_index, easing);
+                });
+            if easing != kf.easing {
+                editor.set_keyframe_easing(track_index, kf_index, easing);
+            }
         }
 
         let mut value = kf.value.clone();

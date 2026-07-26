@@ -26,25 +26,31 @@ pub fn build() -> (Scene, Timeline, Camera) {
 
     // ── Animations ────────────────────────────────────────────────────
     sb.animate(&l_system_ref, "theta", |tb| {
-        tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), Easing::QuartInOut)
-            .keyframe(27.0, AnimValue::Float(5.8))
+        tb.keyframe(0.0, AnimValue::Float(1.0))
+            .keyframe_with_easing(27.0, AnimValue::Float(5.8), Easing::QuartInOut)
             .keyframe(37.0, AnimValue::Float(5.8))
     });
 
     sb.animate(&l_system_ref, "progress", |tb| {
-        tb.keyframe_with_easing(32.0, AnimValue::Float(1.0), Easing::QuintInOut)
-            .keyframe(70.0, AnimValue::Float(0.0))
+        tb.keyframe(32.0, AnimValue::Float(1.0))
+            .keyframe_with_easing(70.0, AnimValue::Float(0.0), Easing::QuintInOut)
             .keyframe(72.0, AnimValue::Float(0.0))
     });
 
     sb.animate_camera("position", |tb| {
-        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 25.7)), Easing::SineInOut)
-            .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 5.0)))
+        tb.keyframe(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 25.7))).keyframe_with_easing(
+            70.0,
+            AnimValue::Vec3(vec3(0.0, 1.3, 5.0)),
+            Easing::SineInOut,
+        )
     });
 
     sb.animate_camera("target", |tb| {
-        tb.keyframe_with_easing(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 0.0)), Easing::SineInOut)
-            .keyframe(70.0, AnimValue::Vec3(vec3(0.0, 1.3, 0.0)))
+        tb.keyframe(32.0, AnimValue::Vec3(vec3(0.0, 14.5, 0.0))).keyframe_with_easing(
+            70.0,
+            AnimValue::Vec3(vec3(0.0, 1.3, 0.0)),
+            Easing::SineInOut,
+        )
     });
 
     sb.build()

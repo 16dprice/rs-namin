@@ -94,10 +94,9 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 );
             }
 
-            tb.keyframe_with_easing(
+            tb.keyframe(
                 camera_finish_zoom_out_time,
                 AnimValue::Vec3(vec3(15.0, 2.0, camera_position_final_z)),
-                Easing::SineInOut,
             )
         });
 
@@ -116,11 +115,7 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 );
             }
 
-            tb.keyframe_with_easing(
-                camera_finish_zoom_out_time,
-                AnimValue::Vec3(vec3(15.0, 2.0, 0.0)),
-                Easing::SineInOut,
-            )
+            tb.keyframe(camera_finish_zoom_out_time, AnimValue::Vec3(vec3(15.0, 2.0, 0.0)))
         });
 
         p.animate(&turtle_ref, "progress", |mut tb| {

@@ -28,17 +28,17 @@ pub fn build() -> (Scene, Timeline, Camera) {
     let mut pos_track = Track::new(circle_id, "position");
     let mut t = 0.0_f32;
 
-    pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), Easing::QuadOut));
+    pos_track.add_keyframe(Keyframe::new(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0))));
 
     for i in 0..bounce_heights.len() {
         let peak_y = rest_y + bounce_heights[i];
         let dur = bounce_durations[i];
 
         t += dur;
-        pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, peak_y, 0.0)), Easing::QuadIn));
+        pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, peak_y, 0.0)), Easing::QuadOut));
 
         t += dur;
-        pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), Easing::QuadOut));
+        pos_track.add_keyframe(Keyframe::with_easing(t, AnimValue::Vec3(vec3(0.0, rest_y, 0.0)), Easing::QuadIn));
     }
 
     timeline.add_track(pos_track);

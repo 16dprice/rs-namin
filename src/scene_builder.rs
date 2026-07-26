@@ -296,7 +296,8 @@ impl TrackBuilder {
         self
     }
 
-    /// Add a keyframe with a custom easing function.
+    /// Add a keyframe with an easing that shapes the motion *into* it (the
+    /// segment from the previous keyframe to this one).
     pub fn keyframe_with_easing(mut self, time: f32, value: AnimValue, easing: Easing) -> Self {
         self.validate_type(&value);
         self.keyframes.push(Keyframe::with_easing(time, value, easing));
@@ -321,9 +322,8 @@ impl TrackBuilder {
             !self.keyframes.is_empty(),
             "TrackBuilder::animate_for: requires a starting keyframe"
         );
-        self.keyframes.last_mut().unwrap().easing = easing;
         self.local_time += duration;
-        self.keyframes.push(Keyframe::new(self.local_time, value));
+        self.keyframes.push(Keyframe::with_easing(self.local_time, value, easing));
         self
     }
 
@@ -459,12 +459,12 @@ mod tests {
         let mut sb = SceneBuilder::new();
         let circle = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
         sb.animate(&circle, "radius", |tb| {
-            // Easing is on k0 (the segment start keyframe)
-            tb.keyframe_with_easing(0.0, AnimValue::Float(1.0), Easing::QuadOut)
-                .keyframe(2.0, AnimValue::Float(5.0))
+            // Easing is on the arrival keyframe: it shapes the segment into it.
+            tb.keyframe(0.0, AnimValue::Float(1.0))
+                .keyframe_with_easing(2.0, AnimValue::Float(5.0), Easing::QuadOut)
         });
         let (_scene, timeline, _camera) = sb.build();
-        // Evaluate at midpoint — quad_out easing on k0
+        // Evaluate at midpoint — quad_out easing into k1
         let val = timeline.tracks[0].evaluate(1.0);
         let AnimValue::Float(f) = val.unwrap() else {
             panic!("expected Float");
