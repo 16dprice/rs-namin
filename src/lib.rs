@@ -4,6 +4,7 @@ pub mod camera;
 pub mod clock;
 pub mod debug;
 pub mod examples;
+pub mod export;
 pub mod input;
 pub mod my_scene;
 pub mod registry;

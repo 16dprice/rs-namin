@@ -20,7 +20,7 @@ const STATUS_FRAMES: u32 = 240;
 /// egui chrome (app bar, transport, HUD, inspector). One scene per instance;
 /// opening another scene from the library constructs a fresh `ViewerMode`.
 pub struct ViewerMode {
-    scene_name: &'static str,
+    entry: &'static SceneEntry,
     scene: Scene,
     timeline: Timeline,
     camera: Camera,
@@ -47,7 +47,7 @@ impl ViewerMode {
         clock.play();
 
         Self {
-            scene_name: entry.name,
+            entry,
             initial_camera: camera.clone(),
             orbit: OrbitController::from_camera(&camera),
             scene,
@@ -62,7 +62,7 @@ impl ViewerMode {
     }
 
     pub fn scene_name(&self) -> &'static str {
-        self.scene_name
+        self.entry.name
     }
 
     /// Run one viewer frame (input, playback, all render passes, UI).
@@ -86,10 +86,13 @@ impl ViewerMode {
             scene: &self.scene,
             camera: &self.camera,
             timeline: &self.timeline,
-            scene_name: self.scene_name,
+            scene_name: self.entry.name,
             status: status_text.as_deref(),
         });
         let mut request = ui_response.request;
+        if ui_response.export {
+            request = UiRequest::OpenExport(self.entry);
+        }
         let raw_input = MacroquadInput;
         let input = UiGatedInput::new(&raw_input, ui_response.capture.pointer, ui_response.capture.keyboard);
 
@@ -166,7 +169,7 @@ impl ViewerMode {
         std::fs::create_dir_all("snapshots").ok();
         let path = PathBuf::from(format!(
             "snapshots/{}_t{:.2}s_{}.png",
-            self.scene_name, self.clock.current_time, timestamp
+            self.entry.name, self.clock.current_time, timestamp
         ));
 
         let renderer = OffscreenRenderer::new(render_util::DESIGN_WIDTH as u32, render_util::DESIGN_HEIGHT as u32);

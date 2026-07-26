@@ -3,11 +3,14 @@
 ## App Shell
 
 `src/app.rs` owns the window loop: `app::run(AppMode)` dispatches one frame per mode
-(`Library` or `Viewer(ViewerMode)`), applies the `UiRequest` transition the mode's UI
-returned, and handles the `RS_NAMIN_FRAME_DUMP` capture. `rs-namin` starts in the viewer on
-`my_scene`; the `example` binary starts in the library. Opening a scene from the library
-constructs a fresh `ViewerMode` (rebuilding the scene — animation state never leaks between
-visits). Scene builds happen inside the loop, i.e. inside the GL context.
+(`Library`, `Viewer(ViewerMode)`, or `Export(ExportMode)`), applies the `UiRequest`
+transition the mode's UI returned, and handles the `RS_NAMIN_FRAME_DUMP` capture.
+`rs-namin` starts in the viewer on `my_scene`; the `example` binary starts in the library.
+Opening a scene (or its export screen) constructs a fresh mode instance that rebuilds the
+scene — animation state never leaks between visits. Scene builds happen inside the loop,
+i.e. inside the GL context. `ExportMode` renders incrementally: one export frame per UI
+frame piped to ffmpeg, with the readback lagging one frame behind the render (draw calls
+only flush on `next_frame`).
 
 ## Viewer Frame Structure
 

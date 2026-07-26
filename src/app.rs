@@ -6,6 +6,7 @@
 
 use macroquad::prelude::*;
 
+use crate::export::ExportMode;
 use crate::registry::SceneEntry;
 use crate::ui::{self, UiRequest};
 use crate::viewer::ViewerMode;
@@ -14,6 +15,7 @@ pub enum AppMode {
     /// Scene library: pick any registered scene to open in the viewer.
     Library,
     Viewer(Box<ViewerMode>),
+    Export(Box<ExportMode>),
 }
 
 impl AppMode {
@@ -22,12 +24,19 @@ impl AppMode {
     pub fn viewer(entry: &'static SceneEntry) -> Self {
         AppMode::Viewer(Box::new(ViewerMode::new(entry)))
     }
+
+    /// Enter the export screen for `entry`. Must be called inside the
+    /// macroquad window (builds the scene and a render target).
+    pub fn export(entry: &'static SceneEntry) -> Self {
+        AppMode::Export(Box::new(ExportMode::new(entry)))
+    }
 }
 
 /// Apply a mode transition requested by this frame's UI.
 fn apply_request(mode: &mut AppMode, request: UiRequest) {
     match request {
         UiRequest::OpenScene(entry) => *mode = AppMode::viewer(entry),
+        UiRequest::OpenExport(entry) => *mode = AppMode::export(entry),
         UiRequest::OpenLibrary => *mode = AppMode::Library,
         UiRequest::None => {}
     }
@@ -51,6 +60,7 @@ pub async fn run(mut mode: AppMode) {
         let request = match &mut mode {
             AppMode::Library => library_frame(),
             AppMode::Viewer(viewer) => viewer.frame(),
+            AppMode::Export(export) => export.frame(),
         };
         apply_request(&mut mode, request);
 
@@ -91,7 +101,7 @@ mod tests {
         apply_request(&mut mode, UiRequest::OpenScene(gl_free_entry()));
         match &mode {
             AppMode::Viewer(v) => assert_eq!(v.scene_name(), "torus"),
-            AppMode::Library => panic!("expected viewer mode"),
+            _ => panic!("expected viewer mode"),
         }
     }
 

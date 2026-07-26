@@ -104,7 +104,17 @@ Milestones (each is a well-scoped agent task):
   is egui now; only F4/F6 viewport overlays draw with macroquad). App-bar Snapshot button
   renders the scene UI-free through `OffscreenRenderer` into `snapshots/` with one-frame-lag
   readback and a transient status message. F2 now toggles the transport bar.
-- **M1.4** In-app export with progress + cancel (the incremental render loop).
+- **M1.4** ✅ **DONE** — `AppMode::Export` (`ExportMode` in `src/export.rs`): a Configure
+  form (resolution/fps/CRF-or-bitrate/range/audio/output) with a live scene preview behind
+  it, an incremental Render phase (one export frame per UI frame, piped to ffmpeg's stdin
+  with one-frame-lag readback; progress bar + cancel; UI stays live and shows the frame
+  being encoded), and a Done screen. Reached via the viewer's Export… button; the export
+  core (presets, ffmpeg args, frame math) moved to lib `src/export.rs`, shared with the CLI
+  binary. End-to-end verified: in-app export produced a valid 1080p h264 MP4 (ffprobe
+  checked). Known trade-off: the app window is vsync-paced, so in-app export runs at
+  ~display-refresh fps per second of wall clock (the CLI export sets swap_interval 0 and
+  remains the fast path); batching multiple render targets per UI frame is the future
+  optimization if it matters.
 - **M1.5** Polish pass agreed from the design-language conversation (theme, layout, shortcuts).
 
 ## Phase 2 — in-app video designer

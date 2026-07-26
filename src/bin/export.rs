@@ -1,50 +1,23 @@
-use std::fmt;
 use std::io::Write;
-use std::process::{Command, Stdio};
 
 use indicatif::{ProgressBar, ProgressStyle};
 use inquire::{CustomType, InquireError, Select, Text};
 use macroquad::prelude::*;
 
+use rs_namin::export::{
+    EncodeSettings, EncodingMode, RESOLUTION_PRESETS, ResolutionPreset, build_ffmpeg_args, frame_range, preset_by_label,
+    recommended_bitrate, spawn_ffmpeg, timestamped_output_path,
+};
 use rs_namin::registry::{self, SceneEntry};
 use rs_namin::render_util::OffscreenRenderer;
 
-#[derive(Clone)]
-struct ResolutionPreset {
-    label: &'static str,
-    width: u32,
-    height: u32,
-}
-
-impl fmt::Display for ResolutionPreset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} ({}x{})", self.label, self.width, self.height)
-    }
-}
-
-#[derive(Clone)]
 struct FpsPreset {
     fps: u32,
 }
 
-impl fmt::Display for FpsPreset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for FpsPreset {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} fps", self.fps)
-    }
-}
-
-#[derive(Clone)]
-enum EncodingMode {
-    Crf { crf: u32 },
-    Bitrate { kbps: u32 },
-}
-
-impl fmt::Display for EncodingMode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            EncodingMode::Crf { crf } => write!(f, "CRF {crf} (constant quality)"),
-            EncodingMode::Bitrate { kbps } => write!(f, "{} Mbps (target bitrate)", kbps / 1000),
-        }
     }
 }
 
@@ -54,29 +27,11 @@ fn prompt_cancelled(err: &InquireError) -> bool {
 
 struct ExportConfig {
     scene: SceneEntry,
-    resolution: ResolutionPreset,
-    fps: u32,
-    encoding: EncodingMode,
+    settings: EncodeSettings,
     start_time: f32,
     end_time: f32,
-    audio_path: Option<String>,
     /// Explicit output path; None = timestamped file under renders/.
     output: Option<String>,
-}
-
-/// YouTube recommended bitrate (kbps) for given resolution and frame rate.
-fn recommended_bitrate(label: &str, fps: u32) -> u32 {
-    match (label, fps) {
-        ("720p", 30) => 5_000,
-        ("720p", _) => 7_500,
-        ("1080p", 30) => 8_000,
-        ("1080p", _) => 16_000,
-        ("1440p", 30) => 16_000,
-        ("1440p", _) => 24_000,
-        ("4K", 30) => 35_000,
-        ("4K", _) => 53_000,
-        _ => 16_000,
-    }
 }
 
 fn prompt_scene() -> Option<SceneEntry> {
@@ -89,36 +44,16 @@ fn prompt_scene() -> Option<SceneEntry> {
 
 fn prompt_config(scene: SceneEntry, duration: f32) -> Option<ExportConfig> {
     // 1. Resolution
-    let resolutions = vec![
-        ResolutionPreset {
-            label: "720p",
-            width: 1280,
-            height: 720,
-        },
-        ResolutionPreset {
-            label: "1080p",
-            width: 1920,
-            height: 1080,
-        },
-        ResolutionPreset {
-            label: "1440p",
-            width: 2560,
-            height: 1440,
-        },
-        ResolutionPreset {
-            label: "4K",
-            width: 3840,
-            height: 2160,
-        },
-    ];
-
-    let resolution = match Select::new("Resolution", resolutions).with_starting_cursor(1).prompt() {
+    let resolution = match Select::new("Resolution", RESOLUTION_PRESETS.to_vec())
+        .with_starting_cursor(1)
+        .prompt()
+    {
         Ok(r) => r,
         Err(e) if prompt_cancelled(&e) => return None,
         Err(e) => panic!("{e}"),
     };
 
-    // 3. Frame rate
+    // 2. Frame rate
     let fps_presets = vec![FpsPreset { fps: 30 }, FpsPreset { fps: 60 }];
 
     let fps = match Select::new("Frame rate", fps_presets).with_starting_cursor(1).prompt() {
@@ -127,7 +62,7 @@ fn prompt_config(scene: SceneEntry, duration: f32) -> Option<ExportConfig> {
         Err(e) => panic!("{e}"),
     };
 
-    // 4. Encoding mode
+    // 3. Encoding mode
     let encoding_choices = vec!["CRF (constant quality)", "Bitrate (YouTube recommended)"];
     let encoding = match Select::new("Encoding mode", encoding_choices).prompt() {
         Ok("CRF (constant quality)") => {
@@ -164,7 +99,7 @@ fn prompt_config(scene: SceneEntry, duration: f32) -> Option<ExportConfig> {
         Err(e) => panic!("{e}"),
     };
 
-    // 5. Start/end time
+    // 4. Start/end time
     println!("Scene duration: {duration:.2}s");
 
     let start_time = match CustomType::<f32>::new("Start time (seconds)")
@@ -187,7 +122,7 @@ fn prompt_config(scene: SceneEntry, duration: f32) -> Option<ExportConfig> {
         Err(e) => panic!("{e}"),
     };
 
-    // 6. Audio
+    // 5. Audio
     let default_audio = scene.audio.unwrap_or("");
     let audio_path = match Text::new("Audio file path (empty for none)")
         .with_default(default_audio)
@@ -211,83 +146,16 @@ fn prompt_config(scene: SceneEntry, duration: f32) -> Option<ExportConfig> {
 
     Some(ExportConfig {
         scene,
-        resolution,
-        fps,
-        encoding,
+        settings: EncodeSettings {
+            resolution,
+            fps,
+            encoding,
+            audio_path,
+        },
         start_time,
         end_time,
-        audio_path,
         output: None,
     })
-}
-
-fn build_ffmpeg_args(config: &ExportConfig, output_path: &str) -> Vec<String> {
-    let mut args: Vec<String> = Vec::new();
-    let width = config.resolution.width;
-    let height = config.resolution.height;
-
-    // Global
-    args.extend(["-y".into()]);
-
-    // Video input (rawvideo from stdin)
-    args.extend([
-        "-f".into(),
-        "rawvideo".into(),
-        "-pixel_format".into(),
-        "rgb24".into(),
-        "-video_size".into(),
-        format!("{width}x{height}"),
-        "-framerate".into(),
-        format!("{}", config.fps),
-        "-i".into(),
-        "-".into(),
-    ]);
-
-    // Audio input (optional)
-    if let Some(ref audio) = config.audio_path {
-        args.extend(["-i".into(), audio.clone()]);
-    }
-
-    // Video encoding
-    args.extend(["-c:v".into(), "libx264".into(), "-pix_fmt".into(), "yuv420p".into()]);
-
-    match &config.encoding {
-        EncodingMode::Crf { crf } => {
-            args.extend(["-crf".into(), format!("{crf}")]);
-        }
-        EncodingMode::Bitrate { kbps } => {
-            let maxrate = kbps * 3 / 2;
-            let bufsize = kbps * 2;
-            args.extend([
-                "-b:v".into(),
-                format!("{kbps}k"),
-                "-maxrate".into(),
-                format!("{maxrate}k"),
-                "-bufsize".into(),
-                format!("{bufsize}k"),
-            ]);
-        }
-    }
-
-    args.extend(["-preset".into(), "slow".into()]);
-
-    // Audio encoding (if audio input provided)
-    if config.audio_path.is_some() {
-        args.extend([
-            "-c:a".into(),
-            "aac".into(),
-            "-b:a".into(),
-            "384k".into(),
-            "-ar".into(),
-            "48000".into(),
-            "-ac".into(),
-            "2".into(),
-            "-shortest".into(),
-        ]);
-    }
-
-    args.push(output_path.into());
-    args
 }
 
 const USAGE: &str = "Usage: export [--scene NAME] [--resolution 720p|1080p|1440p|4K|WxH] [--fps N] [--crf N | --bitrate KBPS] \
@@ -386,43 +254,22 @@ fn parse_cli() -> Option<CliArgs> {
 }
 
 fn parse_resolution(s: &str) -> ResolutionPreset {
-    match s {
-        "720p" => ResolutionPreset {
-            label: "720p",
-            width: 1280,
-            height: 720,
+    if let Some(preset) = preset_by_label(s) {
+        return preset;
+    }
+    let parse_dims = || -> Option<(u32, u32)> {
+        let (w, h) = s.split_once('x')?;
+        Some((w.parse().ok()?, h.parse().ok()?))
+    };
+    match parse_dims() {
+        Some((width, height)) => ResolutionPreset {
+            label: "custom",
+            width,
+            height,
         },
-        "1080p" => ResolutionPreset {
-            label: "1080p",
-            width: 1920,
-            height: 1080,
-        },
-        "1440p" => ResolutionPreset {
-            label: "1440p",
-            width: 2560,
-            height: 1440,
-        },
-        "4K" | "4k" => ResolutionPreset {
-            label: "4K",
-            width: 3840,
-            height: 2160,
-        },
-        custom => {
-            let parse_dims = || -> Option<(u32, u32)> {
-                let (w, h) = custom.split_once('x')?;
-                Some((w.parse().ok()?, h.parse().ok()?))
-            };
-            match parse_dims() {
-                Some((width, height)) => ResolutionPreset {
-                    label: "custom",
-                    width,
-                    height,
-                },
-                None => {
-                    eprintln!("Invalid resolution {custom:?} (expected a preset or WxH, e.g. 1920x1080)");
-                    usage_exit(1);
-                }
-            }
+        None => {
+            eprintln!("Invalid resolution {s:?} (expected a preset or WxH, e.g. 1920x1080)");
+            usage_exit(1);
         }
     }
 }
@@ -442,12 +289,14 @@ fn config_from_cli(scene: SceneEntry, cli: CliArgs, duration: f32) -> ExportConf
 
     ExportConfig {
         scene,
-        resolution,
-        fps,
-        encoding,
+        settings: EncodeSettings {
+            resolution,
+            fps,
+            encoding,
+            audio_path,
+        },
         start_time,
         end_time,
-        audio_path,
         output: cli.output,
     }
 }
@@ -500,128 +349,16 @@ async fn export_main(entry: SceneEntry, cli: Option<CliArgs>) {
         },
     };
 
-    let fps = config.fps;
-
-    let start_frame = (config.start_time * fps as f32).floor() as u32;
+    let fps = config.settings.fps;
     let end_time = config.end_time.min(duration);
-    let end_frame = (end_time * fps as f32).ceil() as u32;
-    let total_frames = end_frame - start_frame;
+    let (start_frame, end_frame) = frame_range(config.start_time, end_time, fps);
 
-    if total_frames == 0 {
+    if end_frame <= start_frame {
         println!("Nothing to render.");
         return;
     }
 
-    export_render(scene, timeline, camera, config, start_frame, end_frame, total_frames).await;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn frame_count_whole_duration() {
-        let fps: u32 = 60;
-        let start_time: f32 = 0.0;
-        let end_time: f32 = 1.0;
-        let start_frame = (start_time * fps as f32).floor() as u32;
-        let end_frame = (end_time * fps as f32).ceil() as u32;
-        assert_eq!(start_frame, 0);
-        assert_eq!(end_frame, 60);
-        assert_eq!(end_frame - start_frame, 60);
-    }
-
-    #[test]
-    fn frame_count_fractional_times() {
-        let fps: u32 = 60;
-        let start_time: f32 = 0.5;
-        let end_time: f32 = 2.5;
-        let start_frame = (start_time * fps as f32).floor() as u32;
-        let end_frame = (end_time * fps as f32).ceil() as u32;
-        assert_eq!(start_frame, 30);
-        assert_eq!(end_frame, 150);
-        assert_eq!(end_frame - start_frame, 120);
-    }
-
-    #[test]
-    fn frame_count_non_aligned_end() {
-        let fps: u32 = 60;
-        let start_time: f32 = 0.0;
-        let end_time: f32 = 1.01;
-        let _start_frame = (start_time * fps as f32).floor() as u32;
-        let end_frame = (end_time * fps as f32).ceil() as u32;
-        assert_eq!(end_frame, 61);
-    }
-
-    #[test]
-    fn frame_count_30fps() {
-        let fps: u32 = 30;
-        let start_time: f32 = 0.0;
-        let end_time: f32 = 2.0;
-        let start_frame = (start_time * fps as f32).floor() as u32;
-        let end_frame = (end_time * fps as f32).ceil() as u32;
-        assert_eq!(end_frame - start_frame, 60);
-    }
-
-    #[test]
-    fn recommended_bitrate_youtube_specs() {
-        assert_eq!(recommended_bitrate("1080p", 30), 8_000);
-        assert_eq!(recommended_bitrate("1080p", 60), 16_000);
-        assert_eq!(recommended_bitrate("4K", 30), 35_000);
-        assert_eq!(recommended_bitrate("4K", 60), 53_000);
-    }
-
-    #[test]
-    fn ffmpeg_args_crf_no_audio() {
-        let scene = rs_namin::registry::find("bouncing_ball_long").unwrap().clone();
-        let config = ExportConfig {
-            scene,
-            resolution: ResolutionPreset {
-                label: "1080p",
-                width: 1920,
-                height: 1080,
-            },
-            fps: 60,
-            encoding: EncodingMode::Crf { crf: 18 },
-            start_time: 0.0,
-            end_time: 1.0,
-            audio_path: None,
-            output: None,
-        };
-        let args = build_ffmpeg_args(&config, "out.mp4");
-        assert!(args.contains(&"-crf".to_string()));
-        assert!(args.contains(&"18".to_string()));
-        assert!(!args.contains(&"-c:a".to_string()));
-        assert!(!args.contains(&"-shortest".to_string()));
-    }
-
-    #[test]
-    fn ffmpeg_args_bitrate_with_audio() {
-        let scene = rs_namin::registry::find("bouncing_ball_long").unwrap().clone();
-        let config = ExportConfig {
-            scene,
-            resolution: ResolutionPreset {
-                label: "1080p",
-                width: 1920,
-                height: 1080,
-            },
-            fps: 60,
-            encoding: EncodingMode::Bitrate { kbps: 16_000 },
-            start_time: 0.0,
-            end_time: 1.0,
-            audio_path: Some("/tmp/test.mp3".to_string()),
-            output: None,
-        };
-        let args = build_ffmpeg_args(&config, "out.mp4");
-        assert!(args.contains(&"-b:v".to_string()));
-        assert!(args.contains(&"16000k".to_string()));
-        assert!(args.contains(&"-c:a".to_string()));
-        assert!(args.contains(&"aac".to_string()));
-        assert!(args.contains(&"384k".to_string()));
-        assert!(args.contains(&"48000".to_string()));
-        assert!(args.contains(&"-shortest".to_string()));
-        assert!(args.contains(&"/tmp/test.mp3".to_string()));
-    }
+    export_render(scene, timeline, camera, config, start_frame, end_frame).await;
 }
 
 async fn export_render(
@@ -631,11 +368,11 @@ async fn export_render(
     config: ExportConfig,
     start_frame: u32,
     end_frame: u32,
-    total_frames: u32,
 ) {
     let initial_camera = camera;
-    let (width, height) = (config.resolution.width, config.resolution.height);
-    let fps = config.fps;
+    let (width, height) = (config.settings.resolution.width, config.settings.resolution.height);
+    let fps = config.settings.fps;
+    let total_frames = end_frame - start_frame;
 
     let renderer = OffscreenRenderer::new(width, height);
 
@@ -648,28 +385,12 @@ async fn export_render(
             }
             path.clone()
         }
-        None => {
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            std::fs::create_dir_all("renders").ok();
-            format!(
-                "renders/{}_{}_{}fps_{}.mp4",
-                config.scene.name, config.resolution.label, fps, timestamp
-            )
-        }
+        None => timestamped_output_path(config.scene.name, config.settings.resolution.label, fps),
     };
 
-    let ffmpeg_args = build_ffmpeg_args(&config, &output_path);
+    let ffmpeg_args = build_ffmpeg_args(&config.settings, &output_path);
 
-    let mut ffmpeg = Command::new("ffmpeg")
-        .args(&ffmpeg_args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("Failed to spawn ffmpeg. Is it installed?");
+    let mut ffmpeg = spawn_ffmpeg(&ffmpeg_args).expect("Failed to spawn ffmpeg. Is it installed?");
 
     let stdin = ffmpeg.stdin.as_mut().unwrap();
     let mut rgb_buf = Vec::with_capacity((width * height * 3) as usize);
@@ -683,7 +404,7 @@ async fn export_render(
     );
     pb.set_message(format!(
         "{render_duration:.1}s @ {fps}fps {} → {output_path}",
-        config.resolution.label,
+        config.settings.resolution.label,
     ));
 
     // --- Render loop ---
