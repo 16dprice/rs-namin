@@ -1,7 +1,5 @@
 pub mod camera_log;
 pub mod keybindings;
-pub mod scrub_bar;
-pub mod value_inspector;
 
 use macroquad::prelude::*;
 
@@ -13,8 +11,6 @@ use crate::scene::Scene;
 
 use camera_log::CameraLog;
 use keybindings::Keybindings;
-use scrub_bar::ScrubBar;
-use value_inspector::ValueInspector;
 
 pub struct DebugOverlay {
     pub keybindings: Keybindings,
@@ -22,8 +18,10 @@ pub struct DebugOverlay {
     pub world_helpers_visible: bool,
     /// When true, the camera is driven by the timeline instead of the orbit controller.
     pub camera_follow_timeline: bool,
-    pub scrub_bar: ScrubBar,
-    pub value_inspector: ValueInspector,
+    /// Transport bar (egui bottom panel) visibility — F2.
+    pub transport_visible: bool,
+    /// Value inspector (egui window) visibility — F3.
+    pub inspector_visible: bool,
     pub camera_log: CameraLog,
     pub bounding_boxes_visible: bool,
     pub mouse_coords_visible: bool,
@@ -44,8 +42,8 @@ impl DebugOverlay {
             hud_visible: true,
             world_helpers_visible: true,
             camera_follow_timeline: false,
-            scrub_bar: ScrubBar::new(),
-            value_inspector: ValueInspector::new(),
+            transport_visible: true,
+            inspector_visible: false,
             camera_log: CameraLog::new(256),
             bounding_boxes_visible: false,
             mouse_coords_visible: false,
@@ -61,11 +59,11 @@ impl DebugOverlay {
         if input.is_key_pressed(kb.toggle_hud) {
             self.hud_visible = !self.hud_visible;
         }
-        if input.is_key_pressed(kb.toggle_scrub_bar) {
-            self.scrub_bar.visible = !self.scrub_bar.visible;
+        if input.is_key_pressed(kb.toggle_transport) {
+            self.transport_visible = !self.transport_visible;
         }
-        if input.is_key_pressed(kb.toggle_value_inspector) {
-            self.value_inspector.visible = !self.value_inspector.visible;
+        if input.is_key_pressed(kb.toggle_inspector) {
+            self.inspector_visible = !self.inspector_visible;
         }
         if input.is_key_pressed(kb.toggle_world_helpers) {
             self.world_helpers_visible = !self.world_helpers_visible;
@@ -109,11 +107,6 @@ impl DebugOverlay {
         SnapView::None
     }
 
-    /// Update interactive elements (scrub bar dragging). Call after handle_input.
-    pub fn update(&mut self, clock: &mut Clock) {
-        self.scrub_bar.update(clock);
-    }
-
     /// Record the current camera state in the log.
     pub fn record_camera(&mut self, camera: &Camera, time: f32) {
         self.camera_log.record(camera, time);
@@ -133,14 +126,15 @@ impl DebugOverlay {
         }
     }
 
-    /// Draw all visible screen-space overlays. Call after set_default_camera().
-    /// The HUD itself is an egui window (see `crate::ui`), toggled by `hud_visible`.
-    pub fn draw(&self, clock: &Clock, scene: &Scene, camera: &Camera, input: &dyn InputProvider) {
+    /// Draw the macroquad-drawn screen-space overlays (currently just the
+    /// mouse-coords readout). Call after set_default_camera(). The HUD,
+    /// transport bar, and value inspector are egui UI (see `crate::ui`),
+    /// driven by the `hud_visible`/`transport_visible`/`inspector_visible`
+    /// flags on this struct.
+    pub fn draw(&self, camera: &Camera, input: &dyn InputProvider) {
         if self.mouse_coords_visible {
             self.draw_mouse_coords(camera, input);
         }
-        self.scrub_bar.draw(clock);
-        self.value_inspector.draw(scene);
     }
 
     fn draw_grid(&self, half_size: i32, spacing: f32) {

@@ -3,8 +3,8 @@ use macroquad::prelude::KeyCode;
 /// All debug keybindings in one place. Change keys here to remap controls.
 pub struct Keybindings {
     pub toggle_hud: KeyCode,
-    pub toggle_scrub_bar: KeyCode,
-    pub toggle_value_inspector: KeyCode,
+    pub toggle_transport: KeyCode,
+    pub toggle_inspector: KeyCode,
     pub toggle_world_helpers: KeyCode,
     pub toggle_camera_follow: KeyCode,
     pub play_pause: KeyCode,
@@ -23,8 +23,8 @@ impl Default for Keybindings {
     fn default() -> Self {
         Self {
             toggle_hud: KeyCode::F1,
-            toggle_scrub_bar: KeyCode::F2,
-            toggle_value_inspector: KeyCode::F3,
+            toggle_transport: KeyCode::F2,
+            toggle_inspector: KeyCode::F3,
             toggle_world_helpers: KeyCode::F4,
             toggle_camera_follow: KeyCode::F5,
             toggle_mouse_coords: KeyCode::F6,

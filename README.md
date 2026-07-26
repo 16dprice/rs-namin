@@ -105,10 +105,11 @@ Animations are driven by **tracks** on a **timeline**. Each track targets a sing
 The default binary opens the app in the viewer with:
 
 - **Orbit camera**: middle-click drag to orbit, right-click drag to pan, WASD/QE to move, scroll to zoom
-- **HUD panel** (F1): play/pause, speed, camera mode, and camera readouts in an egui window
-- **Playback controls**: Space (play/pause), Left/Right (step frame), Up/Down (speed)
-- **Debug overlays**: F2 (scrub bar), F3 (value inspector), F4 (world helpers), F6 (mouse coords)
-- **Snap-to-view**: Numpad 1/3/7 for front/right/top
+- **Transport bar** (F2): play/pause, frame stepping, loop mode, speed, and a scrub slider with keyframe ticks
+- **Camera HUD** (F1) and **value inspector** (F3): live camera readouts and per-object property values
+- **Snapshot button**: saves the current frame (scene only, no UI) as a PNG under `snapshots/`
+- **Playback keys**: Space (play/pause), Left/Right (step frame), Up/Down (speed)
+- **Debug overlays**: F4 (world helpers), F6 (mouse coords); Numpad 1/3/7 snap to front/right/top
 - **Camera mode toggle** (F5): switch between orbit control and timeline-driven camera
 - **Scene library**: the `< Library` button (or Esc) opens the in-app scene list; clicking a scene opens it in the viewer
 

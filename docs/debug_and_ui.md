@@ -1,8 +1,10 @@
 # Debug Overlay & UI
 
-See `src/debug/` for implementation. All keybindings are configurable via `Keybindings` struct in `src/debug/keybindings.rs`.
+See `src/debug/` for the overlay flags/keybindings and `src/ui.rs` for the egui chrome (app bar, transport bar, HUD, value inspector). All keybindings are configurable via the `Keybindings` struct in `src/debug/keybindings.rs`.
 
-Toggle keys: F1 (HUD), F2 (scrub bar), F3 (value inspector), F4 (world-space grid/axes/crosshair), F5 (camera mode), F6 (mouse world coords).
+Toggle keys: F1 (camera HUD window), F2 (transport bar), F3 (value inspector), F4 (world-space grid/axes/crosshair), F5 (camera mode), F6 (mouse world coords). The visibility flags live on `DebugOverlay`; the widgets themselves are egui, except F4/F6 which draw with macroquad in the viewport.
+
+The transport bar holds play/pause, frame stepping, loop mode, speed, and a full-width scrub slider with keyframe ticks painted from the timeline. The app bar's Snapshot button renders the scene (no UI) through `OffscreenRenderer` into `snapshots/` — readback happens one frame later because draw calls only flush on `next_frame`.
 
 Snap-to-view: Numpad 1 (front), Numpad 3 (right), Numpad 7 (top). Sets the orbit controller to a standard view while preserving target and distance. See `OrbitController::snap_front/snap_right/snap_top` in `src/camera/orbit.rs`.
 
@@ -19,6 +21,6 @@ Ring buffer (256 entries) recording camera position/target changes over time. De
 
 ## Gotchas
 
-- **Scrub bar auto-pauses on drag** and resumes on release if playback was active. This state machine lives in `ScrubBar` — see `src/debug/scrub_bar.rs`.
-- **Orbit controller runs last in the frame** so it doesn't consume mouse input before UI elements like scrub bar dragging.
-- **`handle_input` returns `SnapView`** — the caller must apply snap-to-view to the orbit controller. See `src/viewer.rs` for the pattern.
+- **Scrubbing auto-pauses while dragging** and resumes on release only if playback was active when the drag started. The logic is the pure `apply_scrub` function in `src/ui.rs` (kept egui-free so it stays unit-testable).
+- **Orbit controller runs last in the frame** so it doesn't consume mouse input before the UI; egui input capture is handled separately via `UiGatedInput`.
+- **`handle_input` returns `SnapView`** — the caller must apply snap-to-view to the orbit controller. See `ViewerMode::frame` in `src/viewer.rs` for the pattern.

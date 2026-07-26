@@ -95,8 +95,15 @@ Milestones (each is a well-scoped agent task):
   rebuilds it fresh, inside the GL context. `cargo run` starts in the viewer on `my_scene`;
   `cargo run --bin example` starts in the library. Design note from review: egui's stock look
   is fine — prioritize flow over visual polish in M1.3+.
-- **M1.3** Viewer chrome: transport bar, scrub slider (replacing the hand-drawn scrub bar),
-  snapshot button, value inspector as an egui panel.
+- **M1.3** ✅ **DONE** — bottom transport panel (play/pause, frame step, loop-mode combo,
+  log-scale speed slider, monospace time readout) with a full-width scrub slider that paints
+  keyframe ticks from the timeline; scrub pause/resume semantics live in the pure
+  `apply_scrub` fn (unit-tested). The hand-drawn scrub bar and text value inspector are
+  deleted — the inspector is an egui window (F3) showing live per-object property values via
+  the `Animatable` surface, and the last input-gating gap is closed (all interactive chrome
+  is egui now; only F4/F6 viewport overlays draw with macroquad). App-bar Snapshot button
+  renders the scene UI-free through `OffscreenRenderer` into `snapshots/` with one-frame-lag
+  readback and a transient status message. F2 now toggles the transport bar.
 - **M1.4** In-app export with progress + cancel (the incremental render loop).
 - **M1.5** Polish pass agreed from the design-language conversation (theme, layout, shortcuts).
 

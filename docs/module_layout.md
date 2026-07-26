@@ -15,10 +15,10 @@ See `ViewerMode::frame` in `src/viewer.rs` for the full implementation. The orde
 
 ```
 each frame:
-    capture = ui::layout(...)                      // egui input+layout pass FIRST — decides what input egui captures
-    input = UiGatedInput::new(&raw, capture...)    // scene controls see suppressed pointer/keyboard while UI has them
+    finish pending snapshot readback (if any)      // offscreen texture readable one frame after render
+    response = ui::viewer_layout(...)              // egui input+layout pass FIRST — app bar, transport (scrubbing), HUD, inspector
+    input = UiGatedInput::new(&raw, response...)   // scene controls see suppressed pointer/keyboard while UI has them
     snap = debug.handle_input(&mut clock, &input)  // keybindings, transport keys; returns snap-to-view request
-    debug.update(&mut clock)                       // scrub bar drag state
     apply snap to orbit (snap_front/snap_right/snap_top)
     clock.tick(real_dt)                            // no-op if paused
     if camera_follow_timeline:
@@ -35,8 +35,9 @@ each frame:
     scene.draw_screen()                            // screen-space objects (Text) — WYSIWYG with exports
 
     set_default_camera()                           // switch to real window pixels
-    debug.draw(...)                                // mouse coords, value inspector, scrub bar (HUD is the egui window)
-    debug.scrub_bar.draw_ticks(&timeline, clock.duration)
+    debug.draw(&camera, &input)                    // mouse-coords readout (all other chrome is egui)
+
+    if snapshot requested: render scene to OffscreenRenderer, restore default camera
 
     ui::draw()                                     // egui paint pass LAST — UI on top of everything
 

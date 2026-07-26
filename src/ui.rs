@@ -6,13 +6,17 @@
 //! with the returned flags, then calls [`draw`] AFTER all macroquad drawing
 //! so the UI paints on top. See docs/module_layout.md.
 
+use std::fmt::Write;
+
 use egui_macroquad::egui;
 
+use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
 use crate::clock::{Clock, LoopMode, PlaybackState};
 use crate::debug::DebugOverlay;
 use crate::registry::{self, SceneEntry, SceneKind};
 use crate::scene::Scene;
+use crate::scene::value::AnimValue;
 
 /// Which input domains egui captured this frame. Feed into
 /// [`crate::input::UiGatedInput`] so scene controls ignore captured input.
@@ -29,44 +33,197 @@ pub enum UiRequest {
     OpenScene(&'static SceneEntry),
 }
 
-/// Run the egui input+layout pass for the viewer mode: top app bar plus the
-/// HUD window (toggled by F1 via `overlay.hud_visible`).
-pub fn viewer_layout(
-    overlay: &mut DebugOverlay,
-    clock: &mut Clock,
-    scene: &Scene,
-    camera: &Camera,
-    scene_name: &str,
-) -> (UiCapture, UiRequest) {
-    let mut capture = UiCapture {
-        pointer: false,
-        keyboard: false,
+/// Persistent transport-bar state across frames.
+#[derive(Default)]
+pub struct TransportState {
+    resume_after_scrub: bool,
+}
+
+/// Apply one frame of scrub-slider interaction to the clock: pause while
+/// dragging, seek to the dragged time, and resume playback afterwards only
+/// if it was playing when the drag started. Pure logic, kept separate from
+/// egui so it stays unit-testable.
+pub fn apply_scrub(state: &mut TransportState, clock: &mut Clock, drag_started: bool, scrub_to: Option<f32>, drag_stopped: bool) {
+    if drag_started {
+        state.resume_after_scrub = clock.playback_state == PlaybackState::Playing;
+        clock.pause();
+    }
+    if let Some(t) = scrub_to {
+        clock.scrub(t);
+    }
+    if drag_stopped {
+        if state.resume_after_scrub {
+            clock.play();
+        }
+        state.resume_after_scrub = false;
+    }
+}
+
+/// Everything the viewer-mode UI reads and mutates for one frame.
+pub struct ViewerUi<'a> {
+    pub overlay: &'a mut DebugOverlay,
+    pub transport: &'a mut TransportState,
+    pub clock: &'a mut Clock,
+    pub scene: &'a Scene,
+    pub camera: &'a Camera,
+    pub timeline: &'a Timeline,
+    pub scene_name: &'a str,
+    /// Transient message shown in the app bar (e.g. "Saved snapshots/…").
+    pub status: Option<&'a str>,
+}
+
+pub struct ViewerUiResponse {
+    pub capture: UiCapture,
+    pub request: UiRequest,
+    /// The Snapshot button was clicked this frame.
+    pub snapshot: bool,
+}
+
+/// Run the egui input+layout pass for the viewer mode: app bar, transport
+/// bar (F2), HUD window (F1), and value inspector (F3).
+pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
+    let ViewerUi {
+        overlay,
+        transport,
+        clock,
+        scene,
+        camera,
+        timeline,
+        scene_name,
+        status,
+    } = args;
+
+    let mut response = ViewerUiResponse {
+        capture: UiCapture {
+            pointer: false,
+            keyboard: false,
+        },
+        request: UiRequest::None,
+        snapshot: false,
     };
-    let mut request = UiRequest::None;
 
     egui_macroquad::ui(|ctx| {
         egui::TopBottomPanel::top("app_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("< Library").clicked() {
-                    request = UiRequest::OpenLibrary;
+                    response.request = UiRequest::OpenLibrary;
                 }
                 ui.separator();
                 ui.strong(scene_name);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.weak("Esc: library · F1: HUD");
+                ui.separator();
+                if ui
+                    .button("Snapshot")
+                    .on_hover_text("Save the current frame as a PNG (scene only, no UI)")
+                    .clicked()
+                {
+                    response.snapshot = true;
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| match status {
+                    Some(message) => {
+                        ui.weak(message);
+                    }
+                    None => {
+                        ui.weak("Esc: library · F1: HUD · F2: transport · F3: inspector");
+                    }
                 });
             });
         });
 
+        if overlay.transport_visible {
+            transport_panel(ctx, transport, clock, timeline);
+        }
         if overlay.hud_visible {
-            hud_window(ctx, overlay, clock, scene, camera);
+            hud_window(ctx, overlay, scene, camera);
+        }
+        if overlay.inspector_visible {
+            inspector_window(ctx, scene);
         }
 
-        capture.pointer = ctx.wants_pointer_input();
-        capture.keyboard = ctx.wants_keyboard_input();
+        response.capture.pointer = ctx.wants_pointer_input();
+        response.capture.keyboard = ctx.wants_keyboard_input();
     });
 
-    (capture, request)
+    response
+}
+
+fn transport_panel(ctx: &egui::Context, transport: &mut TransportState, clock: &mut Clock, timeline: &Timeline) {
+    egui::TopBottomPanel::bottom("transport").show(ctx, |ui| {
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            let play_label = match clock.playback_state {
+                PlaybackState::Playing => "Pause",
+                PlaybackState::Paused => "Play",
+            };
+            if ui.add_sized([52.0, 20.0], egui::Button::new(play_label)).clicked() {
+                clock.toggle();
+            }
+            if ui.button("<").on_hover_text("Step one frame back (Left)").clicked() {
+                clock.pause();
+                clock.step_backward();
+            }
+            if ui.button(">").on_hover_text("Step one frame forward (Right)").clicked() {
+                clock.pause();
+                clock.step_forward();
+            }
+
+            ui.separator();
+
+            egui::ComboBox::from_id_salt("loop_mode")
+                .selected_text(loop_label(clock.loop_mode))
+                .width(90.0)
+                .show_ui(ui, |ui| {
+                    for mode in [LoopMode::Once, LoopMode::Loop, LoopMode::PingPong] {
+                        ui.selectable_value(&mut clock.loop_mode, mode, loop_label(mode));
+                    }
+                });
+
+            ui.separator();
+
+            let mut speed = clock.playback_speed;
+            ui.spacing_mut().slider_width = 90.0;
+            ui.add(egui::Slider::new(&mut speed, 0.125..=8.0).logarithmic(true).text("Speed"));
+            if speed != clock.playback_speed {
+                clock.set_speed(speed);
+            }
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.monospace(format!("{:.2} / {:.2} s", clock.current_time, clock.duration));
+            });
+        });
+
+        // Full-width scrub slider with keyframe ticks.
+        let mut time = clock.current_time;
+        ui.spacing_mut().slider_width = ui.available_width() - 16.0;
+        let slider = ui.add(egui::Slider::new(&mut time, 0.0..=clock.duration.max(f32::EPSILON)).show_value(false));
+
+        if clock.duration > 0.0 {
+            let rect = slider.rect;
+            let stroke = egui::Stroke::new(1.0, egui::Color32::from_white_alpha(48));
+            for track in &timeline.tracks {
+                for kf_time in track.keyframe_times() {
+                    let x = egui::lerp(rect.left()..=rect.right(), (kf_time / clock.duration).clamp(0.0, 1.0));
+                    ui.painter().vline(x, rect.y_range(), stroke);
+                }
+            }
+        }
+
+        apply_scrub(
+            transport,
+            clock,
+            slider.drag_started(),
+            slider.changed().then_some(time),
+            slider.drag_stopped(),
+        );
+        ui.add_space(4.0);
+    });
+}
+
+fn loop_label(mode: LoopMode) -> &'static str {
+    match mode {
+        LoopMode::Once => "Once",
+        LoopMode::Loop => "Loop",
+        LoopMode::PingPong => "PingPong",
+    }
 }
 
 /// Run the egui input+layout pass for the library mode: the full-screen
@@ -124,37 +281,12 @@ pub fn draw() {
     egui_macroquad::draw();
 }
 
-fn hud_window(ctx: &egui::Context, overlay: &mut DebugOverlay, clock: &mut Clock, scene: &Scene, camera: &Camera) {
-    egui::Window::new("rs-namin")
+fn hud_window(ctx: &egui::Context, overlay: &mut DebugOverlay, scene: &Scene, camera: &Camera) {
+    egui::Window::new("Camera")
         .default_pos([10.0, 40.0])
         .resizable(false)
         .show(ctx, |ui| {
-            ui.label(format!("Time: {:.2} / {:.2} s", clock.current_time, clock.duration));
-
-            ui.horizontal(|ui| {
-                let label = match clock.playback_state {
-                    PlaybackState::Playing => "Pause",
-                    PlaybackState::Paused => "Play",
-                };
-                if ui.button(label).clicked() {
-                    clock.toggle();
-                }
-                let loop_str = match clock.loop_mode {
-                    LoopMode::Once => "Once",
-                    LoopMode::Loop => "Loop",
-                    LoopMode::PingPong => "PingPong",
-                };
-                ui.label(format!("Loop: {loop_str}"));
-            });
-
-            let mut speed = clock.playback_speed;
-            ui.add(egui::Slider::new(&mut speed, 0.125..=8.0).logarithmic(true).text("Speed"));
-            if speed != clock.playback_speed {
-                clock.set_speed(speed);
-            }
-
             ui.checkbox(&mut overlay.camera_follow_timeline, "Camera follows timeline (F5)");
-
             ui.separator();
 
             let p = camera.position;
@@ -174,4 +306,153 @@ fn hud_window(ctx: &egui::Context, overlay: &mut DebugOverlay, clock: &mut Clock
             ));
             ui.label(format!("Objects: {}", scene.len()));
         });
+}
+
+fn inspector_window(ctx: &egui::Context, scene: &Scene) {
+    egui::Window::new("Inspector")
+        .default_pos([ctx.screen_rect().right() - 300.0, 40.0])
+        .default_width(270.0)
+        .vscroll(true)
+        .show(ctx, |ui| {
+            for (id, obj) in scene.iter() {
+                egui::CollapsingHeader::new(format!("Object {id:?}"))
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        egui::Grid::new(format!("props_{id:?}"))
+                            .num_columns(2)
+                            .spacing([12.0, 2.0])
+                            .show(ui, |ui| {
+                                for name in obj.property_names() {
+                                    ui.weak(*name);
+                                    match obj.get(name) {
+                                        Some(value) => ui.monospace(format_value(&value)),
+                                        None => ui.monospace("???"),
+                                    };
+                                    ui.end_row();
+                                }
+                            });
+                    });
+            }
+        });
+}
+
+fn format_value(value: &AnimValue) -> String {
+    match value {
+        AnimValue::Float(f) => format!("{:.2}", f),
+        AnimValue::Vec2(v) => format!("({:.1}, {:.1})", v.x, v.y),
+        AnimValue::Vec3(v) => format!("({:.1}, {:.1}, {:.1})", v.x, v.y, v.z),
+        AnimValue::Vec4(v) => format!("({:.2}, {:.2}, {:.2}, {:.2})", v.x, v.y, v.z, v.w),
+        AnimValue::Bool(b) => b.to_string(),
+        AnimValue::Transform2D(t) => {
+            let mut s = String::new();
+            let _ = write!(
+                s,
+                "pos({:.1},{:.1}) rot={:.1} scl({:.1},{:.1})",
+                t.position.x, t.position.y, t.rotation, t.scale.x, t.scale.y
+            );
+            s
+        }
+        AnimValue::Mat4(m) => {
+            let cols = m.to_cols_array();
+            format!("[{:.1},{:.1},{:.1},{:.1}; ...]", cols[0], cols[1], cols[2], cols[3])
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use macroquad::prelude::{vec2, vec3, vec4};
+
+    use super::*;
+    use crate::scene::value::Transform2D;
+
+    fn playing_clock() -> Clock {
+        let mut clock = Clock::new(10.0, 60.0);
+        clock.play();
+        clock
+    }
+
+    #[test]
+    fn scrub_pauses_while_dragging_and_resumes() {
+        let mut state = TransportState::default();
+        let mut clock = playing_clock();
+
+        apply_scrub(&mut state, &mut clock, true, Some(3.0), false);
+        assert_eq!(clock.playback_state, PlaybackState::Paused);
+        assert!((clock.current_time - 3.0).abs() < f32::EPSILON);
+
+        apply_scrub(&mut state, &mut clock, false, Some(4.0), false);
+        assert_eq!(clock.playback_state, PlaybackState::Paused);
+        assert!((clock.current_time - 4.0).abs() < f32::EPSILON);
+
+        apply_scrub(&mut state, &mut clock, false, None, true);
+        assert_eq!(clock.playback_state, PlaybackState::Playing);
+    }
+
+    #[test]
+    fn scrub_stays_paused_if_paused_before_drag() {
+        let mut state = TransportState::default();
+        let mut clock = Clock::new(10.0, 60.0);
+
+        apply_scrub(&mut state, &mut clock, true, Some(2.0), false);
+        apply_scrub(&mut state, &mut clock, false, None, true);
+        assert_eq!(clock.playback_state, PlaybackState::Paused);
+        assert!((clock.current_time - 2.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn scrub_clamps_to_duration() {
+        let mut state = TransportState::default();
+        let mut clock = playing_clock();
+        apply_scrub(&mut state, &mut clock, true, Some(99.0), true);
+        assert!((clock.current_time - 10.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resume_flag_resets_after_drag() {
+        let mut state = TransportState::default();
+        let mut clock = playing_clock();
+        // Drag while playing → resumes.
+        apply_scrub(&mut state, &mut clock, true, None, true);
+        assert_eq!(clock.playback_state, PlaybackState::Playing);
+        clock.pause();
+        // Next drag starts from paused → must NOT resume from the stale flag.
+        apply_scrub(&mut state, &mut clock, true, None, true);
+        assert_eq!(clock.playback_state, PlaybackState::Paused);
+    }
+
+    #[test]
+    fn format_float() {
+        assert_eq!(format_value(&AnimValue::Float(1.23456)), "1.23");
+    }
+
+    #[test]
+    fn format_vec2() {
+        assert_eq!(format_value(&AnimValue::Vec2(vec2(10.0, 20.0))), "(10.0, 20.0)");
+    }
+
+    #[test]
+    fn format_vec3() {
+        assert_eq!(format_value(&AnimValue::Vec3(vec3(1.0, 2.5, 3.0))), "(1.0, 2.5, 3.0)");
+    }
+
+    #[test]
+    fn format_vec4() {
+        assert_eq!(format_value(&AnimValue::Vec4(vec4(1.0, 0.0, 0.0, 1.0))), "(1.00, 0.00, 0.00, 1.00)");
+    }
+
+    #[test]
+    fn format_bool() {
+        assert_eq!(format_value(&AnimValue::Bool(true)), "true");
+    }
+
+    #[test]
+    fn format_transform2d() {
+        let t = AnimValue::Transform2D(Transform2D {
+            position: vec2(1.0, 2.0),
+            rotation: 45.0,
+            scale: vec2(1.0, 1.0),
+        });
+        assert_eq!(format_value(&t), "pos(1.0,2.0) rot=45.0 scl(1.0,1.0)");
+    }
 }
