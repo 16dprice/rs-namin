@@ -144,7 +144,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
         });
 
         if overlay.transport_visible {
-            transport_panel(ctx, transport, clock, timeline);
+            transport_panel(ctx, transport, clock, timeline, editor.as_deref_mut());
         }
         let has_editor = editor.is_some();
         if let Some(editor) = editor.as_mut() {
@@ -166,7 +166,13 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
     response
 }
 
-fn transport_panel(ctx: &egui::Context, transport: &mut TransportState, clock: &mut Clock, timeline: &Timeline) {
+fn transport_panel(
+    ctx: &egui::Context,
+    transport: &mut TransportState,
+    clock: &mut Clock,
+    timeline: &Timeline,
+    editor: Option<&mut EditorState>,
+) {
     egui::TopBottomPanel::bottom("transport").show(ctx, |ui| {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -234,6 +240,11 @@ fn transport_panel(ctx: &egui::Context, transport: &mut TransportState, clock: &
             slider.changed().then_some(time),
             slider.drag_stopped(),
         );
+
+        // Dope sheet: track lanes with editable keyframes (documents only).
+        if let Some(editor) = editor {
+            editor::dope_sheet(ui, editor, clock, transport);
+        }
         ui.add_space(4.0);
     });
 }

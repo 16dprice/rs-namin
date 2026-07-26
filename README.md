@@ -90,7 +90,7 @@ let (scene, timeline, camera) = sb.build();
 
 Scenes can also be written as RON files in `scenes/` — objects, initial property overrides, keyframe tracks with named easings, and a camera. Documents are discovered at startup and appear in the library, snapshot, and export like any built-in scene. See [scenes/demo.ron](scenes/demo.ron) for a complete example and `src/doc.rs` for the format; validation errors are reported with the offending object/property named.
 
-Documents open **with the editor**: a palette to add/remove objects and an inspector that edits initial properties (auto-generated widgets per property type), saving back to the RON file. "+ New scene" in the library creates a fresh document — build a scene, hit Save, then Export, without writing any Rust.
+Documents open **with the editor**: a palette to add/remove objects, an inspector that edits initial properties (auto-generated widgets per property type), and a dope sheet in the transport panel — per-track keyframe lanes with draggable diamonds, double-click to insert, a scrubbing ruler, and per-keyframe easing/value editing. Everything saves back to the RON file. "+ New scene" in the library creates a fresh document — build a scene, animate it, hit Save, then Export, without writing any Rust.
 
 ## Scene objects
 

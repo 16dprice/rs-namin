@@ -169,9 +169,17 @@ UI build-out (iterative; order negotiable after the design conversation):
   `scenes/untitled_N.ron` and opens it in the editor) and the registry rescans on library
   entry so new/edited docs appear immediately. `RS_NAMIN_SCENE=name cargo run` opens the
   viewer on any scene (dev/agent utility).
-- **M2.3** Dope sheet: tracks × time grid, add/move/delete keyframes, scrub-synced playhead,
-  per-keyframe easing picker. Hand-painted on egui 0.31, or vendor-bump first and adapt
-  egui-keyframe (decide at the time).
+- **M2.3** ✅ **DONE** — hand-painted on egui 0.31 (no vendor-bump needed): the transport
+  panel grows a dope sheet for documents — one lane per track with keyframe diamonds
+  (click to select, drag to move with live scene rebuild, double-click a lane to insert a
+  keyframe carrying the track's interpolated value there, Del removes), a time ruler with
+  adaptive tick steps that scrubs on click/drag (same pause/resume semantics as the
+  slider), a playhead line synced with the clock, a "+ Track" menu (per-object property
+  submenus, camera included, existing tracks disabled), per-track delete, and a detail
+  strip for the selected keyframe (time drag, easing picker over all 28 named variants,
+  typed value editor, delete). Keyframe indices stay stable during drags — the doc list is
+  deliberately left unsorted (the engine sorts at build) and `save()` normalizes order.
+  All mutations are unit-tested `EditorState` methods.
 - **M2.4** Curve editor for eased segments (egui_plot or the egui-keyframe CurveEditor).
 - **M2.5** Viewport interaction: click-select (bounding boxes exist), drag-move writing back to
   initial properties / keyframes.
