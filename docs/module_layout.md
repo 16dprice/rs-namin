@@ -6,6 +6,8 @@ See `src/viewer.rs` for the full implementation. The ordering below is load-bear
 
 ```
 each frame:
+    capture = ui::layout(...)                      // egui input+layout pass FIRST — decides what input egui captures
+    input = UiGatedInput::new(&raw, capture...)    // scene controls see suppressed pointer/keyboard while UI has them
     snap = debug.handle_input(&mut clock, &input)  // keybindings, transport keys; returns snap-to-view request
     debug.update(&mut clock)                       // scrub bar drag state
     apply snap to orbit (snap_front/snap_right/snap_top)
@@ -24,8 +26,10 @@ each frame:
     scene.draw_screen()                            // screen-space objects (Text) — WYSIWYG with exports
 
     set_default_camera()                           // switch to real window pixels
-    debug.draw(...)                                // HUD, mouse coords, value inspector, scrub bar
+    debug.draw(...)                                // mouse coords, value inspector, scrub bar (HUD is the egui window)
     debug.scrub_bar.draw_ticks(&timeline, clock.duration)
+
+    ui::draw()                                     // egui paint pass LAST — UI on top of everything
 
     if camera_follow_timeline:
         orbit = OrbitController::from_camera(&camera) // re-derive so stale orbit state doesn't leak in when toggled off
@@ -37,6 +41,7 @@ each frame:
 
 ### Why this order matters
 
+- **egui brackets the frame**: `ui::layout` runs first (egui collects input and lays out, reporting `wants_pointer/keyboard_input` for gating via `UiGatedInput`), and `ui::draw` runs after all macroquad drawing so panels paint on top. Splitting or reordering these breaks either input gating or layering.
 - Input is handled before state updates so keybindings take effect on the current frame.
 - Clock ticks before timeline applies, ensuring evaluation at the new time.
 - Timeline applies even when paused — this is what makes scrubbing work.

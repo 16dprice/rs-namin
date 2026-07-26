@@ -9,6 +9,7 @@ Tools for automated agents to verify interactive behavior without a human in the
 | Input behavior (orbit direction, zoom speed, key toggles) | `ScriptedInput` + unit tests | No |
 | Visual output (object positions, colors, rendering correctness) | `cargo run --bin snapshot` + read the PNG | Yes |
 | Multi-frame interactions (drag sequences, animation playback) | `Scenario` runner + integration tests | No |
+| The live viewer including UI chrome (egui panels, overlays) | `RS_NAMIN_FRAME_DUMP` + read the PNG | Yes |
 
 ### Behavioral testing with `ScriptedInput`
 
@@ -46,6 +47,20 @@ By default, snapshot renders `my_scene`. Use `--scene NAME` to render a named ex
 The binary renders to an offscreen target and saves PNGs. Read the resulting PNG to visually inspect the output. Output defaults to `snapshot.png`; for multiple times, pass a directory path to `--output`.
 
 Key files: `src/bin/snapshot.rs`, `src/render_util.rs`.
+
+### Viewer frame dumps (UI chrome included)
+
+The snapshot binary renders scenes offscreen and never runs the egui UI. To verify the
+*viewer* itself — egui panels, debug overlays, layering — run the real app with
+`RS_NAMIN_FRAME_DUMP="path.png@N"`: it saves frame N of the live window's framebuffer to
+`path.png` and exits. Do not screen-capture the desktop instead (`xwd`/`gnome-screenshot`
+grab whatever overlaps the window, including the user's other windows).
+
+```sh
+RS_NAMIN_FRAME_DUMP=/tmp/viewer.png@30 cargo run
+```
+
+Key file: `src/viewer.rs` (`frame_dump_spec`).
 
 ---
 

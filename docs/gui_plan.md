@@ -79,9 +79,14 @@ enum AppMode { Library, Viewer { entry }, Export { job } }
   still wants them).
 
 Milestones (each is a well-scoped agent task):
-- **M1.1** egui-macroquad integration spike: dependency, render-order plumbing in the viewer
-  loop, an `InputProvider` wrapper that respects `wants_pointer_input`, HUD toggle ported to an
-  egui panel. Proves the stack; ~1 session.
+- **M1.1** ✅ **DONE** — egui-macroquad 0.17.3 integrated (resolved cleanly against our locked
+  macroquad 0.4.14). `src/ui.rs` owns the egui frame protocol (`layout` first / `draw` last);
+  `UiGatedInput` in `src/input.rs` gates scene input on `wants_pointer/keyboard_input`; the F1
+  HUD is now an egui window with working transport controls (play/pause, log-scale speed
+  slider, camera-follow checkbox). Verified live via the new `RS_NAMIN_FRAME_DUMP` frame-dump
+  utility (see docs/agent_testing.md) — no high-DPI artifacts on a standard display.
+  Known gap carried to M1.3: the scrub bar reads macroquad input directly (pre-existing), so
+  it isn't UI-gated; it gets replaced by an egui slider in M1.3 anyway.
 - **M1.2** App shell + Library mode + mode switching (viewer becomes a mode).
 - **M1.3** Viewer chrome: transport bar, scrub slider (replacing the hand-drawn scrub bar),
   snapshot button, value inspector as an egui panel.

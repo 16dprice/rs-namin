@@ -55,6 +55,73 @@ impl InputProvider for MacroquadInput {
     }
 }
 
+/// Wraps an `InputProvider`, suppressing pointer and/or keyboard input for
+/// frames where the UI layer (egui) has captured it — so clicking a UI
+/// button doesn't also orbit the camera, and typing in a UI field doesn't
+/// trigger scene keybindings. Screen dimensions, mouse position, and frame
+/// time always pass through.
+pub struct UiGatedInput<'a> {
+    inner: &'a dyn InputProvider,
+    ui_wants_pointer: bool,
+    ui_wants_keyboard: bool,
+}
+
+impl<'a> UiGatedInput<'a> {
+    pub fn new(inner: &'a dyn InputProvider, ui_wants_pointer: bool, ui_wants_keyboard: bool) -> Self {
+        Self {
+            inner,
+            ui_wants_pointer,
+            ui_wants_keyboard,
+        }
+    }
+}
+
+impl InputProvider for UiGatedInput<'_> {
+    fn mouse_position(&self) -> Vec2 {
+        self.inner.mouse_position()
+    }
+
+    fn mouse_delta(&self) -> Vec2 {
+        if self.ui_wants_pointer {
+            Vec2::ZERO
+        } else {
+            self.inner.mouse_delta()
+        }
+    }
+
+    fn mouse_wheel(&self) -> (f32, f32) {
+        if self.ui_wants_pointer {
+            (0.0, 0.0)
+        } else {
+            self.inner.mouse_wheel()
+        }
+    }
+
+    fn is_mouse_button_down(&self, button: MouseButton) -> bool {
+        !self.ui_wants_pointer && self.inner.is_mouse_button_down(button)
+    }
+
+    fn is_key_down(&self, key: KeyCode) -> bool {
+        !self.ui_wants_keyboard && self.inner.is_key_down(key)
+    }
+
+    fn is_key_pressed(&self, key: KeyCode) -> bool {
+        !self.ui_wants_keyboard && self.inner.is_key_pressed(key)
+    }
+
+    fn screen_width(&self) -> f32 {
+        self.inner.screen_width()
+    }
+
+    fn screen_height(&self) -> f32 {
+        self.inner.screen_height()
+    }
+
+    fn frame_time(&self) -> f32 {
+        self.inner.frame_time()
+    }
+}
+
 pub struct ScriptedInput {
     pub mouse_position: Vec2,
     pub mouse_delta: Vec2,
@@ -161,5 +228,64 @@ impl InputProvider for ScriptedInput {
 
     fn frame_time(&self) -> f32 {
         self.frame_time
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn busy_input() -> ScriptedInput {
+        ScriptedInput::default()
+            .with_mouse_position(vec2(100.0, 200.0))
+            .with_mouse_delta(vec2(5.0, 5.0))
+            .with_mouse_wheel(1.0)
+            .with_mouse_button(MouseButton::Middle)
+            .with_key_down(KeyCode::W)
+            .with_key_pressed(KeyCode::Space)
+    }
+
+    #[test]
+    fn ui_gated_passthrough_when_ui_idle() {
+        let inner = busy_input();
+        let gated = UiGatedInput::new(&inner, false, false);
+        assert_eq!(gated.mouse_delta(), vec2(5.0, 5.0));
+        assert_eq!(gated.mouse_wheel(), (0.0, 1.0));
+        assert!(gated.is_mouse_button_down(MouseButton::Middle));
+        assert!(gated.is_key_down(KeyCode::W));
+        assert!(gated.is_key_pressed(KeyCode::Space));
+    }
+
+    #[test]
+    fn ui_gated_suppresses_pointer_only() {
+        let inner = busy_input();
+        let gated = UiGatedInput::new(&inner, true, false);
+        assert_eq!(gated.mouse_delta(), Vec2::ZERO);
+        assert_eq!(gated.mouse_wheel(), (0.0, 0.0));
+        assert!(!gated.is_mouse_button_down(MouseButton::Middle));
+        // Keyboard untouched
+        assert!(gated.is_key_down(KeyCode::W));
+        assert!(gated.is_key_pressed(KeyCode::Space));
+    }
+
+    #[test]
+    fn ui_gated_suppresses_keyboard_only() {
+        let inner = busy_input();
+        let gated = UiGatedInput::new(&inner, false, true);
+        assert!(!gated.is_key_down(KeyCode::W));
+        assert!(!gated.is_key_pressed(KeyCode::Space));
+        // Pointer untouched
+        assert_eq!(gated.mouse_delta(), vec2(5.0, 5.0));
+        assert!(gated.is_mouse_button_down(MouseButton::Middle));
+    }
+
+    #[test]
+    fn ui_gated_always_passes_screen_and_time() {
+        let inner = busy_input();
+        let gated = UiGatedInput::new(&inner, true, true);
+        assert_eq!(gated.mouse_position(), vec2(100.0, 200.0));
+        assert_eq!(gated.screen_width(), 1280.0);
+        assert_eq!(gated.screen_height(), 720.0);
+        assert!((gated.frame_time() - 1.0 / 60.0).abs() < f32::EPSILON);
     }
 }

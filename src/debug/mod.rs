@@ -7,7 +7,7 @@ use macroquad::prelude::*;
 
 use crate::camera::orbit::OrbitController;
 use crate::camera::{Camera, ProjectionMode};
-use crate::clock::{Clock, LoopMode, PlaybackState};
+use crate::clock::Clock;
 use crate::input::InputProvider;
 use crate::scene::Scene;
 
@@ -134,64 +134,13 @@ impl DebugOverlay {
     }
 
     /// Draw all visible screen-space overlays. Call after set_default_camera().
+    /// The HUD itself is an egui window (see `crate::ui`), toggled by `hud_visible`.
     pub fn draw(&self, clock: &Clock, scene: &Scene, camera: &Camera, input: &dyn InputProvider) {
-        if self.hud_visible {
-            self.draw_hud(clock, scene, camera);
-        }
         if self.mouse_coords_visible {
             self.draw_mouse_coords(camera, input);
         }
         self.scrub_bar.draw(clock);
         self.value_inspector.draw(scene);
-    }
-
-    fn draw_hud(&self, clock: &Clock, scene: &Scene, camera: &Camera) {
-        let x = 10.0;
-        let mut y = 30.0;
-        let line_h = 20.0;
-        let font_size = 16.0;
-        let color = LIGHTGRAY;
-
-        let state_str = match clock.playback_state {
-            PlaybackState::Playing => "Playing",
-            PlaybackState::Paused => "Paused",
-        };
-
-        let loop_str = match clock.loop_mode {
-            LoopMode::Once => "Once",
-            LoopMode::Loop => "Loop",
-            LoopMode::PingPong => "PingPong",
-        };
-
-        let p = camera.position;
-        let t = camera.target;
-        let fwd = camera.forward();
-
-        let cam_mode = if self.camera_follow_timeline { "Timeline" } else { "Orbit" };
-
-        let hud_lines = [
-            format!("Time: {:.2} / {:.2}s", clock.current_time, clock.duration),
-            format!("State: {}  Speed: {:.2}x", state_str, clock.playback_speed),
-            format!("Loop: {}  Camera: {} (F5)", loop_str, cam_mode),
-            format!("Objects: {}", scene.len()),
-            format!(
-                "Cam: ({:.1}, {:.1}, {:.1})  Target: ({:.1}, {:.1}, {:.1})",
-                p.x, p.y, p.z, t.x, t.y, t.z
-            ),
-            format!(
-                "Fwd: ({:.2}, {:.2}, {:.2})  Dist: {:.1}  FOV: {:.0}",
-                fwd.x,
-                fwd.y,
-                fwd.z,
-                camera.distance(),
-                camera.fov
-            ),
-        ];
-
-        for line in &hud_lines {
-            draw_text(line, x, y, font_size, color);
-            y += line_h;
-        }
     }
 
     fn draw_grid(&self, half_size: i32, spacing: f32) {
@@ -317,6 +266,7 @@ impl Default for DebugOverlay {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::PlaybackState;
     use crate::input::ScriptedInput;
 
     #[test]

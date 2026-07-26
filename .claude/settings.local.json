@@ -33,7 +33,10 @@
       "Bash(echo \"remaining: $?\")",
       "Bash(echo \"grep exit: $?\")",
       "Bash(echo \"check grep exit: $?\")",
-      "Bash(echo \"clippy grep exit: $?\")"
+      "Bash(echo \"clippy grep exit: $?\")",
+      "Bash(cargo add *)",
+      "Bash(cargo tree *)",
+      "Bash(./target/debug/rs-namin *)"
     ]
   }
 }
