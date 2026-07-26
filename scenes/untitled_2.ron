@@ -1,0 +1,10 @@
+(
+    description: "New scene",
+    camera: (
+        position: (0.0, 5.0, 10.0),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+    ),
+    objects: [],
+    tracks: [],
+)

@@ -55,7 +55,7 @@ impl Track {
     pub fn add_keyframe(&mut self, keyframe: Keyframe) {
         let pos = self
             .keyframes
-            .binary_search_by(|k| k.time.partial_cmp(&keyframe.time).unwrap())
+            .binary_search_by(|k| k.time.total_cmp(&keyframe.time))
             .unwrap_or_else(|i| i);
         self.keyframes.insert(pos, keyframe);
     }
@@ -83,8 +83,12 @@ impl Track {
             return Some(last.value.clone());
         }
 
-        // Find the segment: keyframes[i] and keyframes[i+1] where time is between them
-        let i = self.keyframes.iter().rposition(|k| k.time <= time).unwrap();
+        // Find the segment: keyframes[i] and keyframes[i+1] where time is between them.
+        // A NaN time fails every comparison (including the clamps above), so
+        // fall back to the first keyframe instead of panicking mid-frame.
+        let Some(i) = self.keyframes.iter().rposition(|k| k.time <= time) else {
+            return Some(first.value.clone());
+        };
 
         let k0 = &self.keyframes[i];
         let k1 = &self.keyframes[i + 1];
@@ -190,6 +194,17 @@ mod tests {
 
         assert_eq!(track.evaluate(0.5), Some(AnimValue::Float(50.0)));
         assert_eq!(track.evaluate(1.5), Some(AnimValue::Float(50.0)));
+    }
+
+    #[test]
+    fn evaluate_nan_time_returns_first_value_instead_of_panicking() {
+        // Regression: a zero-duration looping clock used to produce NaN time
+        // (x % 0.0), and evaluate() panicked on the segment search.
+        let mut track = Track::new(dummy_id(), "radius");
+        track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(7.0)));
+        assert_eq!(track.evaluate(f32::NAN), Some(AnimValue::Float(7.0)));
+        track.add_keyframe(Keyframe::new(2.0, AnimValue::Float(9.0)));
+        assert_eq!(track.evaluate(f32::NAN), Some(AnimValue::Float(7.0)));
     }
 
     #[test]

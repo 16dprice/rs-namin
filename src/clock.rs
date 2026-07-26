@@ -78,6 +78,13 @@ impl Clock {
     }
 
     fn apply_loop_mode(&mut self) {
+        // Empty timelines (duration 0) must pin time to 0: the Loop arm's
+        // modulo would be x % 0.0 = NaN, which then poisons every keyframe
+        // comparison downstream.
+        if self.duration <= 0.0 {
+            self.current_time = 0.0;
+            return;
+        }
         match self.loop_mode {
             LoopMode::Once => {
                 self.current_time = self.current_time.clamp(0.0, self.duration);
@@ -219,6 +226,31 @@ mod tests {
     fn step_backward_clamps_at_zero() {
         let mut clock = Clock::new(10.0, 60.0);
         clock.step_backward();
+        assert_eq!(clock.current_time, 0.0);
+    }
+
+    #[test]
+    fn zero_duration_loop_pins_time_instead_of_nan() {
+        // Regression: playing a Loop-mode clock over an empty timeline
+        // (duration 0, e.g. a freshly created scene document) computed
+        // current_time %= 0.0 = NaN, which poisoned every downstream
+        // keyframe comparison and crashed Track::evaluate.
+        let mut clock = Clock::new(0.0, 60.0);
+        clock.loop_mode = LoopMode::Loop;
+        clock.play();
+        for _ in 0..10 {
+            clock.tick(0.5);
+        }
+        assert!(clock.current_time.is_finite());
+        assert_eq!(clock.current_time, 0.0);
+    }
+
+    #[test]
+    fn zero_duration_ping_pong_pins_time() {
+        let mut clock = Clock::new(0.0, 60.0);
+        clock.loop_mode = LoopMode::PingPong;
+        clock.play();
+        clock.tick(0.5);
         assert_eq!(clock.current_time, 0.0);
     }
 
