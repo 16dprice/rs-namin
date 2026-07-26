@@ -1,10 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use macroquad::prelude::*;
-use macroquad::texture::{RenderTargetParams, render_target_ex};
 
 use rs_namin::registry;
-use rs_namin::render_util::rgba_flipped;
+use rs_namin::render_util::OffscreenRenderer;
 
 const USAGE: &str = "Usage: snapshot [--scene NAME] [--time T | --times T1,T2,...] [--width W] [--height H] [--output PATH]";
 
@@ -127,15 +126,7 @@ async fn snapshot_render(build_fn: registry::BuildFn, requested_times: Vec<f32>,
     let duration = timeline.duration();
     let times: Vec<f32> = requested_times.iter().map(|t| t.clamp(0.0, duration)).collect();
 
-    let rt = render_target_ex(
-        width,
-        height,
-        RenderTargetParams {
-            depth: true,
-            ..Default::default()
-        },
-    );
-    rt.texture.set_filter(FilterMode::Nearest);
+    let renderer = OffscreenRenderer::new(width, height);
 
     let multiple = times.len() > 1;
 
@@ -150,10 +141,7 @@ async fn snapshot_render(build_fn: registry::BuildFn, requested_times: Vec<f32>,
     for (idx, &t) in times.iter().enumerate() {
         // Read back the previously rendered frame (now flushed by next_frame)
         if let Some((prev_t, prev_idx)) = pending {
-            let image = rt.texture.get_texture_data();
-            let data = image.get_image_data();
-            rgba_flipped(data, width as usize, height as usize, &mut rgba_buf);
-
+            renderer.read_rgba(&mut rgba_buf);
             let path = output_path(&output, multiple, prev_t, prev_idx);
             save_png(&rgba_buf, width, height, &path);
             eprintln!("Saved: {} (t={prev_t:.3}s)", path.display());
@@ -162,23 +150,7 @@ async fn snapshot_render(build_fn: registry::BuildFn, requested_times: Vec<f32>,
         // Render this frame
         let mut camera = initial_camera.clone();
         timeline.apply(t, &mut scene, &mut camera);
-
-        let mut cam3d = camera.to_macroquad();
-        cam3d.render_target = Some(rt.clone());
-        cam3d.viewport = Some((0, 0, width as i32, height as i32));
-        set_camera(&cam3d);
-        clear_background(BLACK);
-        scene.draw_world();
-
-        // Screen-space pass
-        let screen_cam = Camera2D {
-            zoom: vec2(2.0 / width as f32, -2.0 / height as f32),
-            target: vec2(width as f32 / 2.0, height as f32 / 2.0),
-            render_target: Some(rt.clone()),
-            ..Default::default()
-        };
-        set_camera(&screen_cam);
-        scene.draw_screen();
+        renderer.render_frame(&scene, &camera);
 
         pending = Some((t, idx));
         next_frame().await;
@@ -186,10 +158,7 @@ async fn snapshot_render(build_fn: registry::BuildFn, requested_times: Vec<f32>,
 
     // Read back the final frame
     if let Some((prev_t, prev_idx)) = pending {
-        let image = rt.texture.get_texture_data();
-        let data = image.get_image_data();
-        rgba_flipped(data, width as usize, height as usize, &mut rgba_buf);
-
+        renderer.read_rgba(&mut rgba_buf);
         let path = output_path(&output, multiple, prev_t, prev_idx);
         save_png(&rgba_buf, width, height, &path);
         eprintln!("Saved: {} (t={prev_t:.3}s)", path.display());

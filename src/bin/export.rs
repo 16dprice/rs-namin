@@ -5,10 +5,9 @@ use std::process::{Command, Stdio};
 use indicatif::{ProgressBar, ProgressStyle};
 use inquire::{CustomType, InquireError, Select, Text};
 use macroquad::prelude::*;
-use macroquad::texture::{RenderTargetParams, render_target_ex};
 
 use rs_namin::registry::{self, SceneEntry};
-use rs_namin::render_util::rgba_to_rgb_flipped;
+use rs_namin::render_util::OffscreenRenderer;
 
 #[derive(Clone)]
 struct ResolutionPreset {
@@ -638,15 +637,7 @@ async fn export_render(
     let (width, height) = (config.resolution.width, config.resolution.height);
     let fps = config.fps;
 
-    let rt = render_target_ex(
-        width,
-        height,
-        RenderTargetParams {
-            depth: true,
-            ..Default::default()
-        },
-    );
-    rt.texture.set_filter(FilterMode::Nearest);
+    let renderer = OffscreenRenderer::new(width, height);
 
     let output_path = match &config.output {
         Some(path) => {
@@ -702,9 +693,7 @@ async fn export_render(
     for frame in start_frame..end_frame {
         // Read back the previously rendered frame (now flushed)
         if pending_frame {
-            let image = rt.texture.get_texture_data();
-            let data = image.get_image_data();
-            rgba_to_rgb_flipped(data, width as usize, height as usize, &mut rgb_buf);
+            renderer.read_rgb(&mut rgb_buf);
             if stdin.write_all(&rgb_buf).is_err() {
                 pb.abandon_with_message("ffmpeg pipe broken, aborting");
                 break;
@@ -716,23 +705,7 @@ async fn export_render(
         let t = frame as f32 / fps as f32;
         let mut camera = initial_camera.clone();
         timeline.apply(t, &mut scene, &mut camera);
-
-        let mut cam3d = camera.to_macroquad();
-        cam3d.render_target = Some(rt.clone());
-        cam3d.viewport = Some((0, 0, width as i32, height as i32));
-        set_camera(&cam3d);
-        clear_background(BLACK);
-        scene.draw_world();
-
-        // Screen-space pass
-        let screen_cam = Camera2D {
-            zoom: vec2(2.0 / width as f32, -2.0 / height as f32),
-            target: vec2(width as f32 / 2.0, height as f32 / 2.0),
-            render_target: Some(rt.clone()),
-            ..Default::default()
-        };
-        set_camera(&screen_cam);
-        scene.draw_screen();
+        renderer.render_frame(&scene, &camera);
 
         pending_frame = true;
         next_frame().await;
@@ -740,9 +713,7 @@ async fn export_render(
 
     // Read back the final frame
     if pending_frame {
-        let image = rt.texture.get_texture_data();
-        let data = image.get_image_data();
-        rgba_to_rgb_flipped(data, width as usize, height as usize, &mut rgb_buf);
+        renderer.read_rgb(&mut rgb_buf);
         let _ = stdin.write_all(&rgb_buf);
     }
     pb.inc(1);

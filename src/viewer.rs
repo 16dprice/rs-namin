@@ -6,6 +6,7 @@ use crate::camera::orbit::OrbitController;
 use crate::clock::{self, Clock};
 use crate::debug::{DebugOverlay, SnapView};
 use crate::input::MacroquadInput;
+use crate::render_util;
 use crate::scene::Scene;
 
 /// Interactive viewer loop: orbit controls, debug overlay, scrub bar.
@@ -48,9 +49,13 @@ pub async fn run(mut scene: Scene, timeline: Timeline, mut camera: Camera) {
         debug_overlay.draw_world(&orbit, &scene);
         scene.draw_world();
 
-        // Screen-space UI pass
-        set_default_camera();
+        // Screen-space scene pass: design-space coordinates, so screen-space
+        // objects match their size/position in exports (WYSIWYG).
+        set_camera(&render_util::screen_space_camera(None));
         scene.draw_screen();
+
+        // Debug overlay uses real window pixels.
+        set_default_camera();
         debug_overlay.draw(&clock, &scene, &camera, &input);
         debug_overlay.scrub_bar.draw_ticks(&timeline, clock.duration);
 
