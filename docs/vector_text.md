@@ -10,7 +10,7 @@ World-space scene object that renders text as bezier curve outlines with write-o
 |------|---------|
 | `src/scene/bezier.rs` | `CubicBezier`, `BezierContour`, `GlyphOutline` — data model + De Casteljau math |
 | `src/scene/font.rs` | `extract_glyphs()` — ttf-parser → glyph outlines; `default_font()` — embedded Roboto |
-| `src/scene/latex.rs` | `latex_to_glyphs()` — shells to `latex` + `dvisvgm --no-fonts`, parses SVG path data |
+| `src/scene/latex.rs` | `latex_to_glyphs()` — shells to `latex` + `dvisvgm --no-fonts --exact`, parses SVG path data |
 | `src/scene/objects/vector_text.rs` | `VectorText` scene object — tessellation via lyon, chunked rendering |
 | `src/examples/vector_text.rs` | Example: "Hello" with progress 0→1 over 3 seconds, stagger=0.5 |
 | `assets/fonts/Roboto-Regular.ttf` | Default embedded font (Apache 2.0) |
@@ -66,7 +66,7 @@ Both passes tessellate via lyon and chunk output into multiple `Mesh` if needed 
 ### Constructors
 
 - `VectorText::new(text, font_data, scale, color)` — extracts glyphs at 1 em = 1 world unit, applies `scale` at render time
-- `VectorText::from_latex(latex_str, color)` — shells out to `latex` + `dvisvgm`, panics if either is missing or LaTeX is invalid; scale defaults to 1.0 (1 em = 1 world unit)
+- `VectorText::from_latex(latex_str, color)` — shells out to `latex` + `dvisvgm --no-fonts --exact`, panics if either is missing or LaTeX is invalid; scale defaults to 1.0 (1 em = 1 world unit)
 - `VectorText::from_glyphs(glyphs, color)` — pipeline-agnostic entry point; used internally by `from_latex`
 
 ### Font extraction
@@ -92,7 +92,7 @@ Both passes tessellate via lyon and chunk output into multiple `Mesh` if needed 
 ## LaTeX gotchas
 
 - The LaTeX template wraps input in `\documentclass[preview]{standalone}` with `amsmath` and `amssymb`. Math mode must be explicit: pass `$x^2$`, not `x^2`.
-- `dvisvgm --no-fonts` outputs glyphs as SVG `<path>` elements referenced via `<use>` (for characters) and `<rect>` (for rules like fraction bars). The parser handles both.
+- `dvisvgm --no-fonts --exact` outputs glyphs as SVG `<path>` elements referenced via `<use>` (for characters) and `<rect>` (for rules like fraction bars). The parser handles both. `--exact` (short for `--exact-bbox`) makes dvisvgm compute each character's bounding box from its actual shape instead of the font's approximate TFM metrics — the parser reads that bounding box (`parse_viewbox_min_x`) to normalize coordinates, so an approximate box would shift every glyph.
 - dvisvgm's compact path format uses negative signs and decimal points as implicit separators (`M2.5-3.7` means M 2.5 -3.7). The custom tokenizer handles this; standard XML path parsers typically don't.
 - Coordinates are normalized: `(svg_x - viewbox_min_x) / PT_PER_EM` where `PT_PER_EM = 10.0` (TeX default font size in points). This makes 1 em ≈ 1 world unit, matching `VectorText::new`.
 - SVG Y-axis is flipped relative to world-space Y-up: coordinates use `-svg_y / PT_PER_EM`.

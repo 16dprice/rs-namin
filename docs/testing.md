@@ -16,8 +16,7 @@
 
 ## Property Round-Trip Tests
 
-- For every object type: `set(name, value)` then `get(name)` returns the same value.
-- Covers all `AnimValue` variants for each property.
+- Most object types have a `set(name, value)` / `get(name)` round-trip test (pattern: iterate `property_names()`, set then get, assert equality). Not universal — e.g. `Spiral` currently has none. When adding a new object, check its sibling objects in `src/scene/objects/` for the pattern rather than assuming coverage exists.
 
 ## Timeline Integration Tests
 
@@ -69,4 +68,4 @@
 - Property name validation: invalid names panic with descriptive error. See `src/scene_builder.rs`.
 - Type validation: wrong AnimValue variant panics.
 - End-to-end: `build()` then `timeline.apply()` produces correct interpolated values.
-- Coverage for all object types (Disk, Ring, Line, Rectangle, Polygon, Spiral, Arc, Arrow, Text, Torus, Tube) and camera properties.
+- `all_object_types_work` exercises most object types plus camera properties, but is not exhaustive (e.g. `Ring` is not covered) — check the test itself in `src/scene_builder.rs` rather than assuming full coverage.

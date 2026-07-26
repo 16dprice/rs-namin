@@ -15,17 +15,14 @@ Build flat meshes using `draw_mesh` with macroquad's `Vertex` struct. Each verte
 - Orbiting the camera reveals them as flat — giving depth context.
 - The `position.z` field controls depth ordering between objects.
 
-**Pattern for new objects:**
-1. Define a `build_mesh(&self) -> Mesh` method that generates vertices and triangle indices.
-2. Use a triangle fan for radial shapes (Disk), triangle strips or quads for rectangular shapes.
-3. All vertices share the same Z coordinate (`self.position.z`) and normal (`vec4(0, 0, 1, 0)`).
-4. Call `draw_mesh(&self.build_mesh())` from the `SceneObject::draw()` impl.
+**Two paths for new objects:**
 
-**Reference implementation:** `Disk` in `src/scene/objects/disk.rs`.
+1. **Line-based objects** (paths, curves, anything built from connected segments): delegate to `src/scene/polyline.rs`. It owns `LineSegment`, chunked quad-mesh building (`draw_polyline_mesh`), progress-reveal (`take_progress`, sub-segment-accurate), and gradient coloring (via `src/scene/color.rs::gradient_sample`). `LSystem` and `Polyline` (`src/scene/objects/l_system.rs`, `polyline.rs`) are both thin wrappers over this — see [l_system_implementation.md](l_system_implementation.md) for how that delegation looks in practice.
+2. **Everything else** (radial/rectangular shapes with their own topology): hand-build a `build_mesh(&self) -> Mesh` method. Use a triangle fan for radial shapes (Disk), triangle strips or quads for rectangular ones. All vertices share the same Z (`self.position.z`) and normal (`vec4(0, 0, 1, 0)`). Call `draw_mesh(&self.build_mesh())` from `SceneObject::draw()`. Reference: `Disk` in `src/scene/objects/disk.rs`.
 
 ### macroquad draw call limits
 
-macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A single `draw_mesh` call that exceeds these limits will be silently clamped. Objects with many primitives must split into multiple `draw_mesh` calls, each within the buffer limits. Two reference implementations: `Spiral` (`src/scene/objects/spiral.rs`) chunks dot meshes; `VectorText` (`src/scene/objects/vector_text.rs`) chunks lyon-tessellated bezier paths with a vertex-remapping pass for correct index reuse.
+macroquad's default draw call buffer is **10,000 vertices / 5,000 indices**. A single `draw_mesh` call that exceeds these limits will be silently clamped. Objects with many primitives must split into multiple `draw_mesh` calls, each within the buffer limits. Reference implementations: `polyline::draw_polyline_mesh` (chunk size derived from the buffer limits, shared by `LSystem`/`Polyline`); `Spiral` (`src/scene/objects/spiral.rs`) chunks dot meshes; `Tube` (`src/scene/objects/tube.rs`) chunks its path mesh; `VectorText` (`src/scene/objects/vector_text.rs`) chunks lyon-tessellated bezier paths with a vertex-remapping pass for correct index reuse.
 
 ### When to use macroquad primitives
 

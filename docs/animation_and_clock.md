@@ -35,7 +35,7 @@ tb.keyframe(0.0, AnimValue::Float(1.0))
 
 ## Custom Easing Functions
 
-You can write custom easing functions as plain `fn(f32) -> f32` functions. The input `t` is normalized progress through the segment (0.0 to 1.0), and the output is the eased value (typically 0.0 to 1.0, though overshoot easings like `back` can exceed this range). See `dolly_zoom` in `src/my_scene.rs` for an example that follows a `1/tan` curve.
+You can write custom easing functions as plain `fn(f32) -> f32` functions. The input `t` is normalized progress through the segment (0.0 to 1.0), and the output is the eased value (typically 0.0 to 1.0, though overshoot easings like `back` can exceed this range). See `dolly_zoom` in `src/videos/torus_knot.rs` for an example that follows a `1/tan` curve.
 
 ### EasingFn closure limitation (tech debt)
 

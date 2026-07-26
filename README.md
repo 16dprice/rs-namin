@@ -88,21 +88,9 @@ let (scene, timeline, camera) = sb.build();
 
 ## Scene objects
 
-| Object | Description |
-|--------|-------------|
-| `Disk` | Filled circle on the XY plane |
-| `Ring` | Circular annulus with animated sweep |
-| `Line` | 3D line segment |
-| `Rectangle` | Axis-aligned quad |
-| `Polygon` | Regular N-sided polygon |
-| `Arc` | Circular arc/sector between two radii |
-| `Arrow` | Directed arrow with shaft and head |
-| `Spiral` | Fibonacci/sunflower dot spiral |
-| `Text` | Screen-space text with reveal animation |
-| `Torus` | 3D torus with rotation matrix support |
-| `Tube` | 3D tube along a path with gradient colors |
+See `src/scene/objects/` for the full list (16 object types, e.g. `Disk`, `Ring`, `Line`, `Rectangle`, `Polygon`, `Arc`, `Arrow`, `Spiral`, `Torus`, `Tube`, `VectorText`, `LSystem`, `Polyline`, `Sprite`, `Turtle`) and `Text` for screen-space overlays.
 
-All world-space objects are rendered as flat custom meshes via `draw_mesh`. Screen-space objects (like `Text`) render in pixel coordinates after the 3D camera pass.
+Most world-space objects are rendered as flat custom meshes via `draw_mesh` on the XY plane. Exceptions: `Line` uses `draw_line_3d`; `Torus`/`Tube` are true 3D meshes; `Sprite` is a textured quad. Screen-space objects (like `Text`) render in pixel coordinates after the 3D camera pass.
 
 ## Animation
 
@@ -165,4 +153,9 @@ This runs `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo test`.
 
 - [macroquad](https://github.com/not-fl3/macroquad) -- rendering and windowing
 - [image](https://github.com/image-rs/image) -- PNG encoding for snapshots
+- [lyon](https://github.com/nical/lyon) -- bezier tessellation for `VectorText`
+- [ttf-parser](https://github.com/RazrFalcon/ttf-parser) -- glyph outline extraction for `VectorText`
+- [inquire](https://github.com/mikaelmello/inquire) -- interactive pickers in `example`/`export`
+- [indicatif](https://github.com/console-rs/indicatif) -- progress bars for `export`
 - [ffmpeg](https://ffmpeg.org/) -- required at runtime for MP4 export
+- `latex` + `dvisvgm` -- required at runtime for `VectorText::from_latex` (Debian/Ubuntu: `texlive-base`, `texlive-latex-extra`, `dvisvgm`)

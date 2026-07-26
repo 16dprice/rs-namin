@@ -20,7 +20,10 @@
       "WebSearch",
       "Bash(cargo test:*)",
       "Read(//tmp/**)",
-      "Bash(dvisvgm --no-fonts --exact test_latex.dvi -o test_latex.svg)"
+      "Bash(dvisvgm --no-fonts --exact test_latex.dvi -o test_latex.svg)",
+      "Bash(git -C /home/dj/Code/rs-namin log --oneline)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(cargo clippy *)"
     ]
   }
 }

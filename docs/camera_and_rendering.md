@@ -49,7 +49,7 @@ let rt = render_target_ex(width, height, RenderTargetParams {
 
 ### Viewport must match render target resolution
 
-When a `Camera3D` renders to a `RenderTarget`, macroquad still uses the *window* dimensions for the projection matrix aspect ratio unless you set an explicit viewport. The snapshot/export binaries cap the window size (e.g. `width.min(1280)`), so the window may be smaller than the render target. This mismatch distorts the perspective.
+When a `Camera3D` renders to a `RenderTarget`, macroquad still uses the *window* dimensions for the projection matrix aspect ratio unless you set an explicit viewport. `snapshot` caps its window to the requested resolution (`width.min(1280)`, `height.min(720)`); `export` always opens a fixed 1280x720 window regardless of the chosen export resolution. Either way the window can differ from the render target size, and that mismatch distorts the perspective if the viewport isn't set explicitly.
 
 The fix is to set the viewport on the Camera3D to match the render target:
 

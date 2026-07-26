@@ -10,7 +10,7 @@ Architecture docs live in `docs/`. These focus on gotchas, design rationale, and
 | [scene_and_properties.md](docs/scene_and_properties.md) | Rendering gotchas (flat meshes, draw call limits) |
 | [animation_and_clock.md](docs/animation_and_clock.md) | Animation gotchas, clock design notes |
 | [camera_and_rendering.md](docs/camera_and_rendering.md) | Camera/macroquad gotchas, CLI export rationale |
-| [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay gotchas, roadmap |
+| [debug_and_ui.md](docs/debug_and_ui.md) | Debug overlay gotchas |
 | [module_layout.md](docs/module_layout.md) | Main loop ordering and why it matters |
 | [vector_text.md](docs/vector_text.md) | Vector text rendering design (bezier-based write-on animation) |
 | [l_system_implementation.md](docs/l_system_implementation.md) | L-system engine design (string rewriting, turtle graphics, presets) |
