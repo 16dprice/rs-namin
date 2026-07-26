@@ -36,6 +36,8 @@ pub enum UiRequest {
     OpenExport(&'static SceneEntry),
     /// Create a new scene document and open it in the viewer/editor.
     NewScene,
+    /// Delete a scene document's file (Doc entries only, after confirm).
+    DeleteScene(&'static SceneEntry),
 }
 
 /// Persistent transport-bar state across frames.
@@ -258,8 +260,9 @@ fn loop_label(mode: LoopMode) -> &'static str {
 }
 
 /// Run the egui input+layout pass for the library mode: the full-screen
-/// scene list over the registry.
-pub fn library_layout() -> (UiCapture, UiRequest) {
+/// scene list over the registry. `pending_delete` holds the name of the doc
+/// whose delete button is armed (two-click confirm).
+pub fn library_layout(pending_delete: &mut Option<&'static str>) -> (UiCapture, UiRequest) {
     let mut capture = UiCapture {
         pointer: false,
         keyboard: false,
@@ -285,16 +288,37 @@ pub fn library_layout() -> (UiCapture, UiRequest) {
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("scene_list")
-                    .num_columns(3)
+                    .num_columns(4)
                     .spacing([18.0, 8.0])
                     .striped(true)
                     .show(ui, |ui| {
                         for entry in registry::scenes() {
                             if ui.button(entry.name).clicked() {
+                                *pending_delete = None;
                                 request = UiRequest::OpenScene(entry);
                             }
                             ui.weak(kind_label(entry.kind));
                             ui.label(entry.description);
+                            if matches!(entry.source, crate::registry::SceneSource::Doc(_)) {
+                                if *pending_delete == Some(entry.name) {
+                                    if ui
+                                        .button(egui::RichText::new("Confirm delete?").color(egui::Color32::LIGHT_RED))
+                                        .on_hover_text("Permanently deletes the .ron file")
+                                        .clicked()
+                                    {
+                                        *pending_delete = None;
+                                        request = UiRequest::DeleteScene(entry);
+                                    }
+                                } else if ui
+                                    .small_button("Delete")
+                                    .on_hover_text("Delete this scene document's file")
+                                    .clicked()
+                                {
+                                    *pending_delete = Some(entry.name);
+                                }
+                            } else {
+                                ui.label("");
+                            }
                             ui.end_row();
                         }
                     });

@@ -8,7 +8,7 @@ use macroquad::prelude::*;
 
 use crate::doc;
 use crate::export::ExportMode;
-use crate::registry::{self, SceneEntry};
+use crate::registry::{self, SceneEntry, SceneSource};
 use crate::ui::{self, UiRequest};
 use crate::viewer::ViewerMode;
 
@@ -52,6 +52,14 @@ fn apply_request(mode: &mut AppMode, request: UiRequest) {
             }
             Err(error) => eprintln!("Failed to create scene document: {error}"),
         },
+        UiRequest::DeleteScene(entry) => {
+            if let SceneSource::Doc(path) = entry.source {
+                if let Err(error) = std::fs::remove_file(path) {
+                    eprintln!("Failed to delete {path}: {error}");
+                }
+                registry::rescan();
+            }
+        }
         UiRequest::None => {}
     }
 }
@@ -69,13 +77,17 @@ fn frame_dump_spec() -> Option<(String, u32)> {
 pub async fn run(mut mode: AppMode) {
     let frame_dump = frame_dump_spec();
     let mut frame_index: u32 = 0;
+    let mut pending_delete: Option<&'static str> = None;
 
     loop {
         let request = match &mut mode {
-            AppMode::Library => library_frame(),
+            AppMode::Library => library_frame(&mut pending_delete),
             AppMode::Viewer(viewer) => viewer.frame(),
             AppMode::Export(export) => export.frame(),
         };
+        if !matches!(request, UiRequest::None) {
+            pending_delete = None;
+        }
         apply_request(&mut mode, request);
 
         if let Some((path, target_frame)) = &frame_dump {
@@ -91,9 +103,9 @@ pub async fn run(mut mode: AppMode) {
     }
 }
 
-fn library_frame() -> UiRequest {
+fn library_frame(pending_delete: &mut Option<&'static str>) -> UiRequest {
     clear_background(BLACK);
-    let (_capture, request) = ui::library_layout();
+    let (_capture, request) = ui::library_layout(pending_delete);
     ui::draw();
     request
 }
