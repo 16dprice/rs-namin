@@ -409,6 +409,17 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
                 color: white,
             },
         ),
+        (
+            "VectorText",
+            ObjectSpec::VectorText {
+                content: "vector text".to_string(),
+                // Glyphs extend rightward from position; offset so the
+                // default string sits roughly centered in the viewport.
+                position: vec3(-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: white,
+            },
+        ),
     ]
 }
 
@@ -425,6 +436,7 @@ fn spec_type_name(spec: &ObjectSpec) -> &'static str {
         ObjectSpec::Torus { .. } => "Torus",
         ObjectSpec::Tube { .. } => "Tube",
         ObjectSpec::Text { .. } => "Text",
+        ObjectSpec::VectorText { .. } => "VectorText",
     }
 }
 
@@ -541,7 +553,7 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
 
             // Non-animatable spec params with dedicated editors.
             let mut spec_changed = false;
-            if let ObjectSpec::Text { content, .. } = &mut editor.doc.objects[index].object {
+            if let ObjectSpec::Text { content, .. } | ObjectSpec::VectorText { content, .. } = &mut editor.doc.objects[index].object {
                 ui.horizontal(|ui| {
                     ui.weak("content");
                     spec_changed |= ui.text_edit_singleline(content).changed();

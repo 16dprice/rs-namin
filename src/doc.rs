@@ -77,7 +77,8 @@ pub struct ObjectDoc {
 }
 
 /// Constructible object types and their parameters. Colors are RGBA in 0-1.
-/// Objects with non-data constructor inputs (fonts, textures, L-system
+/// `VectorText` always uses the built-in default font; objects with other
+/// non-data constructor inputs (custom fonts, textures, LaTeX, L-system
 /// configs) are not yet representable.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ObjectSpec {
@@ -148,6 +149,16 @@ pub enum ObjectSpec {
         content: String,
         position: Vec2,
         font_size: f32,
+        color: Vec4,
+    },
+    /// Bezier-outline text with the write-on animation (world-space, default
+    /// font). Reveal via `progress`; `stagger`, `stroke_width`, and
+    /// `fill_opacity` are animatable properties (use `set`/tracks).
+    VectorText {
+        content: String,
+        position: Vec3,
+        /// Display size: 1.0 = one em per world unit.
+        scale: f32,
         color: Vec4,
     },
 }
@@ -222,6 +233,16 @@ impl ObjectSpec {
                 font_size,
                 color: c,
             } => Box::new(Text::new(content, position, font_size, color(c))),
+            ObjectSpec::VectorText {
+                content,
+                position,
+                scale,
+                color: c,
+            } => {
+                let mut vt = VectorText::new(&content, crate::scene::font::default_font(), scale, color(c));
+                vt.position = position;
+                Box::new(vt)
+            }
         }
     }
 }
@@ -466,6 +487,41 @@ mod tests {
             }],
         }];
         doc.build().unwrap();
+    }
+
+    #[test]
+    fn vector_text_spec_builds_and_round_trips() {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "title".to_string(),
+            object: ObjectSpec::VectorText {
+                content: "hi".to_string(),
+                position: vec3(-1.0, 2.0, 0.0),
+                scale: 1.5,
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+            },
+            set: vec![("stagger".to_string(), AnimValue::Float(0.5))],
+        });
+        doc.tracks.push(TrackDoc {
+            object: "title".to_string(),
+            property: "progress".to_string(),
+            keyframes: vec![KeyframeDoc {
+                time: 1.0,
+                value: AnimValue::Float(1.0),
+                easing: Easing::Linear,
+            }],
+        });
+
+        let ron_str = doc.to_ron_string().unwrap();
+        let parsed = SceneDoc::from_ron_str(&ron_str).unwrap();
+        let (scene, _, _) = parsed.build().unwrap();
+        let (_, vt) = scene.iter().nth(1).unwrap();
+        assert_eq!(vt.get("position"), Some(AnimValue::Vec3(vec3(-1.0, 2.0, 0.0))));
+        assert_eq!(vt.get("scale"), Some(AnimValue::Float(1.5)));
+        assert_eq!(vt.get("stagger"), Some(AnimValue::Float(0.5)));
+        // Glyph outlines were actually extracted from the default font.
+        let bb = vt.bounding_box();
+        assert!(bb.max.x > bb.min.x);
     }
 
     #[test]

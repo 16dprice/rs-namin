@@ -154,9 +154,11 @@ UI build-out (iterative; order negotiable after the design conversation):
   `scenes/*.ron` are discovered at startup and appear in the library (kind badge "doc"),
   snapshot, and export like any built-in; doc failures surface as an error-text scene in
   the app and hard errors in the CLIs. Proven with `scenes/demo.ron`: renders in the
-  viewer/library, snapshots, and CLI-exports to a valid MP4. Still not representable:
-  VectorText/LSystem/Sprite/Turtle (non-data constructor inputs) — they get spec entries in
-  a later milestone.
+  viewer/library, snapshots, and CLI-exports to a valid MP4. VectorText joined the spec
+  later (default font only — write-on/stagger/stroke are animatable properties; custom
+  fonts and LaTeX stay Rust-scene features since `spawn()` must be cheap and infallible).
+  Still not representable: LSystem/Sprite/Turtle (non-data constructor inputs) — they get
+  spec entries in a later milestone.
 - **M2.2** ✅ **DONE** — `src/editor.rs`: when a document scene is open, the viewer grows a
   left palette (object list with select/delete, add-object menu over the 11 spec templates,
   description edit, Save with dirty dot and error display) and a right inspector (id rename
