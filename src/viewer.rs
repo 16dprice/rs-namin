@@ -7,16 +7,29 @@ use crate::camera::Camera;
 use crate::camera::orbit::OrbitController;
 use crate::clock::{self, Clock};
 use crate::debug::{DebugOverlay, SnapView};
-use crate::doc::SceneDoc;
+use crate::doc::{ObjectSpec, SceneDoc};
 use crate::editor::EditorState;
 use crate::input::{InputProvider, MacroquadInput, UiGatedInput};
 use crate::registry::{SceneEntry, SceneSource};
 use crate::render_util::{self, OffscreenRenderer};
 use crate::scene::Scene;
+use crate::scene::value::AnimValue;
 use crate::ui::{self, TransportState, UiRequest};
 
 /// How many frames a transient status message stays in the app bar.
 const STATUS_FRAMES: u32 = 240;
+
+/// An in-progress viewport drag of a document object.
+struct ViewportDrag {
+    object_index: usize,
+    /// Initial values of the dragged properties (position, or start+end).
+    initial: Vec<(&'static str, Vec3)>,
+    /// World-space hit point on the drag plane when the drag began.
+    initial_hit: Vec2,
+    /// The z of the plane the drag moves in.
+    plane_z: f32,
+    resume_after: bool,
+}
 
 /// The interactive viewer as an app mode: orbit controls, debug overlay,
 /// egui chrome (app bar, transport, HUD, inspector). One scene per instance;
@@ -38,6 +51,7 @@ pub struct ViewerMode {
     status: Option<(String, u32)>,
     /// Present when the scene is a document: palette + inspector editing.
     editor: Option<EditorState>,
+    viewport_drag: Option<ViewportDrag>,
 }
 
 impl ViewerMode {
@@ -71,6 +85,7 @@ impl ViewerMode {
             pending_snapshot: None,
             status: None,
             editor,
+            viewport_drag: None,
         }
     }
 
@@ -129,6 +144,8 @@ impl ViewerMode {
             SnapView::None => {}
         }
 
+        self.viewport_interact(&input);
+
         self.clock.tick(get_frame_time());
 
         if self.debug_overlay.camera_follow_timeline {
@@ -142,6 +159,7 @@ impl ViewerMode {
         set_camera(&self.camera.to_macroquad());
         self.debug_overlay.draw_world(&self.orbit, &self.scene);
         self.scene.draw_world();
+        self.draw_selection_highlight();
 
         // Screen-space scene pass: design-space coordinates, so screen-space
         // objects match their size/position in exports (WYSIWYG).
@@ -179,6 +197,94 @@ impl ViewerMode {
         }
 
         request
+    }
+
+    /// Viewport editing for document scenes: left-click selects (hit-testing
+    /// world-object AABBs), left-drag translates the object on its z-plane.
+    /// Dragging pauses the clock (edits land at a fixed playhead) and writes
+    /// through `EditorState::auto_key` — keyframe when tracked, initial
+    /// override otherwise.
+    fn viewport_interact(&mut self, input: &dyn InputProvider) {
+        let Some(editor) = &mut self.editor else { return };
+        // A failed build means the visible scene may not match the doc's
+        // object list — indices would lie, so don't interact.
+        if editor.error.is_some() {
+            self.viewport_drag = None;
+            return;
+        }
+
+        let screen = vec2(input.screen_width(), input.screen_height());
+        let mouse = input.mouse_position();
+
+        if input.is_mouse_button_pressed(MouseButton::Left) {
+            let (origin, dir) = self.camera.screen_ray(mouse, screen);
+            let mut best: Option<(usize, f32)> = None;
+            for (index, (_, object)) in self.scene.iter().enumerate() {
+                if object.is_screen_space() {
+                    continue;
+                }
+                if let Some(t) = object.bounding_box().ray_intersect(origin, dir)
+                    && best.is_none_or(|(_, bt)| t < bt)
+                {
+                    best = Some((index, t));
+                }
+            }
+            editor.select(best.map(|(index, _)| index));
+
+            if let Some((index, _)) = best
+                && let Some(initial) = draggable_properties(&editor.doc.objects[index].object, &self.scene, index)
+            {
+                let plane_z = initial[0].1.z;
+                if let Some(hit) = ray_plane_z(origin, dir, plane_z) {
+                    self.viewport_drag = Some(ViewportDrag {
+                        object_index: index,
+                        initial,
+                        initial_hit: hit,
+                        plane_z,
+                        resume_after: self.clock.playback_state == crate::clock::PlaybackState::Playing,
+                    });
+                    self.clock.pause();
+                }
+            }
+        }
+
+        if let Some(drag) = &self.viewport_drag {
+            if input.is_mouse_button_down(MouseButton::Left) {
+                let (origin, dir) = self.camera.screen_ray(mouse, screen);
+                if let Some(hit) = ray_plane_z(origin, dir, drag.plane_z) {
+                    let delta = hit - drag.initial_hit;
+                    let time = self.clock.current_time;
+                    let object_index = drag.object_index;
+                    let updates: Vec<(&'static str, Vec3)> = drag
+                        .initial
+                        .iter()
+                        .map(|(prop, start)| (*prop, *start + vec3(delta.x, delta.y, 0.0)))
+                        .collect();
+                    for (prop, value) in updates {
+                        editor.auto_key(object_index, prop, AnimValue::Vec3(value), time);
+                    }
+                }
+            } else {
+                if drag.resume_after {
+                    self.clock.play();
+                }
+                self.viewport_drag = None;
+            }
+        }
+    }
+
+    fn draw_selection_highlight(&self) {
+        let Some(editor) = &self.editor else { return };
+        let Some(selected) = editor.selected else { return };
+        if editor.error.is_some() {
+            return;
+        }
+        if let Some((_, object)) = self.scene.iter().nth(selected)
+            && !object.is_screen_space()
+        {
+            let bb = object.bounding_box();
+            crate::debug::draw_aabb(bb.min, bb.max, Color::new(1.0, 0.9, 0.2, 0.9));
+        }
     }
 
     /// Rebuild scene/timeline from the edited document. The current (orbit)
@@ -230,5 +336,34 @@ impl ViewerMode {
                 eprintln!("Snapshot failed: {e}");
             }
         }
+    }
+}
+
+/// Intersect a ray with the plane z = `plane_z`; returns the XY hit point.
+fn ray_plane_z(origin: Vec3, dir: Vec3, plane_z: f32) -> Option<Vec2> {
+    if dir.z.abs() < 1e-6 {
+        return None;
+    }
+    let t = (plane_z - origin.z) / dir.z;
+    if t < 0.0 {
+        return None;
+    }
+    let hit = origin + dir * t;
+    Some(vec2(hit.x, hit.y))
+}
+
+/// The translatable Vec3 properties of a doc object, with their current
+/// runtime values: `position` for most types, `start`+`end` for Line/Arrow.
+/// Screen-space Text is not viewport-draggable.
+fn draggable_properties(spec: &ObjectSpec, scene: &Scene, index: usize) -> Option<Vec<(&'static str, Vec3)>> {
+    let (_, object) = scene.iter().nth(index)?;
+    let get_vec3 = |prop: &str| match object.get(prop) {
+        Some(AnimValue::Vec3(v)) => Some(v),
+        _ => None,
+    };
+    match spec {
+        ObjectSpec::Text { .. } => None,
+        ObjectSpec::Line { .. } | ObjectSpec::Arrow { .. } => Some(vec![("start", get_vec3("start")?), ("end", get_vec3("end")?)]),
+        _ => Some(vec![("position", get_vec3("position")?)]),
     }
 }

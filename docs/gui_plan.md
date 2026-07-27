@@ -181,8 +181,17 @@ UI build-out (iterative; order negotiable after the design conversation):
   deliberately left unsorted (the engine sorts at build) and `save()` normalizes order.
   All mutations are unit-tested `EditorState` methods.
 - **M2.4** Curve editor for eased segments (egui_plot or the egui-keyframe CurveEditor).
-- **M2.5** Viewport interaction: click-select (bounding boxes exist), drag-move writing back to
-  initial properties / keyframes.
+- **M2.5** ✅ **DONE** — left-click in the viewport hit-tests world-object AABBs
+  (`Camera::screen_ray` + `BoundingBox::ray_intersect`, both projections, unit-tested) and
+  drives the palette/inspector selection; the selected object shows a highlighted wireframe
+  box; clicking empty space deselects. Left-drag translates the object on its z-plane
+  (`position`, or `start`+`end` together for Line/Arrow; screen-space Text excluded),
+  pausing the clock for the drag and resuming after. Writes go through
+  `EditorState::auto_key`: tracked properties get a keyframe inserted/updated at the
+  playhead (and selected in the dope sheet), untracked ones get an initial-state override —
+  so dragging at a playhead time does exactly what an animator expects. Orbit stays on
+  middle/right mouse; left is the editing button. Interaction disables while the doc has a
+  build error (scene indices could lie).
 - **M2.6** "Send to render": export form pre-filled from the doc; runs the M1.4 pipeline.
 
 ## Open decisions for the design-language conversation

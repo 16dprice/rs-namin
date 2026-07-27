@@ -260,6 +260,34 @@ impl EditorState {
         true
     }
 
+    /// Write a property value the auto-key way: if the property has a track,
+    /// update the keyframe at `time` (or insert one there) and select it;
+    /// otherwise write an initial-state override. Used by viewport dragging.
+    pub fn auto_key(&mut self, object_index: usize, property: &str, value: AnimValue, time: f32) {
+        let id = self.doc.objects[object_index].id.clone();
+        if let Some(track_index) = self.doc.tracks.iter().position(|t| t.object == id && t.property == property) {
+            let keyframes = &mut self.doc.tracks[track_index].keyframes;
+            let kf_index = match keyframes.iter().position(|k| (k.time - time).abs() < 1e-3) {
+                Some(i) => {
+                    keyframes[i].value = value;
+                    i
+                }
+                None => {
+                    keyframes.push(KeyframeDoc {
+                        time,
+                        value,
+                        easing: Easing::default(),
+                    });
+                    keyframes.len() - 1
+                }
+            };
+            self.selected_keyframe = Some((track_index, kf_index));
+            self.touch();
+        } else {
+            self.upsert_override(object_index, property, value);
+        }
+    }
+
     pub fn save(&mut self) -> Result<(), String> {
         for track in &mut self.doc.tracks {
             track.keyframes.sort_by(|a, b| a.time.total_cmp(&b.time));
@@ -1098,6 +1126,27 @@ mod tests {
         ed.save().unwrap();
         assert!(ed.doc.tracks[t].keyframes.windows(2).all(|w| w[0].time <= w[1].time));
         std::fs::remove_file("/tmp/rs_namin_editor_save_test.ron").ok();
+    }
+
+    #[test]
+    fn auto_key_without_track_writes_override() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        ed.auto_key(0, "radius", AnimValue::Float(2.5), 1.0);
+        assert!(ed.doc.tracks.is_empty());
+        assert_eq!(ed.effective_value(0, "radius"), Some(AnimValue::Float(2.5)));
+    }
+
+    #[test]
+    fn auto_key_with_track_inserts_then_updates_keyframe() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        let t = ed.add_track("a", "radius").unwrap();
+        ed.auto_key(0, "radius", AnimValue::Float(2.0), 1.0);
+        assert_eq!(ed.doc.tracks[t].keyframes.len(), 2);
+        assert_eq!(ed.selected_keyframe, Some((t, 1)));
+        // Same playhead time again: updates in place instead of stacking.
+        ed.auto_key(0, "radius", AnimValue::Float(3.0), 1.0);
+        assert_eq!(ed.doc.tracks[t].keyframes.len(), 2);
+        assert_eq!(ed.doc.tracks[t].keyframes[1].value, AnimValue::Float(3.0));
     }
 
     #[test]

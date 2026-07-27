@@ -8,6 +8,39 @@ pub struct BoundingBox {
     pub max: Vec3,
 }
 
+impl BoundingBox {
+    /// Ray-AABB intersection (slab method). Returns the distance along the
+    /// ray to the entry point, or None if the ray misses or the box is
+    /// entirely behind the origin. Zero-extent axes (flat boxes, e.g. XY
+    /// objects) are handled with a small tolerance.
+    pub fn ray_intersect(&self, origin: Vec3, dir: Vec3) -> Option<f32> {
+        const PAD: f32 = 1e-4;
+        let mut t_min = 0.0_f32;
+        let mut t_max = f32::MAX;
+        for axis in 0..3 {
+            let (o, d) = (origin[axis], dir[axis]);
+            let (lo, hi) = (self.min[axis] - PAD, self.max[axis] + PAD);
+            if d.abs() < 1e-8 {
+                if o < lo || o > hi {
+                    return None;
+                }
+            } else {
+                let mut t0 = (lo - o) / d;
+                let mut t1 = (hi - o) / d;
+                if t0 > t1 {
+                    std::mem::swap(&mut t0, &mut t1);
+                }
+                t_min = t_min.max(t0);
+                t_max = t_max.min(t1);
+                if t_min > t_max {
+                    return None;
+                }
+            }
+        }
+        Some(t_min)
+    }
+}
+
 pub trait SceneObject {
     fn draw(&self);
     fn bounding_box(&self) -> BoundingBox;
@@ -74,6 +107,54 @@ macro_rules! animatable {
     };
 }
 pub(crate) use animatable;
+
+#[cfg(test)]
+mod bounding_box_tests {
+    use macroquad::prelude::vec3;
+
+    use super::BoundingBox;
+
+    fn unit_box() -> BoundingBox {
+        BoundingBox {
+            min: vec3(-1.0, -1.0, -1.0),
+            max: vec3(1.0, 1.0, 1.0),
+        }
+    }
+
+    #[test]
+    fn ray_hits_box_head_on() {
+        let t = unit_box().ray_intersect(vec3(0.0, 0.0, 5.0), vec3(0.0, 0.0, -1.0)).unwrap();
+        assert!((t - 4.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn ray_misses_box() {
+        assert!(unit_box().ray_intersect(vec3(5.0, 0.0, 5.0), vec3(0.0, 0.0, -1.0)).is_none());
+    }
+
+    #[test]
+    fn box_behind_origin_misses() {
+        assert!(unit_box().ray_intersect(vec3(0.0, 0.0, 5.0), vec3(0.0, 0.0, 1.0)).is_none());
+    }
+
+    #[test]
+    fn flat_box_is_hittable() {
+        // XY-plane objects have zero Z extent.
+        let flat = BoundingBox {
+            min: vec3(-1.0, -1.0, 0.0),
+            max: vec3(1.0, 1.0, 0.0),
+        };
+        assert!(flat.ray_intersect(vec3(0.0, 0.0, 5.0), vec3(0.0, 0.0, -1.0)).is_some());
+        // A ray inside the flat slab travelling parallel to it still hits.
+        assert!(flat.ray_intersect(vec3(5.0, 0.0, 0.0), vec3(-1.0, 0.0, 0.0)).is_some());
+    }
+
+    #[test]
+    fn ray_starting_inside_returns_zero() {
+        let t = unit_box().ray_intersect(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, -1.0)).unwrap();
+        assert!(t.abs() < 1e-3);
+    }
+}
 
 #[cfg(test)]
 pub mod test_support {

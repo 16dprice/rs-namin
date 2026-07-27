@@ -231,7 +231,7 @@ impl DebugOverlay {
 }
 
 /// Draw an axis-aligned bounding box as 12 wireframe edges.
-fn draw_aabb(min: Vec3, max: Vec3, color: Color) {
+pub(crate) fn draw_aabb(min: Vec3, max: Vec3, color: Color) {
     // Bottom face (y = min.y)
     draw_line_3d(vec3(min.x, min.y, min.z), vec3(max.x, min.y, min.z), color);
     draw_line_3d(vec3(max.x, min.y, min.z), vec3(max.x, min.y, max.z), color);
