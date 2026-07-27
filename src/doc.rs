@@ -10,9 +10,10 @@
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::animation::binding::Binding;
 use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
-use crate::animation::track::{Keyframe, Track};
+use crate::animation::track::{Keyframe, Track, TrackTarget};
 use crate::camera::Camera;
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
@@ -27,6 +28,10 @@ pub struct SceneDoc {
     pub objects: Vec<ObjectDoc>,
     #[serde(default)]
     pub tracks: Vec<TrackDoc>,
+    /// Property bindings: each frame, after tracks apply, the target property
+    /// is overwritten with the source property's value (+ optional offset).
+    #[serde(default)]
+    pub bindings: Vec<BindingDoc>,
     /// Per-document export defaults, pre-filling the export form and the
     /// non-interactive CLI. All fields optional; absent = app defaults.
     #[serde(default)]
@@ -263,6 +268,23 @@ pub struct KeyframeDoc {
     pub easing: Easing,
 }
 
+/// Locks `target.property` to `source.source_property` every frame. Either
+/// end may be `"camera"`. A bound property cannot also have a track, and
+/// bindings may chain but not cycle — both validated at build.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BindingDoc {
+    /// An `ObjectDoc.id`, or `"camera"`.
+    pub target: String,
+    pub property: String,
+    /// An `ObjectDoc.id`, or `"camera"`. Must differ from `target`.
+    pub source: String,
+    pub source_property: String,
+    /// Added to the source value each frame (component-wise;
+    /// Float/Vec2/Vec3/Vec4 properties only).
+    #[serde(default)]
+    pub offset: Option<AnimValue>,
+}
+
 /// Create a new empty scene document under `scenes/`, returning its
 /// registry name (the file stem).
 pub fn create_untitled() -> Result<String, String> {
@@ -277,6 +299,7 @@ pub fn create_untitled() -> Result<String, String> {
                 camera: CameraDoc::default(),
                 objects: Vec::new(),
                 tracks: Vec::new(),
+                bindings: Vec::new(),
                 export: ExportDefaults::default(),
             };
             std::fs::write(&path, doc.to_ron_string()?).map_err(|e| format!("cannot write {path}: {e}"))?;
@@ -349,6 +372,115 @@ impl SceneDoc {
             timeline.add_track(track);
         }
 
+        for b in &self.bindings {
+            let resolve = |name: &str| -> Result<TrackTarget, String> {
+                if name == "camera" {
+                    Ok(TrackTarget::Camera)
+                } else {
+                    ids.get(name)
+                        .map(|id| TrackTarget::Object(*id))
+                        .ok_or_else(|| format!("binding references unknown object id {:?}", name))
+                }
+            };
+            let target = resolve(&b.target)?;
+            let source = resolve(&b.source)?;
+            if target == source {
+                return Err(format!("binding on {:?} cannot source its own target object", b.target));
+            }
+
+            // The target property must be settable; the source only readable
+            // (which will include derived output properties).
+            let expected = match target {
+                TrackTarget::Object(id) => {
+                    let object = scene.get(id).unwrap();
+                    if !object.property_names().contains(&b.property.as_str()) {
+                        return Err(format!(
+                            "object {:?} has no settable property {:?} (valid: {:?})",
+                            b.target,
+                            b.property,
+                            object.property_names()
+                        ));
+                    }
+                    object.get(&b.property).unwrap()
+                }
+                TrackTarget::Camera => {
+                    if !camera.property_names().contains(&b.property.as_str()) {
+                        return Err(format!(
+                            "camera has no settable property {:?} (valid: {:?})",
+                            b.property,
+                            camera.property_names()
+                        ));
+                    }
+                    camera.get(&b.property).unwrap()
+                }
+            };
+            let source_value = match source {
+                TrackTarget::Object(id) => scene.get(id).unwrap().get(&b.source_property),
+                TrackTarget::Camera => camera.get(&b.source_property),
+            }
+            .ok_or_else(|| format!("object {:?} has no readable property {:?}", b.source, b.source_property))?;
+
+            if std::mem::discriminant(&expected) != std::mem::discriminant(&source_value) {
+                return Err(format!(
+                    "binding type mismatch: {:?}.{:?} expects {:?}-like values, but {:?}.{:?} is {:?}",
+                    b.target, b.property, expected, b.source, b.source_property, source_value
+                ));
+            }
+            if let Some(offset) = &b.offset {
+                if std::mem::discriminant(&expected) != std::mem::discriminant(offset) {
+                    return Err(format!(
+                        "binding offset type mismatch: {:?}.{:?} expects {:?}-like values, got offset {:?}",
+                        b.target, b.property, expected, offset
+                    ));
+                }
+                if !expected.supports_offset() {
+                    return Err(format!(
+                        "binding offset on {:?}.{:?}: {:?}-like values do not support offsets",
+                        b.target, b.property, expected
+                    ));
+                }
+            }
+
+            if self
+                .bindings
+                .iter()
+                .filter(|other| other.target == b.target && other.property == b.property)
+                .count()
+                > 1
+            {
+                return Err(format!("duplicate binding for property {:?} on {:?}", b.property, b.target));
+            }
+            if self.tracks.iter().any(|t| t.object == b.target && t.property == b.property) {
+                return Err(format!(
+                    "property {:?} on {:?} is both keyframed and bound — remove the track or the binding",
+                    b.property, b.target
+                ));
+            }
+
+            timeline.add_binding(Binding {
+                target,
+                target_property: b.property.clone(),
+                source,
+                source_property: b.source_property.clone(),
+                offset: b.offset.clone(),
+            });
+        }
+
+        if let Err(cycle) = timeline.sort_bindings() {
+            let names: Vec<String> = cycle
+                .iter()
+                .map(|t| match t {
+                    TrackTarget::Camera => "camera".to_string(),
+                    TrackTarget::Object(id) => ids
+                        .iter()
+                        .find(|(_, v)| *v == id)
+                        .map(|(k, _)| k.to_string())
+                        .unwrap_or_else(|| format!("{id:?}")),
+                })
+                .collect();
+            return Err(format!("binding cycle between objects: {}", names.join(" -> ")));
+        }
+
         Ok((scene, timeline, camera))
     }
 }
@@ -387,6 +519,7 @@ mod tests {
             description: "test".to_string(),
             camera: CameraDoc::default(),
             export: ExportDefaults::default(),
+            bindings: Vec::new(),
             objects: vec![ObjectDoc {
                 id: "ball".to_string(),
                 object: ObjectSpec::Disk {
@@ -529,5 +662,135 @@ mod tests {
         let mut doc = minimal_doc();
         doc.tracks[0].keyframes[0].easing = Easing::Custom(crate::animation::easing::linear);
         assert!(doc.to_ron_string().is_err());
+    }
+
+    /// minimal_doc plus a second disk whose radius is bound to ball.radius
+    /// (tracked 1.0 → 3.0 over 2s) with a +0.5 offset.
+    fn bound_doc() -> SceneDoc {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "shadow".to_string(),
+            object: ObjectSpec::Disk {
+                position: Vec3::ZERO,
+                radius: 1.0,
+                color: vec4(0.5, 0.5, 0.5, 1.0),
+            },
+            set: vec![],
+        });
+        doc.bindings.push(BindingDoc {
+            target: "shadow".to_string(),
+            property: "radius".to_string(),
+            source: "ball".to_string(),
+            source_property: "radius".to_string(),
+            offset: Some(AnimValue::Float(0.5)),
+        });
+        doc
+    }
+
+    #[test]
+    fn binding_builds_and_applies() {
+        let (mut scene, timeline, mut camera) = bound_doc().build().unwrap();
+        timeline.apply(2.0, &mut scene, &mut camera);
+        let (_, shadow) = scene.iter().nth(1).unwrap();
+        assert_eq!(shadow.get("radius"), Some(AnimValue::Float(3.5)));
+    }
+
+    #[test]
+    fn binding_round_trips_through_ron() {
+        let doc = bound_doc();
+        let ron_str = doc.to_ron_string().unwrap();
+        let parsed = SceneDoc::from_ron_str(&ron_str).unwrap();
+        assert_eq!(parsed.bindings, doc.bindings);
+        parsed.build().unwrap();
+    }
+
+    #[test]
+    fn docs_without_bindings_section_still_parse() {
+        let ron_str = "(objects: [], tracks: [])";
+        let parsed = SceneDoc::from_ron_str(ron_str).unwrap();
+        assert!(parsed.bindings.is_empty());
+    }
+
+    #[test]
+    fn binding_unknown_object_errors() {
+        let mut doc = bound_doc();
+        doc.bindings[0].source = "ghost".to_string();
+        assert!(build_err(&doc).contains("ghost"));
+    }
+
+    #[test]
+    fn binding_self_source_errors() {
+        let mut doc = bound_doc();
+        doc.bindings[0].source = "shadow".to_string();
+        assert!(build_err(&doc).contains("its own target object"));
+    }
+
+    #[test]
+    fn binding_unknown_target_property_errors() {
+        let mut doc = bound_doc();
+        doc.bindings[0].property = "raidus".to_string();
+        assert!(build_err(&doc).contains("raidus"));
+    }
+
+    #[test]
+    fn binding_type_mismatch_errors() {
+        let mut doc = bound_doc();
+        doc.bindings[0].property = "position".to_string();
+        assert!(build_err(&doc).contains("type mismatch"));
+    }
+
+    #[test]
+    fn binding_offset_type_mismatch_errors() {
+        let mut doc = bound_doc();
+        doc.bindings[0].offset = Some(AnimValue::Vec3(Vec3::ZERO));
+        assert!(build_err(&doc).contains("offset type mismatch"));
+    }
+
+    #[test]
+    fn binding_on_tracked_property_errors() {
+        let mut doc = bound_doc();
+        // ball.radius already has a track in minimal_doc.
+        doc.bindings[0].target = "ball".to_string();
+        doc.bindings[0].source = "shadow".to_string();
+        assert!(build_err(&doc).contains("both keyframed and bound"));
+    }
+
+    #[test]
+    fn duplicate_binding_errors() {
+        let mut doc = bound_doc();
+        let dup = doc.bindings[0].clone();
+        doc.bindings.push(dup);
+        assert!(build_err(&doc).contains("duplicate binding"));
+    }
+
+    #[test]
+    fn binding_cycle_errors_with_object_names() {
+        let mut doc = bound_doc();
+        doc.tracks.clear();
+        doc.bindings.push(BindingDoc {
+            target: "ball".to_string(),
+            property: "position".to_string(),
+            source: "shadow".to_string(),
+            source_property: "position".to_string(),
+            offset: None,
+        });
+        let err = build_err(&doc);
+        assert!(err.contains("binding cycle"), "unexpected error: {err}");
+        assert!(err.contains("ball") && err.contains("shadow"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn binding_may_target_camera() {
+        let mut doc = bound_doc();
+        doc.bindings.push(BindingDoc {
+            target: "camera".to_string(),
+            property: "fov".to_string(),
+            source: "ball".to_string(),
+            source_property: "radius".to_string(),
+            offset: None,
+        });
+        let (mut scene, timeline, mut camera) = doc.build().unwrap();
+        timeline.apply(2.0, &mut scene, &mut camera);
+        assert!((camera.fov - 3.0).abs() < 1e-5);
     }
 }

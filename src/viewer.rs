@@ -152,7 +152,8 @@ impl ViewerMode {
             self.camera = self.initial_camera.clone();
             self.timeline.apply(self.clock.current_time, &mut self.scene, &mut self.camera);
         } else {
-            self.timeline.apply_scene_only(self.clock.current_time, &mut self.scene);
+            self.timeline
+                .apply_scene_only(self.clock.current_time, &mut self.scene, &self.camera);
         }
 
         // 3D scene pass

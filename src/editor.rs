@@ -84,10 +84,11 @@ impl EditorState {
         self.doc.objects.len() - 1
     }
 
-    /// Remove an object and every track that references it.
+    /// Remove an object and every track and binding that references it.
     pub fn remove_object(&mut self, index: usize) {
         let id = self.doc.objects.remove(index).id;
         self.doc.tracks.retain(|t| t.object != id);
+        self.doc.bindings.retain(|b| b.target != id && b.source != id);
         match self.selected {
             Some(s) if s == index => self.select(None),
             Some(s) if s > index => self.selected = Some(s - 1),
@@ -96,8 +97,8 @@ impl EditorState {
         self.touch();
     }
 
-    /// Rename an object, cascading to tracks. Rejects empty, duplicate, and
-    /// reserved ids; returns whether the rename applied.
+    /// Rename an object, cascading to tracks and bindings. Rejects empty,
+    /// duplicate, and reserved ids; returns whether the rename applied.
     pub fn rename_object(&mut self, index: usize, new_id: &str) -> bool {
         let new_id = new_id.trim();
         let old_id = self.doc.objects[index].id.clone();
@@ -111,6 +112,14 @@ impl EditorState {
         for track in &mut self.doc.tracks {
             if track.object == old_id {
                 track.object = new_id.to_string();
+            }
+        }
+        for binding in &mut self.doc.bindings {
+            if binding.target == old_id {
+                binding.target = new_id.to_string();
+            }
+            if binding.source == old_id {
+                binding.source = new_id.to_string();
             }
         }
         self.touch();
@@ -163,11 +172,14 @@ impl EditorState {
     }
 
     /// Add a track for `target.property` with one keyframe at t=0 holding
-    /// the current initial value. Rejects unknown targets/properties and
-    /// duplicate tracks.
+    /// the current initial value. Rejects unknown targets/properties,
+    /// duplicate tracks, and bound properties.
     pub fn add_track(&mut self, target: &str, property: &str) -> Result<usize, String> {
         if self.doc.tracks.iter().any(|t| t.object == target && t.property == property) {
             return Err(format!("track {target}.{property} already exists"));
+        }
+        if self.doc.bindings.iter().any(|b| b.target == target && b.property == property) {
+            return Err(format!("{target}.{property} is bound — remove the binding first"));
         }
         let value = self
             .target_value_template(target, property)
@@ -1035,6 +1047,7 @@ mod tests {
             export: Default::default(),
             objects,
             tracks,
+            bindings: Vec::new(),
         }
     }
 
@@ -1093,6 +1106,46 @@ mod tests {
         assert!(ed.rename_object(0, "ball"));
         assert_eq!(ed.doc.objects[0].id, "ball");
         assert_eq!(ed.doc.tracks[0].object, "ball");
+    }
+
+    fn binding(target: &str, source: &str) -> crate::doc::BindingDoc {
+        crate::doc::BindingDoc {
+            target: target.to_string(),
+            property: "radius".to_string(),
+            source: source.to_string(),
+            source_property: "radius".to_string(),
+            offset: None,
+        }
+    }
+
+    #[test]
+    fn remove_object_cascades_bindings_on_both_ends() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b"), disk("c")], vec![]));
+        ed.doc.bindings = vec![binding("a", "b"), binding("b", "c"), binding("c", "a")];
+        ed.remove_object(0);
+        // Only the binding not touching "a" survives.
+        assert_eq!(ed.doc.bindings, vec![binding("b", "c")]);
+        ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn rename_cascades_binding_targets_and_sources() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![]));
+        ed.doc.bindings = vec![binding("a", "b")];
+        assert!(ed.rename_object(0, "leader"));
+        assert!(ed.rename_object(1, "follower"));
+        assert_eq!(ed.doc.bindings, vec![binding("leader", "follower")]);
+        ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn add_track_rejects_bound_property() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![]));
+        ed.doc.bindings = vec![binding("a", "b")];
+        let err = ed.add_track("a", "radius").unwrap_err();
+        assert!(err.contains("bound"), "unexpected error: {err}");
+        // The same property on the source object is still trackable.
+        assert!(ed.add_track("b", "radius").is_ok());
     }
 
     #[test]

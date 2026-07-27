@@ -1,8 +1,9 @@
 use std::mem;
 
+use crate::animation::binding::Binding;
 use crate::animation::easing::Easing;
 use crate::animation::timeline::Timeline;
-use crate::animation::track::{Keyframe, Track};
+use crate::animation::track::{Keyframe, Track, TrackTarget};
 use crate::camera::Camera;
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
@@ -179,6 +180,126 @@ impl SceneBuilder {
         self
     }
 
+    /// Lock a property of `target` to a property of `source`: every frame,
+    /// after keyframe tracks apply, the target property is overwritten with
+    /// the source property's current value. Bindings replace keyframes for
+    /// the target property (a property is tracked or bound, never both) and
+    /// may chain across objects; cycles are rejected at `build()`.
+    ///
+    /// # Panics
+    /// Panics if either property doesn't exist, the value types differ, the
+    /// source is the target object itself, the property is already bound, or
+    /// the property already has a keyframe track.
+    pub fn bind(&mut self, target: &ObjRef, property: &str, source: &ObjRef, source_property: &str) -> &mut Self {
+        self.bind_internal(target, property, source, source_property, None)
+    }
+
+    /// Like [`bind`](Self::bind), but adds `offset` to the source value each
+    /// frame (component-wise; Float/Vec2/Vec3/Vec4 properties only).
+    ///
+    /// # Panics
+    /// Panics on the same conditions as `bind`, or if `offset`'s variant
+    /// doesn't match the property type.
+    pub fn bind_with_offset(
+        &mut self,
+        target: &ObjRef,
+        property: &str,
+        source: &ObjRef,
+        source_property: &str,
+        offset: AnimValue,
+    ) -> &mut Self {
+        self.bind_internal(target, property, source, source_property, Some(offset))
+    }
+
+    fn bind_internal(
+        &mut self,
+        target: &ObjRef,
+        property: &str,
+        source: &ObjRef,
+        source_property: &str,
+        offset: Option<AnimValue>,
+    ) -> &mut Self {
+        assert!(
+            target.id != source.id,
+            "SceneBuilder::bind: object {:?} cannot source its own target object",
+            target.id,
+        );
+
+        let target_obj = self
+            .scene
+            .get(target.id)
+            .unwrap_or_else(|| panic!("SceneBuilder::bind: target object {:?} not found in scene", target.id));
+        let names = target_obj.property_names();
+        assert!(
+            names.contains(&property),
+            "SceneBuilder::bind: property \"{}\" not found on target object {:?}. Valid properties: {:?}",
+            property,
+            target.id,
+            names,
+        );
+        let expected = target_obj.get(property).unwrap();
+
+        let source_obj = self
+            .scene
+            .get(source.id)
+            .unwrap_or_else(|| panic!("SceneBuilder::bind: source object {:?} not found in scene", source.id));
+        let source_value = source_obj.get(source_property).unwrap_or_else(|| {
+            panic!(
+                "SceneBuilder::bind: property \"{}\" not readable on source object {:?}. Valid properties: {:?}",
+                source_property,
+                source.id,
+                source_obj.property_names(),
+            )
+        });
+
+        assert_eq!(
+            variant_name(&expected),
+            variant_name(&source_value),
+            "SceneBuilder::bind: type mismatch — target \"{}\" is {}, source \"{}\" is {}",
+            property,
+            variant_name(&expected),
+            source_property,
+            variant_name(&source_value),
+        );
+
+        if let Some(offset) = &offset {
+            assert_eq!(
+                variant_name(offset),
+                variant_name(&expected),
+                "SceneBuilder::bind: offset type mismatch — property \"{}\" is {}, offset is {}",
+                property,
+                variant_name(&expected),
+                variant_name(offset),
+            );
+            assert!(
+                expected.supports_offset(),
+                "SceneBuilder::bind: {} properties do not support offsets",
+                variant_name(&expected),
+            );
+        }
+
+        let target_tt = TrackTarget::Object(target.id);
+        assert!(
+            !self
+                .timeline
+                .bindings
+                .iter()
+                .any(|b| b.target == target_tt && b.target_property == property),
+            "SceneBuilder::bind: property \"{}\" on object {:?} is already bound",
+            property,
+            target.id,
+        );
+
+        self.timeline.add_binding(Binding {
+            target: target_tt,
+            target_property: property.to_string(),
+            source: TrackTarget::Object(source.id),
+            source_property: source_property.to_string(),
+            offset,
+        });
+        self
+    }
+
     /// Run multiple animations in parallel from the current cursor position.
     /// The cursor advances by the duration of the longest animation in the group.
     ///
@@ -225,9 +346,27 @@ impl SceneBuilder {
     }
 
     /// Consume the builder and return the scene, timeline, and camera.
+    ///
+    /// # Panics
+    /// Panics if a property is both keyframed and bound, or if bindings form
+    /// a cycle.
     pub fn build(mut self) -> (Scene, Timeline, Camera) {
         let scene = mem::take(&mut self.scene);
-        let timeline = mem::take(&mut self.timeline);
+        let mut timeline = mem::take(&mut self.timeline);
+        for binding in &timeline.bindings {
+            assert!(
+                !timeline
+                    .tracks
+                    .iter()
+                    .any(|t| t.target == binding.target && t.property_name == binding.target_property),
+                "SceneBuilder::build: property \"{}\" on {:?} is both keyframed and bound",
+                binding.target_property,
+                binding.target,
+            );
+        }
+        if let Err(cycle) = timeline.sort_bindings() {
+            panic!("SceneBuilder::build: binding cycle between {cycle:?}");
+        }
         (scene, timeline, self.camera)
     }
 }
@@ -599,6 +738,122 @@ mod tests {
         });
         let (_scene, timeline, _camera) = sb.build();
         assert_eq!(timeline.tracks.len(), 2);
+    }
+
+    #[test]
+    fn bind_locks_property_to_source() {
+        let mut sb = SceneBuilder::new();
+        let leader = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let follower = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.animate(&leader, "position", |tb| {
+            tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO))
+                .keyframe(2.0, AnimValue::Vec3(vec3(8.0, 0.0, 0.0)))
+        });
+        sb.bind(&follower, "position", &leader, "position");
+
+        let (mut scene, timeline, mut camera) = sb.build();
+        timeline.apply(1.0, &mut scene, &mut camera);
+        let AnimValue::Vec3(p) = scene.get(follower.id).unwrap().get("position").unwrap() else {
+            panic!("expected Vec3");
+        };
+        assert!((p - vec3(4.0, 0.0, 0.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn bind_with_offset_adds_offset() {
+        let mut sb = SceneBuilder::new();
+        let leader = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let follower = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind_with_offset(&follower, "position", &leader, "position", AnimValue::Vec3(vec3(0.0, 1.5, 0.0)));
+
+        let (mut scene, timeline, mut camera) = sb.build();
+        timeline.apply(0.0, &mut scene, &mut camera);
+        let AnimValue::Vec3(p) = scene.get(follower.id).unwrap().get("position").unwrap() else {
+            panic!("expected Vec3");
+        };
+        assert!((p - vec3(0.0, 1.5, 0.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn bind_cross_property_same_type_works() {
+        let mut sb = SceneBuilder::new();
+        let disk = sb.add(Disk::new(Vec3::ZERO, 3.0, WHITE));
+        let ring = sb.add(crate::scene::objects::Ring::new(Vec3::ZERO, 1.0, WHITE, 1.0));
+        // Different property names, same Float type.
+        sb.bind(&ring, "progress", &disk, "radius");
+        let (mut scene, timeline, mut camera) = sb.build();
+        timeline.apply(0.0, &mut scene, &mut camera);
+        let AnimValue::Float(p) = scene.get(ring.id).unwrap().get("progress").unwrap() else {
+            panic!("expected Float");
+        };
+        assert!((p - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    #[should_panic(expected = "not found on target object")]
+    fn bind_invalid_target_property_panics() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind(&a, "raidus", &b, "radius");
+    }
+
+    #[test]
+    #[should_panic(expected = "type mismatch")]
+    fn bind_type_mismatch_panics() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind(&a, "position", &b, "radius");
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot source its own target object")]
+    fn bind_self_object_panics() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind(&a, "position", &a, "position");
+    }
+
+    #[test]
+    #[should_panic(expected = "already bound")]
+    fn bind_duplicate_property_panics() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind(&a, "position", &b, "position");
+        sb.bind(&a, "position", &b, "position");
+    }
+
+    #[test]
+    #[should_panic(expected = "offset type mismatch")]
+    fn bind_offset_type_mismatch_panics() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind_with_offset(&a, "position", &b, "position", AnimValue::Float(1.0));
+    }
+
+    #[test]
+    #[should_panic(expected = "both keyframed and bound")]
+    fn bound_and_keyframed_property_panics_at_build() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind(&a, "position", &b, "position");
+        sb.animate(&a, "position", |tb| tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO)));
+        let _ = sb.build();
+    }
+
+    #[test]
+    #[should_panic(expected = "binding cycle")]
+    fn binding_cycle_panics_at_build() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind(&a, "position", &b, "position");
+        sb.bind(&b, "radius", &a, "radius");
+        let _ = sb.build();
     }
 
     #[test]

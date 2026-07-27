@@ -118,18 +118,6 @@ pub fn build() -> (Scene, Timeline, Camera) {
             tb.keyframe(camera_finish_zoom_out_time, AnimValue::Vec3(vec3(15.0, 2.0, 0.0)))
         });
 
-        p.animate(&turtle_ref, "progress", |mut tb| {
-            tb = tb.keyframe(0.0, AnimValue::Float(0.0));
-            for i in 0..lines.len() {
-                tb = tb.animate_for(
-                    seconds_per_segment,
-                    AnimValue::Float((i + 1) as f32 / lines.len() as f32),
-                    Easing::SineInOut,
-                )
-            }
-            tb
-        });
-
         p.animate(&l_system_ref, "progress", |mut tb| {
             tb = tb.keyframe(0.0, AnimValue::Float(0.0));
             for i in 0..lines.len() {
@@ -147,6 +135,10 @@ pub fn build() -> (Scene, Timeline, Camera) {
                 .keyframe(camera_finish_zoom_out_time, AnimValue::Float(0.15))
         });
     });
+
+    // The turtle walks the same path the l-system draws: lock its progress
+    // to the l-system's instead of duplicating the per-segment keyframes.
+    sb.bind(&turtle_ref, "progress", &l_system_ref, "progress");
 
     // ── Text reveal phase: staggered progress animations ──────────────
     let text_sequence_start = camera_finish_zoom_out_time - 1.0;

@@ -46,6 +46,31 @@ impl AnimValue {
             _ => panic!("Cannot lerp between different AnimValue variants"),
         }
     }
+
+    /// Component-wise add for binding offsets. Only Float/Vec2/Vec3/Vec4
+    /// support offsets (see [`supports_offset`](Self::supports_offset));
+    /// bindings validate variants at build time, so a mismatched or
+    /// unsupported pair here debug-asserts and returns `self` unchanged.
+    pub fn add_offset(&self, offset: &AnimValue) -> AnimValue {
+        match (self, offset) {
+            (AnimValue::Float(a), AnimValue::Float(b)) => AnimValue::Float(a + b),
+            (AnimValue::Vec2(a), AnimValue::Vec2(b)) => AnimValue::Vec2(*a + *b),
+            (AnimValue::Vec3(a), AnimValue::Vec3(b)) => AnimValue::Vec3(*a + *b),
+            (AnimValue::Vec4(a), AnimValue::Vec4(b)) => AnimValue::Vec4(*a + *b),
+            (value, offset) => {
+                debug_assert!(false, "AnimValue::add_offset: unsupported pair {value:?} + {offset:?}");
+                value.clone()
+            }
+        }
+    }
+
+    /// Whether this variant supports binding offsets (component-wise add).
+    pub fn supports_offset(&self) -> bool {
+        matches!(
+            self,
+            AnimValue::Float(_) | AnimValue::Vec2(_) | AnimValue::Vec3(_) | AnimValue::Vec4(_)
+        )
+    }
 }
 
 #[cfg(test)]
