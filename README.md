@@ -123,11 +123,11 @@ The default binary opens the app in the viewer with:
 
 ## Binaries
 
-All binaries resolve scenes by name against a single registry (`src/registry.rs`). `cargo run` starts in the viewer on the scratch scene (`src/my_scene.rs`); `cargo run --bin example` starts in the library.
+All binaries resolve scenes by name against a single registry (`src/registry.rs`). `cargo run` opens on the scene library; set `RS_NAMIN_SCENE=name` to jump straight into the viewer on a scene (e.g. the scratch scene `src/my_scene.rs`).
 
 | Binary | Command | Purpose |
 |--------|---------|---------|
-| `rs-namin` | `cargo run` | App, starting in the viewer on `my_scene` |
+| `rs-namin` | `cargo run` | App, starting in the scene library |
 | `example` | `cargo run --bin example` | App, starting in the scene library |
 | `export` | `cargo run --bin export` | MP4 export via ffmpeg — interactive or scriptable |
 | `snapshot` | `cargo run --bin snapshot` | PNG frame capture |

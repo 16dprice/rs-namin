@@ -92,8 +92,8 @@ Milestones (each is a well-scoped agent task):
   `ViewerMode::frame`. The library screen lists all registry scenes (kind badge +
   description) and replaces the `example` binary's terminal picker; the viewer got a top app
   bar (`< Library`, scene name, shortcut hints) and Esc navigates back. Opening a scene
-  rebuilds it fresh, inside the GL context. `cargo run` starts in the viewer on `my_scene`;
-  `cargo run --bin example` starts in the library. Design note from review: egui's stock look
+  rebuilds it fresh, inside the GL context. `cargo run` opens on the library
+  (`RS_NAMIN_SCENE=name` jumps straight into the viewer); `cargo run --bin example` also starts in the library. Design note from review: egui's stock look
   is fine — prioritize flow over visual polish in M1.3+.
 - **M1.3** ✅ **DONE** — bottom transport panel (play/pause, frame step, loop-mode combo,
   log-scale speed slider, monospace time readout) with a full-width scrub slider that paints

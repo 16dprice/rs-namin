@@ -5,7 +5,7 @@
 `src/app.rs` owns the window loop: `app::run(AppMode)` dispatches one frame per mode
 (`Library`, `Viewer(ViewerMode)`, or `Export(ExportMode)`), applies the `UiRequest`
 transition the mode's UI returned, and handles the `RS_NAMIN_FRAME_DUMP` capture.
-`rs-namin` starts in the viewer on `my_scene`; the `example` binary starts in the library.
+`rs-namin` starts in the library (`RS_NAMIN_SCENE=name` opens the viewer directly); the `example` binary also starts in the library.
 Opening a scene (or its export screen) constructs a fresh mode instance that rebuilds the
 scene — animation state never leaks between visits. Scene builds happen inside the loop,
 i.e. inside the GL context. `ExportMode` renders incrementally: one export frame per UI
@@ -66,5 +66,5 @@ each frame:
 
 A scene builds to `(Scene, Timeline, Camera)` from one of two sources: a built-in builder fn (examples, videos, the scratch scene) or a **scene document** (`scenes/*.ron`, parsed and validated by `src/doc.rs`). `src/registry.rs` holds one `SceneEntry` list (name, description, `SceneKind` badge, `SceneSource`, default audio); `registry::scenes()` returns builtins plus documents discovered once per process — `src/examples/mod.rs` and `src/videos/mod.rs` are just `pub mod` declarations feeding that list.
 
-- Every binary resolves scenes against `registry::scenes()`/`registry::find`: `rs-namin` looks up `my_scene` and opens the viewer on it, `example` renders the registry as the in-app library screen, and `snapshot --scene NAME` / `export --scene NAME` look entries up directly.
+- Every binary resolves scenes against `registry::scenes()`/`registry::find`: `rs-namin` and `example` render the registry as the in-app library screen (`RS_NAMIN_SCENE=name` opens the viewer directly), and `snapshot --scene NAME` / `export --scene NAME` look entries up directly.
 - Builds go through `SceneEntry::build_scene()` (returns `Result` — document loading/validation can fail; CLIs exit with the message) or `build_or_error_scene()` (the app's variant, which turns a failure into a visible error-text scene).
