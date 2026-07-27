@@ -1,0 +1,109 @@
+// Property bindings demo. Only the orange leader and the ring have
+// keyframes — everything else is driven by bindings:
+//   follower.position <- leader.position   (+ offset up)
+//   caboose.position  <- follower.position (+ offset up-right; chained,
+//                        and listed first to show order doesn't matter)
+//   title.progress    <- ring.progress     (write-on locked to the ring)
+(
+    description: "Property bindings: follower chain + progress lock",
+    camera: (
+        position: (0.0, 0.0, 12.0),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+    ),
+    objects: [
+        (
+            id: "follower",
+            object: Disk(
+                position: (0.0, 0.0, 0.0),
+                radius: 0.45,
+                color: (0.25, 0.6, 1.0, 1.0),
+            ),
+            set: [],
+        ),
+        (
+            id: "leader",
+            object: Disk(
+                position: (0.0, 0.0, 0.0),
+                radius: 0.65,
+                color: (1.0, 0.45, 0.15, 1.0),
+            ),
+            set: [],
+        ),
+        (
+            id: "caboose",
+            object: Disk(
+                position: (0.0, 0.0, 0.0),
+                radius: 0.3,
+                color: (0.35, 0.9, 0.45, 1.0),
+            ),
+            set: [],
+        ),
+        (
+            id: "ring",
+            object: Ring(
+                position: (5.2, 2.6, 0.0),
+                radius: 0.8,
+                color: (0.95, 0.85, 0.3, 1.0),
+                progress: 0.0,
+            ),
+            set: [],
+        ),
+        (
+            id: "title",
+            object: VectorText(
+                content: "bindings!",
+                position: (-6.4, 2.4, 0.0),
+                scale: 1.2,
+                color: (0.75, 0.55, 1.0, 1.0),
+            ),
+            set: [
+                ("stagger", Float(0.5)),
+                ("progress", Float(0.0)),
+            ],
+        ),
+    ],
+    tracks: [
+        (
+            object: "leader",
+            property: "position",
+            keyframes: [
+                (time: 0.0, value: Vec3((-4.0, -1.2, 0.0)), easing: Linear),
+                (time: 1.5, value: Vec3((0.0, 0.2, 0.0)), easing: SineInOut),
+                (time: 3.0, value: Vec3((4.0, -1.2, 0.0)), easing: SineInOut),
+                (time: 4.5, value: Vec3((0.0, -2.4, 0.0)), easing: SineInOut),
+                (time: 6.0, value: Vec3((-4.0, -1.2, 0.0)), easing: SineInOut),
+            ],
+        ),
+        (
+            object: "ring",
+            property: "progress",
+            keyframes: [
+                (time: 0.5, value: Float(0.0), easing: Linear),
+                (time: 5.5, value: Float(1.0), easing: SineInOut),
+            ],
+        ),
+    ],
+    bindings: [
+        (
+            target: "caboose",
+            property: "position",
+            source: "follower",
+            source_property: "position",
+            offset: Some(Vec3((1.4, 1.1, 0.0))),
+        ),
+        (
+            target: "follower",
+            property: "position",
+            source: "leader",
+            source_property: "position",
+            offset: Some(Vec3((0.0, 1.6, 0.0))),
+        ),
+        (
+            target: "title",
+            property: "progress",
+            source: "ring",
+            source_property: "progress",
+        ),
+    ],
+)
