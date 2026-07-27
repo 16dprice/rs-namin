@@ -69,9 +69,16 @@ impl OffscreenRenderer {
 /// output with origin top-left and Y down (matching macroquad's default
 /// screen coordinates). Pass a render target for offscreen rendering or
 /// `None` to draw to the window (viewer).
+///
+/// The Y zoom sign depends on the destination: render targets are stored
+/// bottom-up (OpenGL convention, compensated by the flipped readback in
+/// `rgba_flipped`/`rgba_to_rgb_flipped`), while the default framebuffer is
+/// presented directly — a negative Y there renders everything upside-down at
+/// the bottom of the window.
 pub fn screen_space_camera(render_target: Option<RenderTarget>) -> Camera2D {
+    let y_sign = if render_target.is_some() { -1.0 } else { 1.0 };
     Camera2D {
-        zoom: vec2(2.0 / DESIGN_WIDTH, -2.0 / DESIGN_HEIGHT),
+        zoom: vec2(2.0 / DESIGN_WIDTH, y_sign * 2.0 / DESIGN_HEIGHT),
         target: vec2(DESIGN_WIDTH / 2.0, DESIGN_HEIGHT / 2.0),
         render_target,
         ..Default::default()
@@ -139,5 +146,16 @@ mod tests {
         let mut out = vec![99, 99, 99, 99, 99];
         rgba_to_rgb_flipped(&rgba, 1, 1, &mut out);
         assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    // Regression: with a negative Y zoom the default-framebuffer screen pass
+    // renders upside-down at the bottom of the window (render targets get
+    // away with it because their readback flips). Can't construct a
+    // RenderTarget headless, so only the window path is pinned here.
+    #[test]
+    fn screen_space_camera_window_path_is_y_down() {
+        let cam = screen_space_camera(None);
+        assert!(cam.zoom.y > 0.0);
+        assert!(cam.zoom.x > 0.0);
     }
 }
