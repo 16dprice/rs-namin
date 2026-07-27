@@ -1,59 +1,164 @@
-// A hand-written scene document. Anything here can be built by the app,
-// snapshot, and export binaries exactly like a built-in scene — no Rust
-// required. Format: src/doc.rs (SceneDoc).
 (
     description: "Scene-document demo: bouncing disk, ring sweep, spinning hexagon",
     camera: (
         position: (0.0, 2.0, 12.0),
         target: (0.0, 1.5, 0.0),
+        fov: 60.0,
     ),
     objects: [
         (
             id: "ball",
-            object: Disk(position: (0.0, 0.5, 0.0), radius: 0.5, color: (0.2, 0.6, 1.0, 1.0)),
+            object: Disk(
+                position: (0.0, 0.5, 0.0),
+                radius: 0.5,
+                color: (0.2, 0.6, 1.0, 1.0),
+            ),
+            set: [],
         ),
         (
             id: "ground",
-            object: Line(start: (-8.0, 0.0, 0.0), end: (8.0, 0.0, 0.0), color: (1.0, 1.0, 1.0, 1.0)),
+            object: Line(
+                start: (-8.0, 0.0, 0.0),
+                end: (8.0, 0.0, 0.0),
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [],
         ),
         (
             id: "hex",
-            object: Polygon(position: (4.0, 1.5, 0.0), radius: 1.2, sides: 6, color: (1.0, 0.8, 0.1, 1.0)),
+            object: Polygon(
+                position: (4.0, 1.5, 0.0),
+                radius: 1.2,
+                sides: 6,
+                color: (1.0, 0.8, 0.1, 1.0),
+            ),
+            set: [],
         ),
         (
             id: "ring",
-            object: Ring(position: (-4.0, 1.5, 0.0), radius: 1.2, color: (0.9, 0.2, 0.4, 1.0), progress: 1.0),
-            set: [("progress", Float(0.0))],
+            object: Ring(
+                position: (-4.0, 1.5, 0.0),
+                radius: 1.2,
+                color: (0.9, 0.2, 0.4, 1.0),
+                progress: 1.0,
+            ),
+            set: [
+                ("progress", Float(0.0)),
+            ],
         ),
         (
             id: "label",
-            object: Text(content: "hello from a scene document", position: (40.0, 60.0), font_size: 40.0, color: (1.0, 1.0, 1.0, 1.0)),
-            set: [("progress", Float(0.0))],
+            object: Text(
+                content: "hello from a scene document",
+                position: (480.0, 60.0),
+                font_size: 40.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("progress", Float(0.0)),
+            ],
         ),
     ],
     tracks: [
-        (object: "ball", property: "position", keyframes: [
-            (time: 0.0, value: Vec3((0.0, 0.5, 0.0))),
-            (time: 1.0, value: Vec3((0.0, 4.5, 0.0)), easing: QuadOut),
-            (time: 2.0, value: Vec3((0.0, 0.5, 0.0)), easing: QuadIn),
-            (time: 3.0, value: Vec3((0.0, 3.0, 0.0)), easing: QuadOut),
-            (time: 4.0, value: Vec3((0.0, 0.5, 0.0)), easing: QuadIn),
-        ]),
-        (object: "hex", property: "rotation", keyframes: [
-            (time: 0.0, value: Float(0.0)),
-            (time: 4.0, value: Float(6.2832), easing: CubicInOut),
-        ]),
-        (object: "ring", property: "progress", keyframes: [
-            (time: 0.0, value: Float(0.0)),
-            (time: 3.0, value: Float(1.0), easing: SineInOut),
-        ]),
-        (object: "label", property: "progress", keyframes: [
-            (time: 0.5, value: Float(0.0)),
-            (time: 2.5, value: Float(1.0)),
-        ]),
-        (object: "camera", property: "rotation_y", keyframes: [
-            (time: 0.0, value: Float(0.0)),
-            (time: 4.0, value: Float(0.5), easing: SineInOut),
-        ]),
+        (
+            object: "ball",
+            property: "position",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Vec3((0.0, 0.5, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 1.0,
+                    value: Vec3((0.0, 4.5, 0.0)),
+                    easing: QuadOut,
+                ),
+                (
+                    time: 2.0,
+                    value: Vec3((0.0, 0.5, 0.0)),
+                    easing: QuadIn,
+                ),
+                (
+                    time: 3.0,
+                    value: Vec3((0.0, 3.0, 0.0)),
+                    easing: QuadOut,
+                ),
+                (
+                    time: 4.0,
+                    value: Vec3((0.0, 0.5, 0.0)),
+                    easing: QuadIn,
+                ),
+            ],
+        ),
+        (
+            object: "hex",
+            property: "rotation",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 4.0,
+                    value: Float(6.2832),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "ring",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 3.0,
+                    value: Float(1.0),
+                    easing: SineInOut,
+                ),
+            ],
+        ),
+        (
+            object: "label",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.5,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 2.5,
+                    value: Float(1.0),
+                    easing: Linear,
+                ),
+            ],
+        ),
+        (
+            object: "camera",
+            property: "rotation_y",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 4.0,
+                    value: Float(0.5),
+                    easing: SineInOut,
+                ),
+            ],
+        ),
     ],
+    export: (
+        resolution: Some("720p"),
+        fps: Some(30),
+        output: Some("renders/test1.mp4"),
+    ),
 )

@@ -4,6 +4,7 @@ use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 
 pub struct Text {
     pub content: String,
+    /// Top-left corner of the text block, in design-canvas pixels.
     pub position: Vec2,
     pub font_size: f32,
     pub color: Vec4,
@@ -43,7 +44,17 @@ impl Text {
 impl SceneObject for Text {
     fn draw(&self) {
         let color = Color::new(self.color.x, self.color.y, self.color.z, self.color.w);
-        draw_text(self.visible_text(), self.position.x, self.position.y, self.font_size, color);
+        // draw_text anchors at the baseline; offset by the full content's
+        // ascent so `position` is the top-left corner (and the anchor stays
+        // put while `progress` reveals characters).
+        let ascent = measure_text(&self.content, None, self.font_size as u16, 1.0).offset_y;
+        draw_text(
+            self.visible_text(),
+            self.position.x,
+            self.position.y + ascent,
+            self.font_size,
+            color,
+        );
     }
 
     fn bounding_box(&self) -> BoundingBox {

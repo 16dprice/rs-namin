@@ -402,7 +402,9 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
             "Text",
             ObjectSpec::Text {
                 content: "text".to_string(),
-                position: vec2(40.0, 80.0),
+                // Design-canvas center-ish: clear of the palette/inspector
+                // panels that overlay the canvas edges in editor mode.
+                position: vec2(600.0, 340.0),
                 font_size: 40.0,
                 color: white,
             },
