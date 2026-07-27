@@ -29,6 +29,40 @@ tb.keyframe(0.0, AnimValue::Float(1.0))
 
 `wait(duration)` advances the cursor by `duration` — useful for inserting pauses between sequential animations. `set_cursor(time)` jumps to an absolute time — useful when you want to start a sequence at a specific moment regardless of cursor state (e.g., `set_cursor(text_sequence_start + 1.0)` to stagger text reveals by offset from a known anchor).
 
+## Property Bindings
+
+A `Binding` (`src/animation/binding.rs`) locks a property of one object (or
+the camera) to a property of another: every frame, **after** keyframe tracks
+apply, the target property is overwritten with the source property's current
+value plus an optional component-wise offset (Float/Vec2/Vec3/Vec4 only).
+Author with `sb.bind(&follower, "progress", &leader, "progress")` or
+`bind_with_offset(...)`; scene documents have a `bindings:` section with the
+same semantics (either end may be `"camera"`).
+
+Rules, all validated at build time (panic from `SceneBuilder`, `Err` from
+`SceneDoc::build`):
+
+- **A property is tracked or bound, never both.** Bindings replace keyframes
+  for their target property.
+- **Bindings chain but never cycle.** They are topo-sorted at build so a
+  binding runs after any binding that writes its source. Ordering is at
+  *object* granularity, not (object, property) — setters can have side
+  effects on sibling properties (Turtle's `progress` derives `position`), so
+  all writes to the source object land before it is read.
+- **Types must match** (same `AnimValue` variant), offset included. A binding
+  cannot source its own target object.
+
+Bindings can also read **output properties** — read-only derived values
+declared via the `animatable!` macro's `outputs { name: Variant }` block,
+where each name is a same-named computing method (e.g. `LSystem::pen_position`,
+the world-space drawing tip at the current progress). Outputs are served by
+`Animatable::get`, listed by `output_names()`, and are valid binding sources
+but never binding targets or track targets.
+
+Time-shifted follows ("trail the leader by 0.5s") are deliberately absent for
+now: evaluation is a pure function of time, so the eventual implementation is
+"evaluate the source at t - delay", **not** a history buffer.
+
 ## Easing Functions
 
 Easing is **data**: keyframes store the `Easing` enum (`src/animation/easing.rs`) — 28 named variants (linear, quad, cubic, quart, quint, sine, expo, back, elastic, bounce, each with in/out/in-out) plus `Easing::Custom(fn)` for code-authored curves. Named variants serialize (scene documents use them); `Custom` does not. All named variants satisfy boundary invariants: `f(0)=0`, `f(1)=1`.
@@ -46,7 +80,7 @@ Custom curves are plain `fn(f32) -> f32` functions wrapped in `Easing::Custom`. 
 - **Easing is per-segment, attached to the arrival keyframe.** The easing on keyframe N shapes the curve from keyframe N-1 *into* N ("ease in to this keyframe"). The first keyframe's easing is unused — there is no incoming segment. This flipped in July 2026 (it used to sit on the departure keyframe); `animate_for(duration, value, easing)` always had arrival semantics and is unaffected.
 - **`Bool` doesn't interpolate — it holds the start value until the segment midpoint, then snaps.** `AnimValue::lerp` for `Bool` returns `a` while `t < 0.5` and `b` from `t >= 0.5` onward (see `src/scene/value.rs`). Easing curves on a `Bool` track still only affect which side of 0.5 `t` lands on, not any gradient.
 - **Timeline runs every frame regardless of pause state.** This is what makes scrubbing work — the clock position changes, and the next `timeline.apply()` picks it up.
-- **`apply` vs `apply_scene_only`:** `apply(time, &mut scene, &mut camera)` drives both scene objects and camera. `apply_scene_only(time, &mut scene)` skips camera tracks, used when the orbit controller drives the camera instead.
+- **`apply` vs `apply_scene_only`:** `apply(time, &mut scene, &mut camera)` drives both scene objects and camera. `apply_scene_only(time, &mut scene, &camera)` skips camera tracks and camera-targeting bindings, used when the orbit controller drives the camera instead — but bindings may still *read* the (orbit) camera through the `&Camera` parameter.
 
 ## Design Notes
 

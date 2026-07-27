@@ -209,6 +209,27 @@ UI build-out (iterative; order negotiable after the design conversation):
   this, **Phase 2 is complete**: create, animate (palette/inspector/dope sheet/curve
   editor/viewport dragging), save, and render — all in-app, no Rust.
 
+## Phase 3 — property bindings (July 2026) ✅ DONE (M3.1–M3.3)
+
+Lock a property of one object to a property of another instead of duplicating
+keyframes ("the turtle's progress is the l-system's progress", "this label
+follows the turtle, offset 1.5 up"). Engine: `Binding` applied every frame
+after tracks, optional component-wise offset, topo-sorted chains, cycles and
+track/binding double-driving rejected at build; `sb.bind(...)` and a
+`bindings:` doc section. Editor: inspector shows bound properties as
+"<- source.prop" with an editable offset row and a "+ Bind property" menu
+(type-matched, cycle-free choices only); dope sheet renders binding lanes as
+flat bars; viewport drag on a bound property is blocked with a hint. Output
+properties (`animatable!` `outputs` block) expose derived values as binding
+sources — first: `LSystem::pen_position`. See
+[animation_and_clock.md](animation_and_clock.md) > "Property Bindings".
+
+Parked follow-ups: dragging a bound object edits the binding offset
+(AE-style); binding-aware camera UI (docs can bind the camera; the editor
+menu only binds objects); time-shifted follows via evaluate-at-(t − delay) —
+NOT a history buffer, evaluation is a pure function of time; value mapping on
+the link (scale/easing between source and target).
+
 ## Open decisions for the design-language conversation
 
 - Layout: left object palette / right inspector / bottom timeline (Blender-style) vs. minimal

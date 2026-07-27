@@ -36,7 +36,13 @@ Most objects declare `Animatable` with one macro call listing `field: Variant` p
 animatable!(Disk { position: Vec3, radius: Float, color: Vec4 });
 ```
 
-This generates `get`/`set`/`property_names` from the single field list, so the three can't drift apart the way hand-written parallel `match` arms could. Fields must be `Copy` and public.
+This generates `get`/`set`/`property_names`/`output_names` from the single field list, so they can't drift apart the way hand-written parallel `match` arms could. Fields must be `Copy` and public.
+
+An optional `outputs { name: Variant }` block declares **read-only derived properties**, each backed by a same-named zero-arg method on the type. Outputs are served by `get` and listed by `output_names()` (default empty), but are never settable, keyframeable, or bindable as targets — their purpose is to be **binding sources** (see [animation_and_clock.md](animation_and_clock.md) > "Property Bindings"). `LSystem`'s `pen_position` (the world-space drawing tip at the current progress) is the first example:
+
+```ignore
+animatable!(LSystem { position: Vec3, progress: Float, ... } outputs { pen_position: Vec3 });
+```
 
 - **`set` on an unknown property or mismatched variant is a `debug_assert!` (panics in debug, silent no-op in release).** Release builds don't panic because `Timeline::apply` calls `set` every frame for every track — a panic there would crash playback. `SceneBuilder` is what actually catches these mistakes early, at scene construction time (see below); the macro's debug assert is a second line of defense for code paths that bypass `SceneBuilder`.
 - **Objects whose setters need side effects implement `Animatable` by hand instead of using the macro.** `Turtle` (`src/scene/objects/turtle.rs`) is the one example: setting `progress` must also derive `position`/`rotation` from the path and re-sync a child `Sprite`, which a straight field assignment can't do.
