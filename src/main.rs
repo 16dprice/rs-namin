@@ -15,12 +15,17 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    // Start in the viewer on the scratch scene (the iteration workflow) or
-    // on RS_NAMIN_SCENE; the library is one click or Esc away.
-    let name = std::env::var("RS_NAMIN_SCENE").unwrap_or_else(|_| "my_scene".to_string());
-    let entry = registry::find(&name).unwrap_or_else(|| {
-        eprintln!("Unknown scene: {name}");
-        std::process::exit(1);
-    });
-    app::run(AppMode::viewer(entry)).await;
+    // Open on the scene library. RS_NAMIN_SCENE=name jumps straight into the
+    // viewer on that scene (dev iteration and frame-dump verification).
+    let mode = match std::env::var("RS_NAMIN_SCENE") {
+        Ok(name) => match registry::find(&name) {
+            Some(entry) => AppMode::viewer(entry),
+            None => {
+                eprintln!("Unknown scene: {name}");
+                std::process::exit(1);
+            }
+        },
+        Err(_) => AppMode::Library,
+    };
+    app::run(mode).await;
 }

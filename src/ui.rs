@@ -91,7 +91,7 @@ pub struct ViewerUiResponse {
 }
 
 /// Run the egui input+layout pass for the viewer mode: app bar, transport
-/// bar (F2), HUD window (F1), and value inspector (F3).
+/// bar (F2), camera status strip (F1), and value inspector (F3).
 pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
     let ViewerUi {
         overlay,
@@ -148,14 +148,12 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
         if overlay.transport_visible {
             transport_panel(ctx, transport, clock, timeline, editor.as_deref_mut());
         }
-        let has_editor = editor.is_some();
+        if overlay.hud_visible {
+            // Added after the transport so it docks directly above it.
+            camera_panel(ctx, overlay, scene, camera);
+        }
         if let Some(editor) = editor.as_mut() {
             editor::panels(ctx, editor);
-        }
-        if overlay.hud_visible {
-            // Clear the editor palette when it's present.
-            let hud_x = if has_editor { 240.0 } else { 10.0 };
-            hud_window(ctx, overlay, scene, camera, hud_x);
         }
         if overlay.inspector_visible {
             inspector_window(ctx, scene);
@@ -520,27 +518,35 @@ pub fn draw() {
     egui_macroquad::draw();
 }
 
-fn hud_window(ctx: &egui::Context, overlay: &mut DebugOverlay, scene: &Scene, camera: &Camera, x: f32) {
-    egui::Window::new("Camera").default_pos([x, 40.0]).resizable(false).show(ctx, |ui| {
-        ui.checkbox(&mut overlay.camera_follow_timeline, "Camera follows timeline (F5)");
-        ui.separator();
+/// Fixed camera status strip, docked above the transport bar (F1).
+fn camera_panel(ctx: &egui::Context, overlay: &mut DebugOverlay, scene: &Scene, camera: &Camera) {
+    egui::TopBottomPanel::bottom("camera_hud").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut overlay.camera_follow_timeline, "Camera follows timeline (F5)");
+            ui.separator();
 
-        let p = camera.position;
-        let t = camera.target;
-        let fwd = camera.forward();
-        ui.label(format!(
-            "Cam: ({:.1}, {:.1}, {:.1})  Target: ({:.1}, {:.1}, {:.1})",
-            p.x, p.y, p.z, t.x, t.y, t.z
-        ));
-        ui.label(format!(
-            "Fwd: ({:.2}, {:.2}, {:.2})  Dist: {:.1}  FOV: {:.0}",
-            fwd.x,
-            fwd.y,
-            fwd.z,
-            camera.distance(),
-            camera.fov
-        ));
-        ui.label(format!("Objects: {}", scene.len()));
+            let p = camera.position;
+            let t = camera.target;
+            let fwd = camera.forward();
+            ui.monospace(format!(
+                "Cam ({:.1}, {:.1}, {:.1})  Target ({:.1}, {:.1}, {:.1})  Fwd ({:.2}, {:.2}, {:.2})  Dist {:.1}  FOV {:.0}",
+                p.x,
+                p.y,
+                p.z,
+                t.x,
+                t.y,
+                t.z,
+                fwd.x,
+                fwd.y,
+                fwd.z,
+                camera.distance(),
+                camera.fov
+            ));
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.weak(format!("{} objects", scene.len()));
+            });
+        });
     });
 }
 
