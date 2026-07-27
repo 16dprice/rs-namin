@@ -10,8 +10,9 @@ use macroquad::prelude::*;
 
 use crate::animation::timeline::Timeline;
 use crate::camera::Camera;
+use crate::doc::{ExportDefaults, SceneDoc};
 use crate::input::{InputProvider, MacroquadInput, UiGatedInput};
-use crate::registry::SceneEntry;
+use crate::registry::{SceneEntry, SceneSource};
 use crate::render_util::{DESIGN_HEIGHT, DESIGN_WIDTH, OffscreenRenderer};
 use crate::scene::Scene;
 use crate::ui::{self, UiRequest};
@@ -182,6 +183,14 @@ pub fn timestamped_output_path(scene_name: &str, resolution_label: &str, fps: u3
     format!("renders/{scene_name}_{resolution_label}_{fps}fps_{timestamp}.mp4")
 }
 
+/// The export defaults stored in a Doc entry's scene file, if any.
+pub fn doc_export_defaults(entry: &SceneEntry) -> Option<ExportDefaults> {
+    match entry.source {
+        SceneSource::Doc(path) => SceneDoc::load(path).ok().map(|doc| doc.export),
+        SceneSource::Builtin(_) => None,
+    }
+}
+
 pub fn spawn_ffmpeg(args: &[String]) -> std::io::Result<Child> {
     Command::new("ffmpeg")
         .args(args)
@@ -213,7 +222,7 @@ pub struct ExportForm {
 
 impl ExportForm {
     fn new(entry: &SceneEntry, duration: f32) -> Self {
-        Self {
+        let mut form = Self {
             resolution_index: 1, // 1080p
             fps: 60,
             use_bitrate: false,
@@ -224,7 +233,24 @@ impl ExportForm {
             audio_path: entry.audio.unwrap_or("").to_string(),
             output_path: String::new(),
             notice: None,
+        };
+        // Scene documents can carry export defaults.
+        if let Some(defaults) = doc_export_defaults(entry) {
+            if let Some(index) = defaults
+                .resolution
+                .as_deref()
+                .and_then(|label| RESOLUTION_PRESETS.iter().position(|p| p.label == label))
+            {
+                form.resolution_index = index;
+            }
+            if let Some(fps) = defaults.fps {
+                form.fps = fps;
+            }
+            if let Some(output) = defaults.output {
+                form.output_path = output;
+            }
         }
+        form
     }
 
     pub fn resolution(&self) -> &ResolutionPreset {
@@ -308,6 +334,8 @@ pub enum ExportUiEvent {
     Back,
     Start,
     Cancel,
+    /// Write the form's resolution/fps/output into the scene document.
+    SaveDefaults,
     /// From the Done screen: return to the form.
     ExportAgain,
 }
@@ -361,7 +389,8 @@ impl ExportMode {
     pub fn frame(&mut self) -> UiRequest {
         clear_background(BLACK);
 
-        let (capture, event) = ui::export_layout(&mut self.phase, self.entry.name, self.duration);
+        let is_doc = matches!(self.entry.source, SceneSource::Doc(_));
+        let (capture, event) = ui::export_layout(&mut self.phase, self.entry.name, self.duration, is_doc);
 
         let mut request = UiRequest::None;
         if event == ExportUiEvent::Back {
@@ -389,6 +418,7 @@ impl ExportMode {
         match event {
             ExportUiEvent::Start => self.start_render(),
             ExportUiEvent::Cancel => self.cancel_render(),
+            ExportUiEvent::SaveDefaults => self.save_defaults(),
             ExportUiEvent::ExportAgain => {
                 self.phase = ExportPhase::Configure(ExportForm::new(self.entry, self.duration));
             }
@@ -419,6 +449,30 @@ impl ExportMode {
 
     pub fn is_rendering(&self) -> bool {
         matches!(self.phase, ExportPhase::Render(_))
+    }
+
+    /// Persist the Configure form's resolution/fps/output as the scene
+    /// document's export defaults.
+    fn save_defaults(&mut self) {
+        let ExportPhase::Configure(form) = &mut self.phase else {
+            return;
+        };
+        let SceneSource::Doc(path) = self.entry.source else {
+            return;
+        };
+        let result = SceneDoc::load(path).and_then(|mut doc| {
+            doc.export = ExportDefaults {
+                resolution: Some(form.resolution().label.to_string()),
+                fps: Some(form.fps),
+                output: (!form.output_path.trim().is_empty()).then(|| form.output_path.trim().to_string()),
+            };
+            let ron = doc.to_ron_string()?;
+            std::fs::write(path, ron).map_err(|e| format!("cannot write {path}: {e}"))
+        });
+        form.notice = Some(match result {
+            Ok(()) => "Saved as scene export defaults.".to_string(),
+            Err(error) => format!("Saving defaults failed: {error}"),
+        });
     }
 
     fn start_render(&mut self) {
@@ -628,6 +682,53 @@ mod tests {
         assert_eq!(recommended_bitrate("1080p", 60), 16_000);
         assert_eq!(recommended_bitrate("4K", 30), 35_000);
         assert_eq!(recommended_bitrate("4K", 60), 53_000);
+    }
+
+    #[test]
+    fn export_form_prefills_from_doc_defaults() {
+        let path = "/tmp/rs_namin_export_defaults_test.ron";
+        std::fs::write(
+            path,
+            r#"(
+    description: "t",
+    objects: [],
+    export: (resolution: Some("4K"), fps: Some(30), output: Some("renders/custom.mp4")),
+)"#,
+        )
+        .unwrap();
+        let entry = SceneEntry {
+            name: "t",
+            description: "t",
+            kind: crate::registry::SceneKind::Doc,
+            source: SceneSource::Doc(path),
+            audio: None,
+        };
+        let form = ExportForm::new(&entry, 5.0);
+        assert_eq!(form.resolution().label, "4K");
+        assert_eq!(form.fps, 30);
+        assert_eq!(form.output_path, "renders/custom.mp4");
+
+        let defaults = doc_export_defaults(&entry).unwrap();
+        assert_eq!(defaults.fps, Some(30));
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn export_form_defaults_without_doc_block() {
+        let path = "/tmp/rs_namin_export_nodefaults_test.ron";
+        std::fs::write(path, "(description: \"t\", objects: [])").unwrap();
+        let entry = SceneEntry {
+            name: "t",
+            description: "t",
+            kind: crate::registry::SceneKind::Doc,
+            source: SceneSource::Doc(path),
+            audio: None,
+        };
+        let form = ExportForm::new(&entry, 5.0);
+        assert_eq!(form.resolution().label, "1080p");
+        assert_eq!(form.fps, 60);
+        assert!(form.output_path.is_empty());
+        std::fs::remove_file(path).ok();
     }
 
     #[test]

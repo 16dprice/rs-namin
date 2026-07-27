@@ -1018,6 +1018,7 @@ mod tests {
         SceneDoc {
             description: String::new(),
             camera: Default::default(),
+            export: Default::default(),
             objects,
             tracks,
         }

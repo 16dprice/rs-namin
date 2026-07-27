@@ -5,8 +5,8 @@ use inquire::{CustomType, InquireError, Select, Text};
 use macroquad::prelude::*;
 
 use rs_namin::export::{
-    EncodeSettings, EncodingMode, RESOLUTION_PRESETS, ResolutionPreset, build_ffmpeg_args, frame_range, preset_by_label,
-    recommended_bitrate, spawn_ffmpeg, timestamped_output_path,
+    EncodeSettings, EncodingMode, RESOLUTION_PRESETS, ResolutionPreset, build_ffmpeg_args, doc_export_defaults, frame_range,
+    preset_by_label, recommended_bitrate, spawn_ffmpeg, timestamped_output_path,
 };
 use rs_namin::registry::{self, SceneEntry};
 use rs_namin::render_util::OffscreenRenderer;
@@ -276,8 +276,11 @@ fn parse_resolution(s: &str) -> ResolutionPreset {
 
 /// Build an ExportConfig from CLI flags without prompting.
 fn config_from_cli(scene: SceneEntry, cli: CliArgs, duration: f32) -> ExportConfig {
-    let resolution = parse_resolution(cli.resolution.as_deref().unwrap_or("1080p"));
-    let fps = cli.fps.unwrap_or(60);
+    // Flags win; then the scene document's stored defaults; then app defaults.
+    let doc_defaults = doc_export_defaults(&scene).unwrap_or_default();
+    let resolution_arg = cli.resolution.or(doc_defaults.resolution);
+    let resolution = parse_resolution(resolution_arg.as_deref().unwrap_or("1080p"));
+    let fps = cli.fps.or(doc_defaults.fps).unwrap_or(60);
     let encoding = match (cli.crf, cli.bitrate) {
         (Some(crf), _) => EncodingMode::Crf { crf: crf.min(51) },
         (None, Some(kbps)) => EncodingMode::Bitrate { kbps },
@@ -297,7 +300,7 @@ fn config_from_cli(scene: SceneEntry, cli: CliArgs, duration: f32) -> ExportConf
         },
         start_time,
         end_time,
-        output: cli.output,
+        output: cli.output.or(doc_defaults.output),
     }
 }
 

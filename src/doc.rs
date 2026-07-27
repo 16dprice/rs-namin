@@ -27,6 +27,20 @@ pub struct SceneDoc {
     pub objects: Vec<ObjectDoc>,
     #[serde(default)]
     pub tracks: Vec<TrackDoc>,
+    /// Per-document export defaults, pre-filling the export form and the
+    /// non-interactive CLI. All fields optional; absent = app defaults.
+    #[serde(default)]
+    pub export: ExportDefaults,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExportDefaults {
+    #[serde(default)]
+    pub resolution: Option<String>,
+    #[serde(default)]
+    pub fps: Option<u32>,
+    #[serde(default)]
+    pub output: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,6 +256,7 @@ pub fn create_untitled() -> Result<String, String> {
                 camera: CameraDoc::default(),
                 objects: Vec::new(),
                 tracks: Vec::new(),
+                export: ExportDefaults::default(),
             };
             std::fs::write(&path, doc.to_ron_string()?).map_err(|e| format!("cannot write {path}: {e}"))?;
             return Ok(name);
@@ -350,6 +365,7 @@ mod tests {
         SceneDoc {
             description: "test".to_string(),
             camera: CameraDoc::default(),
+            export: ExportDefaults::default(),
             objects: vec![ObjectDoc {
                 id: "ball".to_string(),
                 object: ObjectSpec::Disk {

@@ -200,7 +200,12 @@ UI build-out (iterative; order negotiable after the design conversation):
   so dragging at a playhead time does exactly what an animator expects. Orbit stays on
   middle/right mouse; left is the editing button. Interaction disables while the doc has a
   build error (scene indices could lie).
-- **M2.6** "Send to render": export form pre-filled from the doc; runs the M1.4 pipeline.
+- **M2.6** ✅ **DONE** — scene documents carry an optional `export` block (resolution
+  label, fps, output path). The in-app export form pre-fills from it, the Configure panel's
+  "Save as scene defaults" button (doc scenes only) writes the current settings back into
+  the file, and the non-interactive CLI resolves flags → doc defaults → app defaults. With
+  this, **Phase 2 is complete**: create, animate (palette/inspector/dope sheet/curve
+  editor/viewport dragging), save, and render — all in-app, no Rust.
 
 ## Open decisions for the design-language conversation
 

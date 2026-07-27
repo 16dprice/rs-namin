@@ -343,7 +343,7 @@ fn kind_label(kind: SceneKind) -> &'static str {
 
 /// Run the egui input+layout pass for the export mode: app bar plus the
 /// config/progress side panel. The scene preview is drawn behind by the mode.
-pub fn export_layout(phase: &mut ExportPhase, scene_name: &str, duration: f32) -> (UiCapture, ExportUiEvent) {
+pub fn export_layout(phase: &mut ExportPhase, scene_name: &str, duration: f32, is_doc: bool) -> (UiCapture, ExportUiEvent) {
     let mut capture = UiCapture {
         pointer: false,
         keyboard: false,
@@ -376,8 +376,8 @@ pub fn export_layout(phase: &mut ExportPhase, scene_name: &str, duration: f32) -
                 ui.add_space(8.0);
                 match phase {
                     ExportPhase::Configure(form) => {
-                        if export_form(ui, form, duration) {
-                            event = ExportUiEvent::Start;
+                        if let Some(form_event) = export_form(ui, form, duration, is_doc) {
+                            event = form_event;
                         }
                     }
                     ExportPhase::Render(job) => {
@@ -424,9 +424,9 @@ pub fn export_layout(phase: &mut ExportPhase, scene_name: &str, duration: f32) -
     (capture, event)
 }
 
-/// The Configure-phase form. Returns true when Start was clicked.
-fn export_form(ui: &mut egui::Ui, form: &mut ExportForm, duration: f32) -> bool {
-    let mut start_clicked = false;
+/// The Configure-phase form. Returns the event a button click requested.
+fn export_form(ui: &mut egui::Ui, form: &mut ExportForm, duration: f32, is_doc: bool) -> Option<ExportUiEvent> {
+    let mut event = None;
 
     ui.heading("Export settings");
     ui.add_space(8.0);
@@ -498,11 +498,21 @@ fn export_form(ui: &mut egui::Ui, form: &mut ExportForm, duration: f32) -> bool 
     });
 
     ui.add_space(12.0);
-    if ui.add_sized([120.0, 28.0], egui::Button::new("Start export")).clicked() {
-        start_clicked = true;
-    }
+    ui.horizontal(|ui| {
+        if ui.add_sized([120.0, 28.0], egui::Button::new("Start export")).clicked() {
+            event = Some(ExportUiEvent::Start);
+        }
+        if is_doc
+            && ui
+                .button("Save as scene defaults")
+                .on_hover_text("Store resolution/fps/output in the scene document")
+                .clicked()
+        {
+            event = Some(ExportUiEvent::SaveDefaults);
+        }
+    });
 
-    start_clicked
+    event
 }
 
 /// Paint the egui frame. Call after all macroquad drawing for the frame.
