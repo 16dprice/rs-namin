@@ -180,7 +180,15 @@ UI build-out (iterative; order negotiable after the design conversation):
   typed value editor, delete). Keyframe indices stay stable during drags — the doc list is
   deliberately left unsorted (the engine sorts at build) and `save()` normalizes order.
   All mutations are unit-tested `EditorState` methods.
-- **M2.4** Curve editor for eased segments (egui_plot or the egui-keyframe CurveEditor).
+- **M2.4** ✅ **DONE** — hand-painted on egui 0.31 (the vendor-bump to egui 0.35 for
+  egui-keyframe/egui_plot remains unnecessary). `Easing::CubicBezier{x1,y1,x2,y2}` is a new
+  serializable, parameterized variant (CSS semantics: bisection-solve x(t)=u, monotone for
+  clamped x-handles; overshooting y allowed) — the planned data-first answer to curves that
+  the named set can't express. The detail strip gains a curve widget: a read-only plot of
+  the incoming easing for named variants, and draggable control-point handles when the
+  easing is CubicBezier (picker gains a CubicBezier entry defaulting to ease-in-out
+  parameters). The dolly zoom's `Custom(fn)` stays code-only by design (1/tan is not a
+  bezier).
 - **M2.5** ✅ **DONE** — left-click in the viewport hit-tests world-object AABBs
   (`Camera::screen_ray` + `BoundingBox::ray_intersect`, both projections, unit-tested) and
   drives the palette/inspector selection; the selected object shows a highlighted wireframe

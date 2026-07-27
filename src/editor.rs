@@ -29,6 +29,8 @@ pub struct EditorState {
     pub error: Option<String>,
     /// Buffer for the id TextEdit (committed on focus loss / enter).
     id_buffer: String,
+    /// Which bezier handle (0/1) a curve-widget drag is holding.
+    bezier_drag: Option<u8>,
 }
 
 impl EditorState {
@@ -42,6 +44,7 @@ impl EditorState {
             rebuild_needed: false,
             error: None,
             id_buffer: String::new(),
+            bezier_drag: None,
         };
         if !state.doc.objects.is_empty() {
             state.select(Some(0));
@@ -593,6 +596,7 @@ enum SheetAction {
 pub fn easing_label(easing: Easing) -> String {
     match easing {
         Easing::Custom(_) => "Custom".to_string(),
+        Easing::CubicBezier { .. } => "CubicBezier".to_string(),
         named => format!("{named:?}"),
     }
 }
@@ -806,10 +810,15 @@ fn keyframe_detail_strip(ui: &mut egui::Ui, editor: &mut EditorState) {
                             easing = candidate;
                         }
                     }
+                    let is_bezier = matches!(easing, Easing::CubicBezier { .. });
+                    if ui.selectable_label(is_bezier, "CubicBezier").clicked() && !is_bezier {
+                        easing = Easing::DEFAULT_BEZIER;
+                    }
                 });
             if easing != kf.easing {
                 editor.set_keyframe_easing(track_index, kf_index, easing);
             }
+            curve_widget(ui, editor, track_index, kf_index);
         }
 
         let mut value = kf.value.clone();
@@ -821,6 +830,64 @@ fn keyframe_detail_strip(ui: &mut egui::Ui, editor: &mut EditorState) {
             editor.remove_keyframe(track_index, kf_index);
         }
     });
+}
+
+/// Curve preview for the selected keyframe's incoming easing. Read-only for
+/// named easings; CubicBezier gets two draggable control-point handles.
+fn curve_widget(ui: &mut egui::Ui, editor: &mut EditorState, track_index: usize, kf_index: usize) {
+    const W: f32 = 96.0;
+    const H: f32 = 56.0;
+    // Value range shown: -0.5..1.5 so overshoot easings stay visible.
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(W, H), egui::Sense::click_and_drag());
+    let painter = ui.painter();
+    painter.rect_filled(rect, 2.0, ui.visuals().extreme_bg_color);
+
+    let to_px = |t: f32, v: f32| egui::pos2(rect.left() + t * rect.width(), rect.bottom() - (v + 0.5) / 2.0 * rect.height());
+    let weak = egui::Stroke::new(1.0, ui.visuals().weak_text_color().linear_multiply(0.4));
+    painter.hline(rect.x_range(), to_px(0.0, 0.0).y, weak);
+    painter.hline(rect.x_range(), to_px(0.0, 1.0).y, weak);
+
+    let easing = editor.doc.tracks[track_index].keyframes[kf_index].easing;
+    let points: Vec<egui::Pos2> = (0..=32)
+        .map(|i| {
+            let t = i as f32 / 32.0;
+            to_px(t, easing.eval(t).clamp(-0.5, 1.5))
+        })
+        .collect();
+    painter.add(egui::Shape::line(points, egui::Stroke::new(1.5, ui.visuals().selection.bg_fill)));
+
+    if let Easing::CubicBezier { x1, y1, x2, y2 } = easing {
+        let h0 = to_px(x1, y1);
+        let h1 = to_px(x2, y2);
+        let handle_stroke = egui::Stroke::new(1.0, egui::Color32::from_gray(140));
+        painter.line_segment([to_px(0.0, 0.0), h0], handle_stroke);
+        painter.line_segment([to_px(1.0, 1.0), h1], handle_stroke);
+        painter.circle_filled(h0, 3.5, egui::Color32::LIGHT_RED);
+        painter.circle_filled(h1, 3.5, egui::Color32::LIGHT_GREEN);
+
+        if resp.drag_started()
+            && let Some(pos) = resp.interact_pointer_pos()
+        {
+            editor.bezier_drag = Some(if pos.distance(h0) <= pos.distance(h1) { 0 } else { 1 });
+        }
+        if resp.dragged()
+            && let (Some(handle), Some(pos)) = (editor.bezier_drag, resp.interact_pointer_pos())
+        {
+            let t = ((pos.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
+            let v = ((rect.bottom() - pos.y) / rect.height() * 2.0 - 0.5).clamp(-0.5, 1.5);
+            let new_easing = if handle == 0 {
+                Easing::CubicBezier { x1: t, y1: v, x2, y2 }
+            } else {
+                Easing::CubicBezier { x1, y1, x2: t, y2: v }
+            };
+            editor.set_keyframe_easing(track_index, kf_index, new_easing);
+        }
+        if resp.drag_stopped() {
+            editor.bezier_drag = None;
+        }
+    } else {
+        resp.on_hover_text("Curve preview — pick CubicBezier in the easing list for editable handles");
+    }
 }
 
 fn time_to_x(time: f32, rect: egui::Rect, duration: f32) -> f32 {

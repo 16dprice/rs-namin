@@ -38,6 +38,14 @@ pub enum Easing {
     BounceIn,
     BounceOut,
     BounceInOut,
+    /// CSS-style cubic bezier through (0,0), (x1,y1), (x2,y2), (1,1).
+    /// x1/x2 are clamped to [0,1] when evaluated.
+    CubicBezier {
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+    },
     #[serde(skip)]
     Custom(EasingFn),
 }
@@ -48,6 +56,15 @@ impl PartialEq for Easing {
             // fn_addr_eq avoids the unpredictable-fn-pointer-comparison lint;
             // two Customs are "equal" only if they share an address.
             (Easing::Custom(a), Easing::Custom(b)) => std::ptr::fn_addr_eq(*a, *b),
+            (
+                Easing::CubicBezier { x1, y1, x2, y2 },
+                Easing::CubicBezier {
+                    x1: ox1,
+                    y1: oy1,
+                    x2: ox2,
+                    y2: oy2,
+                },
+            ) => x1 == ox1 && y1 == oy1 && x2 == ox2 && y2 == oy2,
             _ => std::mem::discriminant(self) == std::mem::discriminant(other),
         }
     }
@@ -116,9 +133,42 @@ impl Easing {
             Easing::BounceIn => bounce_in(t),
             Easing::BounceOut => bounce_out(t),
             Easing::BounceInOut => bounce_in_out(t),
+            Easing::CubicBezier { x1, y1, x2, y2 } => cubic_bezier(x1.clamp(0.0, 1.0), y1, x2.clamp(0.0, 1.0), y2, t),
             Easing::Custom(f) => f(t),
         }
     }
+
+    /// A sensible starting bezier for the editor (ease-in-out-ish).
+    pub const DEFAULT_BEZIER: Easing = Easing::CubicBezier {
+        x1: 0.42,
+        y1: 0.0,
+        x2: 0.58,
+        y2: 1.0,
+    };
+}
+
+/// Evaluate the CSS cubic-bezier timing function at progress `u`: solve the
+/// bezier's x(t) = u for t (bisection — x is monotone for x1,x2 in [0,1]),
+/// then return y(t).
+fn cubic_bezier(x1: f32, y1: f32, x2: f32, y2: f32, u: f32) -> f32 {
+    if u <= 0.0 {
+        return 0.0;
+    }
+    if u >= 1.0 {
+        return 1.0;
+    }
+    let coord = |a: f32, b: f32, t: f32| {
+        // Bernstein form with P0=0, P3=1.
+        let omt = 1.0 - t;
+        3.0 * omt * omt * t * a + 3.0 * omt * t * t * b + t * t * t
+    };
+    let (mut lo, mut hi) = (0.0_f32, 1.0_f32);
+    for _ in 0..24 {
+        let mid = (lo + hi) / 2.0;
+        if coord(x1, x2, mid) < u { lo = mid } else { hi = mid }
+    }
+    let t = (lo + hi) / 2.0;
+    coord(y1, y2, t)
 }
 
 pub fn linear(t: f32) -> f32 {
@@ -415,5 +465,57 @@ mod tests {
         // elastic_in goes negative in early range
         let has_negative = (1..10).any(|i| elastic_in(i as f32 * 0.1) < 0.0);
         assert!(has_negative, "elastic_in should go negative");
+    }
+}
+
+#[cfg(test)]
+mod bezier_tests {
+    use super::*;
+
+    #[test]
+    fn bezier_boundaries() {
+        let e = Easing::DEFAULT_BEZIER;
+        assert_eq!(e.eval(0.0), 0.0);
+        assert_eq!(e.eval(1.0), 1.0);
+    }
+
+    #[test]
+    fn bezier_linear_equivalent_matches_linear() {
+        let e = Easing::CubicBezier {
+            x1: 1.0 / 3.0,
+            y1: 1.0 / 3.0,
+            x2: 2.0 / 3.0,
+            y2: 2.0 / 3.0,
+        };
+        for i in 0..=10 {
+            let t = i as f32 / 10.0;
+            assert!((e.eval(t) - t).abs() < 1e-3, "t={t}");
+        }
+    }
+
+    #[test]
+    fn bezier_ease_in_out_is_monotone_and_shaped() {
+        let e = Easing::DEFAULT_BEZIER;
+        let mut prev = 0.0;
+        for i in 1..=20 {
+            let v = e.eval(i as f32 / 20.0);
+            assert!(v >= prev - 1e-4);
+            prev = v;
+        }
+        assert!(e.eval(0.25) < 0.25); // slow start
+        assert!(e.eval(0.75) > 0.75); // slow end
+    }
+
+    #[test]
+    fn bezier_serde_round_trip() {
+        let e = Easing::CubicBezier {
+            x1: 0.1,
+            y1: -0.3,
+            x2: 0.9,
+            y2: 1.4,
+        };
+        let ron = ron::to_string(&e).unwrap();
+        let back: Easing = ron::from_str(&ron).unwrap();
+        assert_eq!(back, e);
     }
 }

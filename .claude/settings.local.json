@@ -36,7 +36,8 @@
       "Bash(echo \"clippy grep exit: $?\")",
       "Bash(cargo add *)",
       "Bash(cargo tree *)",
-      "Bash(./target/debug/rs-namin *)"
+      "Bash(./target/debug/rs-namin *)",
+      "Bash(python3 -)"
     ]
   }
 }
