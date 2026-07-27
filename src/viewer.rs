@@ -235,6 +235,20 @@ impl ViewerMode {
             if let Some((index, _)) = best
                 && let Some(initial) = draggable_properties(&editor.doc.objects[index].object, &self.scene, index)
             {
+                // A bound property is overwritten by its source every frame;
+                // dragging would silently fight the binding, so block it.
+                let object_id = &editor.doc.objects[index].id;
+                if let Some(binding_index) = initial.iter().find_map(|(prop, _)| editor.binding_for(object_id, prop)) {
+                    let binding = &editor.doc.bindings[binding_index];
+                    self.status = Some((
+                        format!(
+                            "{}.{} is bound to {}.{} — adjust the offset in the inspector",
+                            binding.target, binding.property, binding.source, binding.source_property
+                        ),
+                        STATUS_FRAMES,
+                    ));
+                    return;
+                }
                 let plane_z = initial[0].1.z;
                 if let Some(hit) = ray_plane_z(origin, dir, plane_z) {
                     self.viewport_drag = Some(ViewportDrag {

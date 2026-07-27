@@ -12,7 +12,7 @@ use crate::animation::easing::Easing;
 use crate::animation::track::Track;
 use crate::camera::Camera;
 use crate::clock::Clock;
-use crate::doc::{KeyframeDoc, ObjectDoc, ObjectSpec, SceneDoc, TrackDoc};
+use crate::doc::{BindingDoc, KeyframeDoc, ObjectDoc, ObjectSpec, SceneDoc, TrackDoc};
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
 
@@ -195,6 +195,80 @@ impl EditorState {
         });
         self.touch();
         Ok(self.doc.tracks.len() - 1)
+    }
+
+    /// Add a binding locking `target.property` to `source.source_property`.
+    /// Validated by a trial doc build (unknown ids, types, duplicates,
+    /// track conflicts, cycles); on failure the doc is unchanged and the
+    /// build error is returned.
+    pub fn add_binding(&mut self, target: &str, property: &str, source: &str, source_property: &str) -> Result<usize, String> {
+        self.doc.bindings.push(BindingDoc {
+            target: target.to_string(),
+            property: property.to_string(),
+            source: source.to_string(),
+            source_property: source_property.to_string(),
+            offset: None,
+        });
+        match self.doc.build() {
+            Ok(_) => {
+                self.touch();
+                Ok(self.doc.bindings.len() - 1)
+            }
+            Err(e) => {
+                self.doc.bindings.pop();
+                Err(e)
+            }
+        }
+    }
+
+    pub fn remove_binding(&mut self, index: usize) {
+        self.doc.bindings.remove(index);
+        self.touch();
+    }
+
+    /// Set or clear a binding's offset, reverting on a failed trial build
+    /// (wrong variant, non-offsetable property type).
+    pub fn set_binding_offset(&mut self, index: usize, offset: Option<AnimValue>) -> Result<(), String> {
+        let previous = std::mem::replace(&mut self.doc.bindings[index].offset, offset);
+        match self.doc.build() {
+            Ok(_) => {
+                self.touch();
+                Ok(())
+            }
+            Err(e) => {
+                self.doc.bindings[index].offset = previous;
+                Err(e)
+            }
+        }
+    }
+
+    /// Index of the binding driving `object_id.property`, if any.
+    pub fn binding_for(&self, object_id: &str, property: &str) -> Option<usize> {
+        self.doc
+            .bindings
+            .iter()
+            .position(|b| b.target == object_id && b.property == property)
+    }
+
+    /// Whether binding `target.<prop>` to `source` would create a dependency
+    /// cycle at object granularity: true if `source` already depends on
+    /// `target` (directly or through a chain of bindings), or is `target`.
+    pub fn binding_would_cycle(&self, target: &str, source: &str) -> bool {
+        let mut stack = vec![source.to_string()];
+        let mut visited = Vec::new();
+        while let Some(node) = stack.pop() {
+            if node == target {
+                return true;
+            }
+            if visited.contains(&node) {
+                continue;
+            }
+            for b in self.doc.bindings.iter().filter(|b| b.target == node) {
+                stack.push(b.source.clone());
+            }
+            visited.push(node);
+        }
+        false
     }
 
     pub fn remove_track(&mut self, index: usize) {
@@ -579,7 +653,10 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
             ui.weak("Initial properties (saved as overrides)");
             ui.add_space(4.0);
 
-            // Generated editors over the Animatable surface.
+            // Generated editors over the Animatable surface. A bound
+            // property is driven by its source every frame, so it shows the
+            // link (and its editable offset) instead of a value widget.
+            let object_id = editor.doc.objects[index].id.clone();
             let properties = editor.property_names(index);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("editor_props").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
@@ -588,14 +665,104 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
                             continue;
                         };
                         ui.weak(property);
+                        if let Some(binding_index) = editor.binding_for(&object_id, property) {
+                            let binding = editor.doc.bindings[binding_index].clone();
+                            ui.horizontal(|ui| {
+                                ui.label(format!("<- {}.{}", binding.source, binding.source_property));
+                                if ui.small_button("x").on_hover_text("Remove binding").clicked() {
+                                    editor.remove_binding(binding_index);
+                                }
+                            });
+                            ui.end_row();
+                            if value.supports_offset() {
+                                ui.weak("    offset");
+                                let mut offset = binding.offset.clone().unwrap_or_else(|| zero_offset(&value));
+                                if anim_value_edit(ui, "offset", &mut offset) {
+                                    let _ = editor.set_binding_offset(binding_index, Some(offset));
+                                }
+                                ui.end_row();
+                            }
+                            continue;
+                        }
                         if anim_value_edit(ui, property, &mut value) {
                             editor.upsert_override(index, property, value);
                         }
                         ui.end_row();
                     }
                 });
+                ui.add_space(6.0);
+                bind_menu(ui, editor, index);
             });
         });
+}
+
+/// A zero-valued offset matching the property's variant (offsetable
+/// variants only; others are returned unchanged and never shown).
+fn zero_offset(template: &AnimValue) -> AnimValue {
+    match template {
+        AnimValue::Float(_) => AnimValue::Float(0.0),
+        AnimValue::Vec2(_) => AnimValue::Vec2(Vec2::ZERO),
+        AnimValue::Vec3(_) => AnimValue::Vec3(Vec3::ZERO),
+        AnimValue::Vec4(_) => AnimValue::Vec4(Vec4::ZERO),
+        other => other.clone(),
+    }
+}
+
+/// Three-level "+ Bind property" menu: property -> source object -> source
+/// property. Sources are limited to type-matched, cycle-free choices; bound
+/// or keyframed properties are disabled at the first level.
+fn bind_menu(ui: &mut egui::Ui, editor: &mut EditorState, index: usize) {
+    let object_id = editor.doc.objects[index].id.clone();
+    let mut sources: Vec<String> = editor
+        .doc
+        .objects
+        .iter()
+        .map(|o| o.id.clone())
+        .filter(|id| *id != object_id)
+        .collect();
+    sources.push("camera".to_string());
+
+    ui.menu_button("+ Bind property", |ui| {
+        for property in editor.property_names(index) {
+            let bound = editor.binding_for(&object_id, &property).is_some();
+            let tracked = editor.doc.tracks.iter().any(|t| t.object == object_id && t.property == property);
+            if bound || tracked {
+                let reason = if bound {
+                    "already bound"
+                } else {
+                    "keyframed — a property is tracked or bound, never both"
+                };
+                ui.add_enabled(false, egui::Button::new(&property)).on_disabled_hover_text(reason);
+                continue;
+            }
+            let Some(expected) = editor.effective_value(index, &property) else {
+                continue;
+            };
+            ui.menu_button(&property, |ui| {
+                for source in &sources {
+                    if editor.binding_would_cycle(&object_id, source) {
+                        ui.add_enabled(false, egui::Button::new(source))
+                            .on_disabled_hover_text("would create a binding cycle");
+                        continue;
+                    }
+                    ui.menu_button(source, |ui| {
+                        for source_property in editor.target_property_names(source).unwrap_or_default() {
+                            let matches = editor
+                                .target_value_template(source, &source_property)
+                                .is_some_and(|v| std::mem::discriminant(&v) == std::mem::discriminant(&expected));
+                            if !matches {
+                                continue;
+                            }
+                            if ui.button(&source_property).clicked() {
+                                let _ = editor.add_binding(&object_id, &property, source, &source_property);
+                                ui.close_menu();
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    });
 }
 
 fn drag(v: &mut f32) -> egui::DragValue<'_> {
@@ -616,6 +783,7 @@ enum SheetAction {
     Move(usize, usize, f32),
     AddKeyframe(usize, f32),
     RemoveTrack(usize),
+    RemoveBinding(usize),
 }
 
 /// Human label for an easing (named variants read as their name).
@@ -741,6 +909,55 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
                 paint_playhead(ui, lane_rect, clock.current_time, display_duration);
             });
         }
+
+        // Binding lanes: no keyframes — a flat bar, since the binding drives
+        // the property at every time.
+        let track_count = editor.doc.tracks.len();
+        for binding_index in 0..editor.doc.bindings.len() {
+            let binding = &editor.doc.bindings[binding_index];
+            let label = format!("{}.{}", binding.target, binding.property);
+            let source_label = format!("<- {}.{}", binding.source, binding.source_property);
+            ui.horizontal(|ui| {
+                let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
+                {
+                    let text_area = egui::Rect::from_min_max(label_rect.min, egui::pos2(label_rect.right() - 20.0, label_rect.bottom()));
+                    let clip = ui.painter().with_clip_rect(text_area);
+                    clip.text(
+                        label_rect.left_center() + egui::vec2(4.0, 0.0),
+                        egui::Align2::LEFT_CENTER,
+                        &label,
+                        egui::FontId::proportional(12.0),
+                        ui.visuals().weak_text_color(),
+                    );
+                }
+                let delete_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(18.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
+                if ui
+                    .put(delete_rect, egui::Button::new("x").small())
+                    .on_hover_text("Remove binding")
+                    .clicked()
+                {
+                    action = Some(SheetAction::RemoveBinding(binding_index));
+                }
+
+                let (lane_rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), SHEET_ROW_H), egui::Sense::hover());
+                if (track_count + binding_index).is_multiple_of(2) {
+                    ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
+                }
+                let bar = egui::Rect::from_min_max(
+                    egui::pos2(lane_rect.left() + 4.0, lane_rect.bottom() - 6.0),
+                    egui::pos2(lane_rect.right() - 4.0, lane_rect.bottom() - 3.0),
+                );
+                ui.painter().rect_filled(bar, 1.5, egui::Color32::from_gray(120));
+                ui.painter().text(
+                    lane_rect.left_center() + egui::vec2(8.0, -2.0),
+                    egui::Align2::LEFT_CENTER,
+                    &source_label,
+                    egui::FontId::proportional(11.0),
+                    ui.visuals().weak_text_color(),
+                );
+                paint_playhead(ui, lane_rect, clock.current_time, display_duration);
+            });
+        }
     });
 
     match action {
@@ -755,6 +972,7 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
             }
         }
         Some(SheetAction::RemoveTrack(t)) => editor.remove_track(t),
+        Some(SheetAction::RemoveBinding(b)) => editor.remove_binding(b),
         None => {}
     }
 
@@ -776,7 +994,11 @@ fn add_track_menu(ui: &mut egui::Ui, editor: &mut EditorState) {
             ui.menu_button(target, |ui| {
                 for property in editor.target_property_names(target).unwrap_or_default() {
                     let exists = editor.doc.tracks.iter().any(|t| &t.object == target && t.property == property);
-                    if ui.add_enabled(!exists, egui::Button::new(&property)).clicked() {
+                    let bound = editor.binding_for(target, &property).is_some();
+                    let response = ui.add_enabled(!exists && !bound, egui::Button::new(&property));
+                    if bound {
+                        response.on_disabled_hover_text("bound — a property is tracked or bound, never both");
+                    } else if response.clicked() {
                         let _ = editor.add_track(target, &property);
                         ui.close_menu();
                     }
@@ -1136,6 +1358,66 @@ mod tests {
         assert!(ed.rename_object(1, "follower"));
         assert_eq!(ed.doc.bindings, vec![binding("leader", "follower")]);
         ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn add_binding_validates_and_rejects_cycles() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![]));
+        let b = ed.add_binding("a", "radius", "b", "radius").unwrap();
+        assert_eq!(ed.doc.bindings[b], binding("a", "b"));
+
+        // Reverse direction would cycle; doc must be left unchanged.
+        assert!(ed.add_binding("b", "position", "a", "position").is_err());
+        assert_eq!(ed.doc.bindings.len(), 1);
+
+        // Duplicate target property, unknown source, type mismatch.
+        assert!(ed.add_binding("a", "radius", "b", "radius").is_err());
+        assert!(ed.add_binding("a", "position", "ghost", "position").is_err());
+        assert!(ed.add_binding("a", "position", "b", "radius").is_err());
+        assert_eq!(ed.doc.bindings.len(), 1);
+    }
+
+    #[test]
+    fn add_binding_rejects_tracked_property() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![track_for("a")]));
+        let err = ed.add_binding("a", "radius", "b", "radius").unwrap_err();
+        assert!(err.contains("keyframed and bound"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn set_binding_offset_applies_and_reverts_invalid() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![]));
+        let b = ed.add_binding("a", "radius", "b", "radius").unwrap();
+        ed.set_binding_offset(b, Some(AnimValue::Float(0.5))).unwrap();
+        assert_eq!(ed.doc.bindings[b].offset, Some(AnimValue::Float(0.5)));
+
+        assert!(ed.set_binding_offset(b, Some(AnimValue::Vec3(Vec3::ZERO))).is_err());
+        assert_eq!(ed.doc.bindings[b].offset, Some(AnimValue::Float(0.5)));
+
+        ed.set_binding_offset(b, None).unwrap();
+        assert_eq!(ed.doc.bindings[b].offset, None);
+    }
+
+    #[test]
+    fn binding_would_cycle_walks_chains() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b"), disk("c")], vec![]));
+        ed.doc.bindings = vec![binding("b", "a"), binding("c", "b")];
+        // c depends on b depends on a: binding a to c (or b) would cycle.
+        assert!(ed.binding_would_cycle("a", "c"));
+        assert!(ed.binding_would_cycle("a", "b"));
+        assert!(ed.binding_would_cycle("a", "a"));
+        // The other direction is fine, as is an uninvolved source.
+        assert!(!ed.binding_would_cycle("c", "a"));
+        assert!(!ed.binding_would_cycle("a", "camera"));
+    }
+
+    #[test]
+    fn binding_for_finds_target_property() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![]));
+        ed.doc.bindings = vec![binding("a", "b")];
+        assert_eq!(ed.binding_for("a", "radius"), Some(0));
+        assert_eq!(ed.binding_for("a", "position"), None);
+        assert_eq!(ed.binding_for("b", "radius"), None);
     }
 
     #[test]
