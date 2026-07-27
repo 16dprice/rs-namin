@@ -53,6 +53,27 @@ impl LSystem {
         let all = l_system::get_lines(&l_string, self.theta, 1.0);
         polyline::take_progress(&all, self.progress)
     }
+
+    /// World-space position of the drawing tip ("pen") at the current
+    /// progress: the end of the partially drawn path, or the path's start at
+    /// zero progress. Exposed as a read-only output property so other
+    /// objects can bind to it (e.g. a label following the drawing).
+    pub fn pen_position(&self) -> Vec3 {
+        let iters = self.iterations.floor().max(0.0) as usize;
+        let l_string = l_system::apply_rules(&self.config, iters);
+        let all = l_system::get_lines(&l_string, self.theta, 1.0);
+        let drawn = polyline::take_progress(&all, self.progress);
+        let local = match (drawn.last(), all.first()) {
+            (Some(segment), _) => segment.end,
+            (None, Some(first)) => first.start,
+            (None, None) => Vec2::ZERO,
+        };
+        vec3(
+            local.x * self.scale + self.position.x,
+            local.y * self.scale + self.position.y,
+            self.position.z,
+        )
+    }
 }
 
 impl SceneObject for LSystem {
@@ -119,13 +140,17 @@ animatable!(LSystem {
     iterations: Float,
     progress: Float,
     line_width: Float,
+} outputs {
+    pen_position: Vec3,
 });
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::scene::l_system::dragon_curve;
+    use crate::scene::traits::Animatable;
     use crate::scene::traits::test_support::assert_property_roundtrip;
+    use crate::scene::value::AnimValue;
 
     fn make_lsystem() -> LSystem {
         let (config, theta) = dragon_curve();
@@ -160,6 +185,53 @@ mod tests {
         ls.iterations = 3.0;
         let segs_3 = ls.get_segments();
         assert_eq!(segs_3_7.len(), segs_3.len());
+    }
+
+    #[test]
+    fn pen_position_tracks_the_drawing_tip() {
+        let mut ls = make_lsystem();
+
+        // Full progress: pen sits at the last segment's end.
+        ls.progress = 1.0;
+        let last_end = ls.get_segments().last().unwrap().end;
+        let pen = ls.pen_position();
+        assert!((pen.x - last_end.x).abs() < 1e-5 && (pen.y - last_end.y).abs() < 1e-5);
+        assert_eq!(pen.z, 0.0);
+
+        // Mid progress: take_progress clips the last segment, so the pen
+        // moves smoothly within a segment.
+        ls.progress = 0.505;
+        let partial_end = ls.get_segments().last().unwrap().end;
+        let pen = ls.pen_position();
+        assert!((pen.x - partial_end.x).abs() < 1e-5 && (pen.y - partial_end.y).abs() < 1e-5);
+
+        // Zero progress: pen rests at the path's start.
+        ls.progress = 1.0;
+        let path_start = ls.get_segments()[0].start;
+        ls.progress = 0.0;
+        let pen = ls.pen_position();
+        assert!((pen.x - path_start.x).abs() < 1e-5 && (pen.y - path_start.y).abs() < 1e-5);
+    }
+
+    #[test]
+    fn pen_position_applies_scale_and_position() {
+        let mut ls = make_lsystem();
+        ls.progress = 1.0;
+        let local = ls.get_segments().last().unwrap().end;
+        ls.scale = 2.0;
+        ls.position = vec3(1.0, -2.0, 3.0);
+        let pen = ls.pen_position();
+        assert!((pen.x - (local.x * 2.0 + 1.0)).abs() < 1e-5);
+        assert!((pen.y - (local.y * 2.0 - 2.0)).abs() < 1e-5);
+        assert_eq!(pen.z, 3.0);
+    }
+
+    #[test]
+    fn pen_position_is_a_readable_output_not_a_settable_property() {
+        let ls = make_lsystem();
+        assert_eq!(ls.output_names(), &["pen_position"]);
+        assert!(matches!(ls.get("pen_position"), Some(AnimValue::Vec3(_))));
+        assert!(!ls.property_names().contains(&"pen_position"));
     }
 
     #[test]

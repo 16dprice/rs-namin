@@ -161,6 +161,24 @@ impl EditorState {
         Some(self.property_names(index))
     }
 
+    /// Property names usable as a binding source: settable properties plus
+    /// read-only outputs (e.g. LSystem's `pen_position`).
+    pub fn source_property_names(&self, target: &str) -> Option<Vec<String>> {
+        if target == "camera" {
+            return self.target_property_names(target);
+        }
+        let index = self.doc.objects.iter().position(|o| o.id == target)?;
+        let instance = self.doc.objects[index].object.spawn();
+        Some(
+            instance
+                .property_names()
+                .iter()
+                .chain(instance.output_names().iter())
+                .map(|s| s.to_string())
+                .collect(),
+        )
+    }
+
     /// The AnimValue a track's keyframes must carry (from the target's
     /// property type).
     fn target_value_template(&self, target: &str, property: &str) -> Option<AnimValue> {
@@ -746,7 +764,7 @@ fn bind_menu(ui: &mut egui::Ui, editor: &mut EditorState, index: usize) {
                         continue;
                     }
                     ui.menu_button(source, |ui| {
-                        for source_property in editor.target_property_names(source).unwrap_or_default() {
+                        for source_property in editor.source_property_names(source).unwrap_or_default() {
                             let matches = editor
                                 .target_value_template(source, &source_property)
                                 .is_some_and(|v| std::mem::discriminant(&v) == std::mem::discriminant(&expected));

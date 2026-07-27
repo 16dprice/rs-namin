@@ -245,10 +245,11 @@ impl SceneBuilder {
             .unwrap_or_else(|| panic!("SceneBuilder::bind: source object {:?} not found in scene", source.id));
         let source_value = source_obj.get(source_property).unwrap_or_else(|| {
             panic!(
-                "SceneBuilder::bind: property \"{}\" not readable on source object {:?}. Valid properties: {:?}",
+                "SceneBuilder::bind: property \"{}\" not readable on source object {:?}. Valid properties: {:?}, outputs: {:?}",
                 source_property,
                 source.id,
                 source_obj.property_names(),
+                source_obj.output_names(),
             )
         });
 
@@ -787,6 +788,37 @@ mod tests {
             panic!("expected Float");
         };
         assert!((p - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn bind_can_source_a_derived_output_property() {
+        let mut sb = SceneBuilder::new();
+        let (config, theta) = lsys::dragon_curve();
+        let lsystem = sb.add(LSystem::new(config, theta, WHITE));
+        let marker = sb.add(Disk::new(Vec3::ZERO, 0.2, WHITE));
+        sb.animate(&lsystem, "progress", |tb| {
+            tb.keyframe(0.0, AnimValue::Float(0.0)).keyframe(1.0, AnimValue::Float(1.0))
+        });
+        sb.bind(&marker, "position", &lsystem, "pen_position");
+
+        let (mut scene, timeline, mut camera) = sb.build();
+        timeline.apply(0.75, &mut scene, &mut camera);
+        let pen = scene.get(lsystem.id).unwrap().get("pen_position").unwrap();
+        let marker_pos = scene.get(marker.id).unwrap().get("position").unwrap();
+        assert_eq!(marker_pos, pen);
+        // The pen has actually moved away from the origin by then.
+        let AnimValue::Vec3(p) = marker_pos else { panic!("expected Vec3") };
+        assert!(p.length() > 1e-3);
+    }
+
+    #[test]
+    #[should_panic(expected = "not found on target object")]
+    fn bind_cannot_target_an_output_property() {
+        let mut sb = SceneBuilder::new();
+        let (config, theta) = lsys::dragon_curve();
+        let lsystem = sb.add(LSystem::new(config, theta, WHITE));
+        let marker = sb.add(Disk::new(Vec3::ZERO, 0.2, WHITE));
+        sb.bind(&lsystem, "pen_position", &marker, "position");
     }
 
     #[test]
