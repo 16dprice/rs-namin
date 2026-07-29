@@ -1,5 +1,6 @@
 pub mod bezier;
 pub mod color;
+pub mod expr;
 pub mod font;
 pub mod l_system;
 pub mod latex;

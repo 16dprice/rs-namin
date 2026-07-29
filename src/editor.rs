@@ -524,6 +524,18 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
                 color: white,
             },
         ),
+        (
+            "Plot",
+            ObjectSpec::Plot {
+                expression: "sin(x)".to_string(),
+                position: Vec3::ZERO,
+                size: vec2(8.0, 4.5),
+                x_bounds: vec2(-6.3, 6.3),
+                y_bounds: vec2(-1.5, 1.5),
+                color: vec4(0.35, 0.8, 1.0, 1.0),
+                samples: 200,
+            },
+        ),
     ]
 }
 
@@ -541,6 +553,7 @@ fn spec_type_name(spec: &ObjectSpec) -> &'static str {
         ObjectSpec::Tube { .. } => "Tube",
         ObjectSpec::Text { .. } => "Text",
         ObjectSpec::VectorText { .. } => "VectorText",
+        ObjectSpec::Plot { .. } => "Plot",
     }
 }
 
@@ -661,6 +674,19 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
                 ui.horizontal(|ui| {
                     ui.weak("content");
                     spec_changed |= ui.text_edit_singleline(content).changed();
+                });
+            }
+            if let ObjectSpec::Plot { expression, samples, .. } = &mut editor.doc.objects[index].object {
+                ui.horizontal(|ui| {
+                    ui.weak("f(x)");
+                    spec_changed |= ui.text_edit_singleline(expression).changed();
+                });
+                if let Err(e) = crate::scene::expr::parse(expression) {
+                    ui.colored_label(ui.visuals().error_fg_color, format!("axes only — {e}"));
+                }
+                ui.horizontal(|ui| {
+                    ui.weak("samples");
+                    spec_changed |= ui.add(egui::DragValue::new(samples).range(8..=4000)).changed();
                 });
             }
             if spec_changed {

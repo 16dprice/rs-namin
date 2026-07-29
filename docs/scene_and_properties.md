@@ -38,7 +38,7 @@ animatable!(Disk { position: Vec3, radius: Float, color: Vec4 });
 
 This generates `get`/`set`/`property_names`/`output_names` from the single field list, so they can't drift apart the way hand-written parallel `match` arms could. Fields must be `Copy` and public.
 
-An optional `outputs { name: Variant }` block declares **read-only derived properties**, each backed by a same-named zero-arg method on the type. Outputs are served by `get` and listed by `output_names()` (default empty), but are never settable, keyframeable, or bindable as targets — their purpose is to be **binding sources** (see [animation_and_clock.md](animation_and_clock.md) > "Property Bindings"). `LSystem`'s `pen_position` (the world-space drawing tip at the current progress) is the first example:
+An optional `outputs { name: Variant }` block declares **read-only derived properties**, each backed by a same-named zero-arg method on the type. Outputs are served by `get` and listed by `output_names()` (default empty), but are never settable, keyframeable, or bindable as targets — their purpose is to be **binding sources** (see [animation_and_clock.md](animation_and_clock.md) > "Property Bindings"). `LSystem` and `Plot` both expose `pen_position` (the world-space drawing tip at the current progress) this way:
 
 ```ignore
 animatable!(LSystem { position: Vec3, progress: Float, ... } outputs { pen_position: Vec3 });
@@ -50,7 +50,7 @@ animatable!(LSystem { position: Vec3, progress: Float, ... } outputs { pen_posit
 
 ## Property Conventions
 
-- **`progress: Float` means "0.0–1.0 reveal fraction" everywhere it appears** (`Text`, `Ring`, `LSystem`, `VectorText`, `Turtle`). 0.0 = nothing shown/at path start, 1.0 = fully shown/at path end. Keep this meaning if you add `progress` to a new object — it's what lets generic "write-on" animation code work across object types.
+- **`progress: Float` means "0.0–1.0 reveal fraction" everywhere it appears** (`Text`, `Ring`, `LSystem`, `VectorText`, `Turtle`, `Plot`). 0.0 = nothing shown/at path start, 1.0 = fully shown/at path end. Keep this meaning if you add `progress` to a new object — it's what lets generic "write-on" animation code work across object types.
 - **`rotation: Float` vs `orientation: Mat4` are different things.** `rotation` (present on 2D objects like `Polygon`) is a single planar Z-axis angle in radians. `orientation` (only on `Torus`, a true 3D mesh) is a full `Mat4` — animate it with `AnimValue::Mat4` keyframes (see `Torus::orientation` and the `examples/torus.rs` scene), not `rotation_x/y/z` (those are Camera-only Euler fields, see [camera_and_rendering.md](camera_and_rendering.md)).
 - **Some properties are conceptually integers but stored as `Float`** so they can be keyframed (`AnimValue` has no integer variant): `Polygon::sides`, `LSystem::iterations`. Both are floored (and `sides` clamped to a minimum of 3) at draw/use time, not at set time — the stored float value round-trips exactly through `set`/`get` even mid-animation.
 

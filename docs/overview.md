@@ -10,7 +10,7 @@ A manim-inspired animation engine built in Rust using macroquad for rendering. S
 - **Property system** using a string-keyed `AnimValue` enum. Objects implement an `Animatable` trait. The animation system drives objects generically through this interface.
 - **Keyframe animation engine.** Tracks, timelines, easing functions, pure evaluation.
 - **Clock / transport controls.** Play, pause, frame-step, scrub, variable speed, loop modes.
-- **Scene objects:** Disk, Ring, Line, Rectangle, Polygon, Spiral, Arc, Arrow, Torus, Tube, LSystem, Polyline, Sprite, Turtle — flat custom meshes on the XY plane (Torus and Tube are true 3D meshes, Sprite is a textured quad). Text — screen-space overlay. VectorText — world-space bezier-curve text with write-on animation, supporting font files and LaTeX input. See `src/scene/objects/` for the authoritative list.
+- **Scene objects:** Disk, Ring, Line, Rectangle, Polygon, Spiral, Arc, Arrow, Torus, Tube, LSystem, Plot, Polyline, Sprite, Turtle — flat custom meshes on the XY plane (Torus and Tube are true 3D meshes, Sprite is a textured quad). Text — screen-space overlay. VectorText — world-space bezier-curve text with write-on animation, supporting font files and LaTeX input. See `src/scene/objects/` for the authoritative list.
 - **Two runtime modes:** Interactive (free orbit camera) and Timeline (keyframe-driven camera, toggled with F5).
 - **Camera wrapper** converting to macroquad's `Camera3D` in one place. Camera is animatable.
 - **Debug overlay** with HUD, world-space helpers, value inspector, scrub bar, orbit-target crosshair, bounding boxes, snap-to-view, camera state log.

@@ -501,7 +501,7 @@ mod tests {
     use crate::animation::easing::Easing;
     use crate::camera::{Camera, ProjectionMode};
     use crate::scene::l_system as lsys;
-    use crate::scene::objects::{Arc, Arrow, Disk, LSystem, Line, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText};
+    use crate::scene::objects::{Arc, Arrow, Disk, LSystem, Line, Plot, Polygon, Rectangle, Spiral, Text, Torus, Tube, VectorText};
 
     #[test]
     fn build_scene_with_object() {
@@ -655,9 +655,17 @@ mod tests {
         let _vector_text = sb.add(VectorText::new("test", crate::scene::font::default_font(), 1.0, WHITE));
         let (dragon_config, dragon_theta) = lsys::dragon_curve();
         let _lsystem = sb.add(LSystem::new(dragon_config, dragon_theta, WHITE));
+        let _plot = sb.add(Plot::new(
+            "sin(x)",
+            Vec3::ZERO,
+            vec2(4.0, 2.0),
+            vec2(-3.0, 3.0),
+            vec2(-1.0, 1.0),
+            WHITE,
+        ));
 
         let (scene, _timeline, _camera) = sb.build();
-        assert_eq!(scene.len(), 12);
+        assert_eq!(scene.len(), 13);
     }
 
     #[test]

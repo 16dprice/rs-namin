@@ -95,7 +95,7 @@ Documents open **with the editor**: a palette to add/remove objects, an inspecto
 
 ## Scene objects
 
-See `src/scene/objects/` for the full list (16 object types, e.g. `Disk`, `Ring`, `Line`, `Rectangle`, `Polygon`, `Arc`, `Arrow`, `Spiral`, `Torus`, `Tube`, `VectorText`, `LSystem`, `Polyline`, `Sprite`, `Turtle`) and `Text` for screen-space overlays.
+See `src/scene/objects/` for the full list (17 object types, e.g. `Disk`, `Ring`, `Line`, `Rectangle`, `Polygon`, `Arc`, `Arrow`, `Spiral`, `Torus`, `Tube`, `VectorText`, `LSystem`, `Plot`, `Polyline`, `Sprite`, `Turtle`) and `Text` for screen-space overlays.
 
 Most world-space objects are rendered as flat custom meshes via `draw_mesh` on the XY plane. Exceptions: `Line` uses `draw_line_3d`; `Torus`/`Tube` are true 3D meshes; `Sprite` is a textured quad. Screen-space objects (like `Text`) render in pixel coordinates against a fixed 1280x720 design canvas that's scaled to the actual output, so they look the same size/position in the interactive viewer and at every export resolution.
 

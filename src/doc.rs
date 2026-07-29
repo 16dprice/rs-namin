@@ -166,6 +166,22 @@ pub enum ObjectSpec {
         scale: f32,
         color: Vec4,
     },
+    /// A function plot: `y = f(x)` with axes, drawn into a `size` rectangle
+    /// centered on `position`. `expression` is a math string in `x` (see
+    /// `scene::expr`); one that doesn't parse plots axes only. Bounds are
+    /// animatable Vec2s (keyframe/bind them to zoom or pan the window);
+    /// `progress` reveals the curve; the `pen_position` output is the tip of
+    /// the revealed curve for bindings.
+    Plot {
+        expression: String,
+        position: Vec3,
+        size: Vec2,
+        x_bounds: Vec2,
+        y_bounds: Vec2,
+        color: Vec4,
+        /// Curve sample count across `x_bounds` (structural, not animatable).
+        samples: usize,
+    },
 }
 
 fn color(v: Vec4) -> Color {
@@ -247,6 +263,19 @@ impl ObjectSpec {
                 let mut vt = VectorText::new(&content, crate::scene::font::default_font(), scale, color(c));
                 vt.position = position;
                 Box::new(vt)
+            }
+            ObjectSpec::Plot {
+                expression,
+                position,
+                size,
+                x_bounds,
+                y_bounds,
+                color: c,
+                samples,
+            } => {
+                let mut plot = Plot::new(&expression, position, size, x_bounds, y_bounds, color(c));
+                plot.samples = samples;
+                Box::new(plot)
             }
         }
     }
@@ -655,6 +684,56 @@ mod tests {
         // Glyph outlines were actually extracted from the default font.
         let bb = vt.bounding_box();
         assert!(bb.max.x > bb.min.x);
+    }
+
+    #[test]
+    fn plot_spec_builds_and_round_trips() {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "graph".to_string(),
+            object: ObjectSpec::Plot {
+                expression: "x^2 - 1".to_string(),
+                position: vec3(0.0, 1.0, 0.0),
+                size: vec2(6.0, 4.0),
+                x_bounds: vec2(-2.0, 2.0),
+                y_bounds: vec2(-1.5, 3.5),
+                color: vec4(0.3, 0.8, 1.0, 1.0),
+                samples: 64,
+            },
+            set: vec![("progress".to_string(), AnimValue::Float(0.5))],
+        });
+
+        let ron_str = doc.to_ron_string().unwrap();
+        let parsed = SceneDoc::from_ron_str(&ron_str).unwrap();
+        let (scene, _, _) = parsed.build().unwrap();
+        let (_, plot) = scene.iter().nth(1).unwrap();
+        assert_eq!(plot.get("x_bounds"), Some(AnimValue::Vec2(vec2(-2.0, 2.0))));
+        assert_eq!(plot.get("progress"), Some(AnimValue::Float(0.5)));
+        // The pen output is live and sits inside the plot rect.
+        let Some(AnimValue::Vec3(pen)) = plot.get("pen_position") else {
+            panic!("expected pen_position output");
+        };
+        assert!(pen.x.abs() <= 3.0 && (pen.y - 1.0).abs() <= 2.0);
+    }
+
+    #[test]
+    fn plot_spec_with_bad_expression_still_builds() {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "graph".to_string(),
+            object: ObjectSpec::Plot {
+                expression: "wat(".to_string(),
+                position: Vec3::ZERO,
+                size: vec2(4.0, 2.0),
+                x_bounds: vec2(-1.0, 1.0),
+                y_bounds: vec2(-1.0, 1.0),
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+                samples: 32,
+            },
+            set: vec![],
+        });
+        // Axes-only fallback, never a build error (spawn is infallible).
+        doc.build().unwrap();
     }
 
     #[test]
