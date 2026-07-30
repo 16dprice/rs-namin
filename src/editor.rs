@@ -20,6 +20,9 @@ pub struct EditorState {
     pub doc: SceneDoc,
     pub path: &'static str,
     pub selected: Option<usize>,
+    /// The camera is selected in the palette (mutually exclusive with
+    /// `selected`); the inspector shows the camera page.
+    pub camera_selected: bool,
     /// Selected keyframe in the dope sheet: (track index, keyframe index).
     pub selected_keyframe: Option<(usize, usize)>,
     pub dirty: bool,
@@ -50,6 +53,7 @@ impl EditorState {
             doc,
             path,
             selected: None,
+            camera_selected: false,
             selected_keyframe: None,
             dirty: false,
             rebuild_needed: false,
@@ -72,10 +76,17 @@ impl EditorState {
 
     pub fn select(&mut self, index: Option<usize>) {
         self.selected = index;
+        self.camera_selected = false;
         self.id_buffer = match index {
             Some(i) => self.doc.objects[i].id.clone(),
             None => String::new(),
         };
+    }
+
+    pub fn select_camera(&mut self) {
+        self.selected = None;
+        self.camera_selected = true;
+        self.id_buffer = String::new();
     }
 
     /// Add a new object from a palette template with a unique generated id.
@@ -192,11 +203,44 @@ impl EditorState {
         )
     }
 
+    /// Effective initial value of a camera property: the doc's camera fields
+    /// plus its `set` overrides.
+    pub fn camera_effective_value(&self, property: &str) -> Option<AnimValue> {
+        let mut camera = Camera::new(self.doc.camera.position, self.doc.camera.target);
+        camera.fov = self.doc.camera.fov;
+        for (p, v) in &self.doc.camera.set {
+            camera.set(p, v.clone());
+        }
+        camera.get(property)
+    }
+
+    /// Set an initial camera property. `position`/`target`/`fov` write the
+    /// typed CameraDoc fields (removing any shadowing `set` entry); anything
+    /// else becomes a `set` override.
+    pub fn upsert_camera_override(&mut self, property: &str, value: AnimValue) {
+        match (property, &value) {
+            ("position", AnimValue::Vec3(v)) => self.doc.camera.position = *v,
+            ("target", AnimValue::Vec3(v)) => self.doc.camera.target = *v,
+            ("fov", AnimValue::Float(f)) => self.doc.camera.fov = *f,
+            _ => {
+                match self.doc.camera.set.iter_mut().find(|(p, _)| p == property) {
+                    Some((_, v)) => *v = value,
+                    None => self.doc.camera.set.push((property.to_string(), value)),
+                }
+                self.touch();
+                return;
+            }
+        }
+        // A typed field was written; drop any set entry that would shadow it.
+        self.doc.camera.set.retain(|(p, _)| p != property);
+        self.touch();
+    }
+
     /// The AnimValue a track's keyframes must carry (from the target's
     /// property type).
     fn target_value_template(&self, target: &str, property: &str) -> Option<AnimValue> {
         if target == "camera" {
-            return Camera::default().get(property);
+            return self.camera_effective_value(property);
         }
         let index = self.doc.objects.iter().position(|o| o.id == target)?;
         self.effective_value(index, property)
@@ -204,13 +248,19 @@ impl EditorState {
 
     /// Add a track for `target.property` with one keyframe at t=0 holding
     /// the current initial value. Rejects unknown targets/properties,
-    /// duplicate tracks, and bound properties.
+    /// duplicate tracks, and always-bound properties (windowed bindings
+    /// coexist with tracks).
     pub fn add_track(&mut self, target: &str, property: &str) -> Result<usize, String> {
         if self.doc.tracks.iter().any(|t| t.object == target && t.property == property) {
             return Err(format!("track {target}.{property} already exists"));
         }
-        if self.doc.bindings.iter().any(|b| b.target == target && b.property == property) {
-            return Err(format!("{target}.{property} is bound — remove the binding first"));
+        if self
+            .doc
+            .bindings
+            .iter()
+            .any(|b| b.target == target && b.property == property && !b.is_windowed())
+        {
+            return Err(format!("{target}.{property} is always-bound — window or remove the binding first"));
         }
         let value = self
             .target_value_template(target, property)
@@ -229,16 +279,32 @@ impl EditorState {
     }
 
     /// Add a binding locking `target.property` to `source.source_property`.
-    /// Validated by a trial doc build (unknown ids, types, duplicates,
+    /// Validated by a trial doc build (unknown ids, types, window overlaps,
     /// track conflicts, cycles); on failure the doc is unchanged and the
     /// build error is returned.
     pub fn add_binding(&mut self, target: &str, property: &str, source: &str, source_property: &str) -> Result<usize, String> {
+        self.add_binding_windowed(target, property, source, source_property, None, None)
+    }
+
+    /// Like [`add_binding`](Self::add_binding) with an active time window —
+    /// required when the property already has a track or another binding.
+    pub fn add_binding_windowed(
+        &mut self,
+        target: &str,
+        property: &str,
+        source: &str,
+        source_property: &str,
+        start: Option<f32>,
+        end: Option<f32>,
+    ) -> Result<usize, String> {
         self.doc.bindings.push(BindingDoc {
             target: target.to_string(),
             property: property.to_string(),
             source: source.to_string(),
             source_property: source_property.to_string(),
             offset: None,
+            start,
+            end,
         });
         match self.doc.build() {
             Ok(_) => {
@@ -247,6 +313,24 @@ impl EditorState {
             }
             Err(e) => {
                 self.doc.bindings.pop();
+                Err(e)
+            }
+        }
+    }
+
+    /// Set or clear a binding's time window, reverting on a failed trial
+    /// build (overlap with a sibling binding, inverted window).
+    pub fn set_binding_window(&mut self, index: usize, start: Option<f32>, end: Option<f32>) -> Result<(), String> {
+        let previous = (self.doc.bindings[index].start, self.doc.bindings[index].end);
+        self.doc.bindings[index].start = start;
+        self.doc.bindings[index].end = end;
+        match self.doc.build() {
+            Ok(_) => {
+                self.touch();
+                Ok(())
+            }
+            Err(e) => {
+                (self.doc.bindings[index].start, self.doc.bindings[index].end) = previous;
                 Err(e)
             }
         }
@@ -273,12 +357,24 @@ impl EditorState {
         }
     }
 
-    /// Index of the binding driving `object_id.property`, if any.
+    /// Index of the first binding driving `object_id.property`, if any.
     pub fn binding_for(&self, object_id: &str, property: &str) -> Option<usize> {
         self.doc
             .bindings
             .iter()
             .position(|b| b.target == object_id && b.property == property)
+    }
+
+    /// Indices of every binding driving `object_id.property` (several may
+    /// share a property with disjoint windows).
+    pub fn bindings_for(&self, object_id: &str, property: &str) -> Vec<usize> {
+        self.doc
+            .bindings
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.target == object_id && b.property == property)
+            .map(|(i, _)| i)
+            .collect()
     }
 
     /// Whether binding `target.<prop>` to `source` would create a dependency
@@ -623,10 +719,12 @@ fn spec_type_name(spec: &ObjectSpec) -> &'static str {
 
 /// Draw the editor panels (palette left, inspector right). Call inside the
 /// egui pass, viewer mode only.
-pub fn panels(ctx: &egui::Context, editor: &mut EditorState) {
+pub fn panels(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
     palette_panel(ctx, editor);
-    if editor.selected.is_some() {
-        inspector_panel(ctx, editor);
+    if editor.camera_selected {
+        camera_inspector(ctx, editor, playhead);
+    } else if editor.selected.is_some() {
+        inspector_panel(ctx, editor, playhead);
     }
 }
 
@@ -694,10 +792,16 @@ fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
 
             ui.add_space(4.0);
 
-            // Object list.
+            // Object list, with the camera as a scene-level pseudo-object.
             let mut remove: Option<usize> = None;
             let mut select: Option<usize> = None;
             egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(editor.camera_selected, "camera").clicked() {
+                        editor.select_camera();
+                    }
+                    ui.weak("Camera");
+                });
                 for (i, obj) in editor.doc.objects.iter().enumerate() {
                     ui.horizontal(|ui| {
                         let selected = editor.selected == Some(i);
@@ -725,7 +829,7 @@ fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
 const LSYSTEM_ALPHABET_HELP: &str = "F/G draw forward, + turns left and - turns right by theta (radians), \
 [ ] push/pop the turtle state, other letters are silent rewriting variables";
 
-fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
+fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
     let Some(index) = editor.selected else { return };
     if index >= editor.doc.objects.len() {
         editor.select(None);
@@ -831,46 +935,154 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
             ui.add_space(4.0);
 
             // Generated editors over the Animatable surface. A bound
-            // property is driven by its source every frame, so it shows the
-            // link (and its editable offset) instead of a value widget.
+            // property shows its binding rows (link/offset/window) instead
+            // of — or, when all bindings are windowed, in addition to — a
+            // value widget.
             let object_id = editor.doc.objects[index].id.clone();
             let properties = editor.property_names(index);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("editor_props").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
                     for property in &properties {
-                        let Some(mut value) = editor.effective_value(index, property) else {
+                        let Some(value) = editor.effective_value(index, property) else {
                             continue;
                         };
                         ui.weak(property);
-                        if let Some(binding_index) = editor.binding_for(&object_id, property) {
-                            let binding = editor.doc.bindings[binding_index].clone();
-                            ui.horizontal(|ui| {
-                                ui.label(format!("<- {}.{}", binding.source, binding.source_property));
-                                if ui.small_button("x").on_hover_text("Remove binding").clicked() {
-                                    editor.remove_binding(binding_index);
-                                }
-                            });
-                            ui.end_row();
-                            if value.supports_offset() {
-                                ui.weak("    offset");
-                                let mut offset = binding.offset.clone().unwrap_or_else(|| zero_offset(&value));
-                                if anim_value_edit(ui, "offset", &mut offset) {
-                                    let _ = editor.set_binding_offset(binding_index, Some(offset));
-                                }
-                                ui.end_row();
-                            }
-                            continue;
+                        if let Some(new_value) = property_rows(ui, editor, &object_id, property, &value, playhead) {
+                            editor.upsert_override(index, property, new_value);
                         }
-                        if anim_value_edit(ui, property, &mut value) {
-                            editor.upsert_override(index, property, value);
-                        }
-                        ui.end_row();
                     }
                 });
                 ui.add_space(6.0);
-                bind_menu(ui, editor, index);
+                bind_menu_for(ui, editor, &object_id, playhead);
             });
         });
+}
+
+/// The camera's inspector page: same generated property widgets and bind
+/// menu as objects, writing to `CameraDoc` (typed fields + `set` overrides).
+fn camera_inspector(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
+    egui::SidePanel::right("editor_inspector")
+        .resizable(false)
+        .exact_width(280.0)
+        .show(ctx, |ui| {
+            ui.add_space(6.0);
+            ui.heading("Camera");
+            ui.weak("Timeline camera. Toggle \"Camera follows timeline\" (F5) to preview tracks and bindings; orbit ignores them.");
+
+            ui.separator();
+            ui.weak("Initial properties");
+            ui.add_space(4.0);
+
+            let properties: Vec<String> = Camera::default().property_names().iter().map(|s| s.to_string()).collect();
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                egui::Grid::new("editor_camera_props")
+                    .num_columns(2)
+                    .spacing([10.0, 6.0])
+                    .show(ui, |ui| {
+                        for property in &properties {
+                            let Some(value) = editor.camera_effective_value(property) else {
+                                continue;
+                            };
+                            ui.weak(property);
+                            if let Some(new_value) = property_rows(ui, editor, "camera", property, &value, playhead) {
+                                editor.upsert_camera_override(property, new_value);
+                            }
+                        }
+                    });
+                ui.add_space(6.0);
+                bind_menu_for(ui, editor, "camera", playhead);
+            });
+        });
+}
+
+/// Paint the second grid column (and any extra rows) for one property of
+/// `target_id`: every binding on the property gets link/offset/window rows;
+/// a value editor follows unless an unwindowed binding owns the property
+/// outright. Returns the edited initial value, if any. Callers paint the
+/// property-name cell first.
+fn property_rows(
+    ui: &mut egui::Ui,
+    editor: &mut EditorState,
+    target_id: &str,
+    property: &str,
+    value: &AnimValue,
+    playhead: f32,
+) -> Option<AnimValue> {
+    let binding_indices = editor.bindings_for(target_id, property);
+    let mut fully_owned = false;
+    for (n, &binding_index) in binding_indices.iter().enumerate() {
+        // A removal earlier in this frame may have shifted indices; skip the
+        // rest of the frame's rows rather than paint the wrong binding.
+        let Some(binding) = editor.doc.bindings.get(binding_index).cloned() else {
+            continue;
+        };
+        if n > 0 {
+            ui.weak("");
+        }
+        fully_owned |= !binding.is_windowed();
+        ui.horizontal(|ui| {
+            ui.label(format!("<- {}.{}", binding.source, binding.source_property));
+            if ui.small_button("x").on_hover_text("Remove binding").clicked() {
+                editor.remove_binding(binding_index);
+            }
+        });
+        ui.end_row();
+        if value.supports_offset() {
+            ui.weak("    offset");
+            let mut offset = binding.offset.clone().unwrap_or_else(|| zero_offset(value));
+            if anim_value_edit(ui, "offset", &mut offset) {
+                let _ = editor.set_binding_offset(binding_index, Some(offset));
+            }
+            ui.end_row();
+        }
+        ui.weak("    active");
+        window_widgets(ui, editor, binding_index, &binding, playhead);
+        ui.end_row();
+    }
+    if fully_owned {
+        return None;
+    }
+
+    let mut value = value.clone();
+    if !binding_indices.is_empty() {
+        // All bindings are windowed: the initial value still applies
+        // outside their windows.
+        ui.weak("    value");
+    }
+    let edited = anim_value_edit(ui, property, &mut value);
+    ui.end_row();
+    edited.then_some(value)
+}
+
+/// One row of window controls for a binding: from/until checkboxes with
+/// second drags. Unchecked = open on that side.
+fn window_widgets(ui: &mut egui::Ui, editor: &mut EditorState, binding_index: usize, binding: &BindingDoc, playhead: f32) {
+    ui.horizontal(|ui| {
+        let mut has_start = binding.start.is_some();
+        let mut start = binding.start.unwrap_or(0.0);
+        let mut has_end = binding.end.is_some();
+        let mut end = binding.end.unwrap_or(if playhead > start { playhead } else { start + 1.0 });
+        let mut changed = false;
+
+        changed |= ui
+            .checkbox(&mut has_start, "from")
+            .on_hover_text("Inactive before this time")
+            .changed();
+        changed |= ui
+            .add_enabled(has_start, egui::DragValue::new(&mut start).speed(0.05).suffix("s"))
+            .changed();
+        changed |= ui
+            .checkbox(&mut has_end, "until")
+            .on_hover_text("Inactive from this time on")
+            .changed();
+        changed |= ui
+            .add_enabled(has_end, egui::DragValue::new(&mut end).speed(0.05).suffix("s"))
+            .changed();
+
+        if changed && let Err(e) = editor.set_binding_window(binding_index, has_start.then_some(start), has_end.then_some(end)) {
+            editor.error = Some(e);
+        }
+    });
 }
 
 /// A zero-valued offset matching the property's variant (offsetable
@@ -885,39 +1097,40 @@ fn zero_offset(template: &AnimValue) -> AnimValue {
     }
 }
 
-/// Three-level "+ Bind property" menu: property -> source object -> source
-/// property. Sources are limited to type-matched, cycle-free choices; bound
-/// or keyframed properties are disabled at the first level.
-fn bind_menu(ui: &mut egui::Ui, editor: &mut EditorState, index: usize) {
-    let object_id = editor.doc.objects[index].id.clone();
+/// Three-level "+ Bind property" menu for `target_id` (an object id or
+/// "camera"): property -> source object -> source property. Sources are
+/// limited to type-matched, cycle-free choices. Properties owned by an
+/// unwindowed binding are disabled; tracked or windowed-bound properties
+/// stay available and create a binding active from the playhead onward.
+fn bind_menu_for(ui: &mut egui::Ui, editor: &mut EditorState, target_id: &str, playhead: f32) {
     let mut sources: Vec<String> = editor
         .doc
         .objects
         .iter()
         .map(|o| o.id.clone())
-        .filter(|id| *id != object_id)
+        .filter(|id| id != target_id)
         .collect();
-    sources.push("camera".to_string());
+    if target_id != "camera" {
+        sources.push("camera".to_string());
+    }
 
     ui.menu_button("+ Bind property", |ui| {
-        for property in editor.property_names(index) {
-            let bound = editor.binding_for(&object_id, &property).is_some();
-            let tracked = editor.doc.tracks.iter().any(|t| t.object == object_id && t.property == property);
-            if bound || tracked {
-                let reason = if bound {
-                    "already bound"
-                } else {
-                    "keyframed — a property is tracked or bound, never both"
-                };
-                ui.add_enabled(false, egui::Button::new(&property)).on_disabled_hover_text(reason);
+        for property in editor.target_property_names(target_id).unwrap_or_default() {
+            let existing = editor.bindings_for(target_id, &property);
+            let always_bound = existing.iter().any(|&i| !editor.doc.bindings[i].is_windowed());
+            if always_bound {
+                ui.add_enabled(false, egui::Button::new(&property))
+                    .on_disabled_hover_text("already bound at every time — window or remove that binding first");
                 continue;
             }
-            let Some(expected) = editor.effective_value(index, &property) else {
+            let tracked = editor.doc.tracks.iter().any(|t| t.object == target_id && t.property == property);
+            let needs_window = tracked || !existing.is_empty();
+            let Some(expected) = editor.target_value_template(target_id, &property) else {
                 continue;
             };
-            ui.menu_button(&property, |ui| {
+            let response = ui.menu_button(&property, |ui| {
                 for source in &sources {
-                    if editor.binding_would_cycle(&object_id, source) {
+                    if editor.binding_would_cycle(target_id, source) {
                         ui.add_enabled(false, egui::Button::new(source))
                             .on_disabled_hover_text("would create a binding cycle");
                         continue;
@@ -931,13 +1144,25 @@ fn bind_menu(ui: &mut egui::Ui, editor: &mut EditorState, index: usize) {
                                 continue;
                             }
                             if ui.button(&source_property).clicked() {
-                                let _ = editor.add_binding(&object_id, &property, source, &source_property);
+                                let result = if needs_window {
+                                    editor.add_binding_windowed(target_id, &property, source, &source_property, Some(playhead), None)
+                                } else {
+                                    editor.add_binding(target_id, &property, source, &source_property)
+                                };
+                                if let Err(e) = result {
+                                    editor.error = Some(e);
+                                }
                                 ui.close_menu();
                             }
                         }
                     });
                 }
             });
+            if needs_window {
+                response
+                    .response
+                    .on_hover_text("already tracked or window-bound — the new binding will be active from the playhead onward");
+            }
         }
     });
 }
@@ -1087,13 +1312,14 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
             });
         }
 
-        // Binding lanes: no keyframes — a flat bar, since the binding drives
-        // the property at every time.
+        // Binding lanes: no keyframes — a flat bar spanning the binding's
+        // active window (full width when unwindowed).
         let track_count = editor.doc.tracks.len();
         for binding_index in 0..editor.doc.bindings.len() {
             let binding = &editor.doc.bindings[binding_index];
             let label = format!("{}.{}", binding.target, binding.property);
             let source_label = format!("<- {}.{}", binding.source, binding.source_property);
+            let (window_start, window_end) = (binding.start, binding.end);
             ui.horizontal(|ui| {
                 let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
                 {
@@ -1120,9 +1346,17 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
                 if (track_count + binding_index).is_multiple_of(2) {
                     ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
                 }
+                let bar_left = match window_start {
+                    Some(s) => time_to_x(s, lane_rect, display_duration),
+                    None => lane_rect.left() + 4.0,
+                };
+                let bar_right = match window_end {
+                    Some(e) => time_to_x(e, lane_rect, display_duration),
+                    None => lane_rect.right() - 4.0,
+                };
                 let bar = egui::Rect::from_min_max(
-                    egui::pos2(lane_rect.left() + 4.0, lane_rect.bottom() - 6.0),
-                    egui::pos2(lane_rect.right() - 4.0, lane_rect.bottom() - 3.0),
+                    egui::pos2(bar_left.max(lane_rect.left() + 4.0), lane_rect.bottom() - 6.0),
+                    egui::pos2(bar_right.min(lane_rect.right() - 4.0), lane_rect.bottom() - 3.0),
                 );
                 ui.painter().rect_filled(bar, 1.5, egui::Color32::from_gray(120));
                 ui.painter().text(
@@ -1579,6 +1813,8 @@ mod tests {
             source: source.to_string(),
             source_property: "radius".to_string(),
             offset: None,
+            start: None,
+            end: None,
         }
     }
 
@@ -1623,7 +1859,7 @@ mod tests {
     fn add_binding_rejects_tracked_property() {
         let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![track_for("a")]));
         let err = ed.add_binding("a", "radius", "b", "radius").unwrap_err();
-        assert!(err.contains("keyframed and bound"), "unexpected error: {err}");
+        assert!(err.contains("keyframed and always-bound"), "unexpected error: {err}");
     }
 
     #[test]
@@ -1660,6 +1896,74 @@ mod tests {
         assert_eq!(ed.binding_for("a", "radius"), Some(0));
         assert_eq!(ed.binding_for("a", "position"), None);
         assert_eq!(ed.binding_for("b", "radius"), None);
+    }
+
+    #[test]
+    fn camera_selection_is_mutually_exclusive_with_objects() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        assert!(!ed.camera_selected);
+        ed.select_camera();
+        assert!(ed.camera_selected);
+        assert_eq!(ed.selected, None);
+        ed.select(Some(0));
+        assert!(!ed.camera_selected);
+        assert_eq!(ed.selected, Some(0));
+    }
+
+    #[test]
+    fn camera_overrides_route_to_fields_and_set() {
+        let mut ed = editor(doc_with(vec![], vec![]));
+        // Typed fields.
+        ed.upsert_camera_override("position", AnimValue::Vec3(vec3(1.0, 2.0, 3.0)));
+        ed.upsert_camera_override("fov", AnimValue::Float(45.0));
+        assert_eq!(ed.doc.camera.position, vec3(1.0, 2.0, 3.0));
+        assert_eq!(ed.doc.camera.fov, 45.0);
+        assert!(ed.doc.camera.set.is_empty());
+        // Other properties become set overrides.
+        ed.upsert_camera_override("rotation_z", AnimValue::Float(0.7));
+        ed.upsert_camera_override("rotation_z", AnimValue::Float(0.9));
+        assert_eq!(ed.doc.camera.set, vec![("rotation_z".to_string(), AnimValue::Float(0.9))]);
+        // Effective values read through both.
+        assert_eq!(ed.camera_effective_value("fov"), Some(AnimValue::Float(45.0)));
+        assert_eq!(ed.camera_effective_value("rotation_z"), Some(AnimValue::Float(0.9)));
+        // A hand-written set entry shadowing a typed field is dropped when
+        // the field is edited.
+        ed.doc.camera.set.push(("fov".to_string(), AnimValue::Float(20.0)));
+        assert_eq!(ed.camera_effective_value("fov"), Some(AnimValue::Float(20.0)));
+        ed.upsert_camera_override("fov", AnimValue::Float(50.0));
+        assert_eq!(ed.camera_effective_value("fov"), Some(AnimValue::Float(50.0)));
+        ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn camera_can_be_bound_through_the_editor() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        let b = ed.add_binding("camera", "position", "a", "position").unwrap();
+        assert_eq!(ed.doc.bindings[b].target, "camera");
+        ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn windowed_binding_coexists_with_track_via_editor() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![track_for("a")]));
+        // Unwindowed fails on the tracked property…
+        assert!(ed.add_binding("a", "radius", "b", "radius").is_err());
+        // …windowed from the playhead succeeds.
+        let b = ed.add_binding_windowed("a", "radius", "b", "radius", None, Some(2.0)).unwrap();
+        assert_eq!(ed.doc.bindings[b].end, Some(2.0));
+
+        // And a second binding may follow in a disjoint window.
+        let b2 = ed.add_binding_windowed("a", "radius", "b", "radius", Some(2.0), None).unwrap();
+        assert_eq!(ed.doc.bindings[b2].start, Some(2.0));
+
+        // Overlapping window edit reverts.
+        let err = ed.set_binding_window(b2, Some(1.0), None).unwrap_err();
+        assert!(err.contains("overlapping"), "unexpected error: {err}");
+        assert_eq!(ed.doc.bindings[b2].start, Some(2.0));
+
+        // Tracks are still addable on a property with only windowed bindings.
+        assert!(ed.add_track("a", "position").is_ok());
+        ed.doc.build().unwrap();
     }
 
     #[test]

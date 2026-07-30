@@ -6,8 +6,14 @@ use super::track::TrackTarget;
 /// re-evaluated every frame after keyframe tracks are applied. The optional
 /// offset is added component-wise (Float/Vec2/Vec3/Vec4 only).
 ///
-/// Bindings replace keyframes for the target property — a property is driven
-/// by a track or a binding, never both (validated at build time).
+/// A binding may be limited to a time window (`start`/`end`, either side
+/// open): inside the window it overwrites the target property (winning over
+/// any keyframe track); outside it does nothing, so a track on the same
+/// property takes over. An unwindowed binding owns its property outright —
+/// combining one with a track is a build error. Outside every window, an
+/// untracked property simply keeps its last-evaluated value, which is
+/// scrub-order dependent — add a track (or initial override) if determinism
+/// matters there.
 #[derive(Debug, Clone)]
 pub struct Binding {
     pub target: TrackTarget,
@@ -15,9 +21,36 @@ pub struct Binding {
     pub source: TrackTarget,
     pub source_property: String,
     pub offset: Option<AnimValue>,
+    /// Window start (inclusive); `None` = from the beginning.
+    pub start: Option<f32>,
+    /// Window end (exclusive); `None` = forever.
+    pub end: Option<f32>,
 }
 
 impl Binding {
+    /// Whether the binding drives its target at `time`.
+    pub fn active_at(&self, time: f32) -> bool {
+        self.start.is_none_or(|s| time >= s) && self.end.is_none_or(|e| time < e)
+    }
+
+    /// Whether this binding's window overlaps another's (unbounded sides
+    /// extend to infinity). Used to reject ambiguous same-property bindings.
+    pub fn window_overlaps(&self, other: &Binding) -> bool {
+        let starts_before_other_ends = match (self.start, other.end) {
+            (Some(s), Some(e)) => s < e,
+            _ => true,
+        };
+        let other_starts_before_self_ends = match (other.start, self.end) {
+            (Some(s), Some(e)) => s < e,
+            _ => true,
+        };
+        starts_before_other_ends && other_starts_before_self_ends
+    }
+
+    pub fn is_windowed(&self) -> bool {
+        self.start.is_some() || self.end.is_some()
+    }
+
     /// Sort bindings so every binding runs after any binding that writes its
     /// source. Granularity is the whole target (object or camera), not
     /// (target, property): setters may have side effects on sibling
@@ -62,7 +95,38 @@ mod tests {
             source: TrackTarget::Object(source),
             source_property: "position".to_string(),
             offset: None,
+            start: None,
+            end: None,
         }
+    }
+
+    fn windowed(start: Option<f32>, end: Option<f32>) -> Binding {
+        let mut b = bind(id(0), id(1));
+        b.start = start;
+        b.end = end;
+        b
+    }
+
+    #[test]
+    fn active_at_respects_window() {
+        let b = windowed(Some(2.0), Some(10.0));
+        assert!(!b.active_at(1.9));
+        assert!(b.active_at(2.0));
+        assert!(b.active_at(9.9));
+        assert!(!b.active_at(10.0));
+        assert!(windowed(None, None).active_at(1e9));
+        assert!(windowed(None, Some(5.0)).active_at(0.0));
+        assert!(!windowed(Some(5.0), None).active_at(4.9));
+    }
+
+    #[test]
+    fn window_overlap_detection() {
+        let a = windowed(None, Some(10.0));
+        assert!(a.window_overlaps(&windowed(Some(5.0), None)));
+        assert!(!a.window_overlaps(&windowed(Some(10.0), None)));
+        assert!(a.window_overlaps(&windowed(None, None)));
+        assert!(!windowed(Some(0.0), Some(2.0)).window_overlaps(&windowed(Some(2.0), Some(4.0))));
+        assert!(windowed(Some(0.0), Some(3.0)).window_overlaps(&windowed(Some(2.0), Some(4.0))));
     }
 
     fn id(n: usize) -> ObjectId {

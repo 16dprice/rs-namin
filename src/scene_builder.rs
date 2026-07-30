@@ -191,7 +191,24 @@ impl SceneBuilder {
     /// source is the target object itself, the property is already bound, or
     /// the property already has a keyframe track.
     pub fn bind(&mut self, target: &ObjRef, property: &str, source: &ObjRef, source_property: &str) -> &mut Self {
-        self.bind_internal(target, property, source, source_property, None)
+        self.bind_internal(target, property, source, source_property, None, None, None)
+    }
+
+    /// Like [`bind`](Self::bind), but only active inside the `[start, end)`
+    /// time window (either side `None` = open). Outside the window the
+    /// property falls back to its keyframe track, if any — windowed bindings
+    /// may coexist with tracks, and several windowed bindings may share a
+    /// property as long as their windows don't overlap.
+    pub fn bind_during(
+        &mut self,
+        target: &ObjRef,
+        property: &str,
+        source: &ObjRef,
+        source_property: &str,
+        start: Option<f32>,
+        end: Option<f32>,
+    ) -> &mut Self {
+        self.bind_internal(target, property, source, source_property, None, start, end)
     }
 
     /// Like [`bind`](Self::bind), but adds `offset` to the source value each
@@ -208,9 +225,10 @@ impl SceneBuilder {
         source_property: &str,
         offset: AnimValue,
     ) -> &mut Self {
-        self.bind_internal(target, property, source, source_property, Some(offset))
+        self.bind_internal(target, property, source, source_property, Some(offset), None, None)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn bind_internal(
         &mut self,
         target: &ObjRef,
@@ -218,6 +236,8 @@ impl SceneBuilder {
         source: &ObjRef,
         source_property: &str,
         offset: Option<AnimValue>,
+        start: Option<f32>,
+        end: Option<f32>,
     ) -> &mut Self {
         assert!(
             target.id != source.id,
@@ -279,25 +299,34 @@ impl SceneBuilder {
             );
         }
 
-        let target_tt = TrackTarget::Object(target.id);
+        if let (Some(s), Some(e)) = (start, end) {
+            assert!(
+                s < e,
+                "SceneBuilder::bind: window start {s} must be before end {e} on property \"{property}\"",
+            );
+        }
+
+        let binding = Binding {
+            target: TrackTarget::Object(target.id),
+            target_property: property.to_string(),
+            source: TrackTarget::Object(source.id),
+            source_property: source_property.to_string(),
+            offset,
+            start,
+            end,
+        };
         assert!(
             !self
                 .timeline
                 .bindings
                 .iter()
-                .any(|b| b.target == target_tt && b.target_property == property),
-            "SceneBuilder::bind: property \"{}\" on object {:?} is already bound",
+                .any(|b| b.target == binding.target && b.target_property == property && b.window_overlaps(&binding)),
+            "SceneBuilder::bind: property \"{}\" on object {:?} is already bound during that window",
             property,
             target.id,
         );
 
-        self.timeline.add_binding(Binding {
-            target: target_tt,
-            target_property: property.to_string(),
-            source: TrackTarget::Object(source.id),
-            source_property: source_property.to_string(),
-            offset,
-        });
+        self.timeline.add_binding(binding);
         self
     }
 
@@ -355,12 +384,16 @@ impl SceneBuilder {
         let scene = mem::take(&mut self.scene);
         let mut timeline = mem::take(&mut self.timeline);
         for binding in &timeline.bindings {
+            // A windowed binding may coexist with a track (the track drives
+            // the property outside the window); an unwindowed one shadows
+            // the track at every time, which can only be a mistake.
             assert!(
-                !timeline
-                    .tracks
-                    .iter()
-                    .any(|t| t.target == binding.target && t.property_name == binding.target_property),
-                "SceneBuilder::build: property \"{}\" on {:?} is both keyframed and bound",
+                binding.is_windowed()
+                    || !timeline
+                        .tracks
+                        .iter()
+                        .any(|t| t.target == binding.target && t.property_name == binding.target_property),
+                "SceneBuilder::build: property \"{}\" on {:?} is both keyframed and always-bound — window the binding or remove the track",
                 binding.target_property,
                 binding.target,
             );
@@ -875,7 +908,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "both keyframed and bound")]
+    #[should_panic(expected = "keyframed and always-bound")]
     fn bound_and_keyframed_property_panics_at_build() {
         let mut sb = SceneBuilder::new();
         let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
@@ -883,6 +916,40 @@ mod tests {
         sb.bind(&a, "position", &b, "position");
         sb.animate(&a, "position", |tb| tb.keyframe(0.0, AnimValue::Vec3(Vec3::ZERO)));
         let _ = sb.build();
+    }
+
+    #[test]
+    fn bind_during_coexists_with_a_track() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 3.0, WHITE));
+        sb.animate(&a, "radius", |tb| {
+            tb.keyframe(0.0, AnimValue::Float(1.0)).keyframe(4.0, AnimValue::Float(9.0))
+        });
+        sb.bind_during(&a, "radius", &b, "radius", None, Some(2.0));
+
+        let (mut scene, timeline, mut camera) = sb.build();
+        timeline.apply(1.0, &mut scene, &mut camera);
+        let AnimValue::Float(r) = scene.get(a.id).unwrap().get("radius").unwrap() else {
+            panic!("expected Float");
+        };
+        assert!((r - 3.0).abs() < 1e-5, "bound inside the window, got {r}");
+
+        timeline.apply(3.0, &mut scene, &mut camera);
+        let AnimValue::Float(r) = scene.get(a.id).unwrap().get("radius").unwrap() else {
+            panic!("expected Float");
+        };
+        assert!((r - 7.0).abs() < 1e-5, "track resumes after the window, got {r}");
+    }
+
+    #[test]
+    #[should_panic(expected = "already bound during that window")]
+    fn overlapping_windows_panic() {
+        let mut sb = SceneBuilder::new();
+        let a = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        let b = sb.add(Disk::new(Vec3::ZERO, 1.0, WHITE));
+        sb.bind_during(&a, "radius", &b, "radius", None, Some(3.0));
+        sb.bind_during(&a, "radius", &b, "radius", Some(2.0), None);
     }
 
     #[test]

@@ -246,10 +246,18 @@ impl ViewerMode {
             if let Some((index, _)) = best
                 && let Some(initial) = draggable_properties(&editor.doc.objects[index].object, &self.scene, index)
             {
-                // A bound property is overwritten by its source every frame;
-                // dragging would silently fight the binding, so block it.
+                // A property bound at the current time is overwritten by its
+                // source every frame; dragging would silently fight the
+                // binding, so block it. Bindings windowed elsewhere on the
+                // timeline don't get in the way.
                 let object_id = &editor.doc.objects[index].id;
-                if let Some(binding_index) = initial.iter().find_map(|(prop, _)| editor.binding_for(object_id, prop)) {
+                let time = self.clock.current_time;
+                if let Some(binding_index) = initial.iter().find_map(|(prop, _)| {
+                    editor
+                        .bindings_for(object_id, prop)
+                        .into_iter()
+                        .find(|&i| editor.doc.bindings[i].active_at(time))
+                }) {
                     let binding = &editor.doc.bindings[binding_index];
                     self.status = Some((
                         format!(

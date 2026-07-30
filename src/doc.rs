@@ -54,6 +54,10 @@ pub struct CameraDoc {
     pub target: Vec3,
     #[serde(default = "default_fov")]
     pub fov: f32,
+    /// Initial overrides for any other camera property (up, near, far,
+    /// rotation_x/y/z...), applied after construction like `ObjectDoc.set`.
+    #[serde(default)]
+    pub set: Vec<(String, AnimValue)>,
 }
 
 fn default_fov() -> f32 {
@@ -66,6 +70,7 @@ impl Default for CameraDoc {
             position: vec3(0.0, 5.0, 10.0),
             target: Vec3::ZERO,
             fov: 60.0,
+            set: Vec::new(),
         }
     }
 }
@@ -346,8 +351,15 @@ pub struct KeyframeDoc {
 }
 
 /// Locks `target.property` to `source.source_property` every frame. Either
-/// end may be `"camera"`. A bound property cannot also have a track, and
-/// bindings may chain but not cycle — both validated at build.
+/// end may be `"camera"`. Bindings may chain but not cycle (validated at
+/// build).
+///
+/// An optional `start`/`end` window limits when the binding drives the
+/// property. A windowed binding may coexist with a keyframe track on the
+/// same property (the binding wins inside the window, the track outside),
+/// and several bindings may share a property when their windows don't
+/// overlap. An unwindowed binding owns the property outright — combining it
+/// with a track is a build error.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BindingDoc {
     /// An `ObjectDoc.id`, or `"camera"`.
@@ -360,6 +372,24 @@ pub struct BindingDoc {
     /// Float/Vec2/Vec3/Vec4 properties only).
     #[serde(default)]
     pub offset: Option<AnimValue>,
+    /// Window start in seconds (inclusive); `None` = from the beginning.
+    #[serde(default)]
+    pub start: Option<f32>,
+    /// Window end in seconds (exclusive); `None` = forever.
+    #[serde(default)]
+    pub end: Option<f32>,
+}
+
+impl BindingDoc {
+    /// Whether the binding drives its target at `time` (mirrors
+    /// `Binding::active_at`).
+    pub fn active_at(&self, time: f32) -> bool {
+        self.start.is_none_or(|s| time >= s) && self.end.is_none_or(|e| time < e)
+    }
+
+    pub fn is_windowed(&self) -> bool {
+        self.start.is_some() || self.end.is_some()
+    }
 }
 
 /// Create a new empty scene document under `scenes/`, returning its
@@ -426,6 +456,10 @@ impl SceneDoc {
         let mut timeline = Timeline::new();
         let mut camera = Camera::new(self.camera.position, self.camera.target);
         camera.fov = self.camera.fov;
+        for (property, value) in &self.camera.set {
+            validate_property(&camera, "camera", property, value)?;
+            camera.set(property, value.clone());
+        }
 
         for track_doc in &self.tracks {
             let mut track = if track_doc.object == "camera" {
@@ -518,29 +552,44 @@ impl SceneDoc {
                 }
             }
 
-            if self
-                .bindings
-                .iter()
-                .filter(|other| other.target == b.target && other.property == b.property)
-                .count()
-                > 1
+            if let (Some(start), Some(end)) = (b.start, b.end)
+                && start >= end
             {
-                return Err(format!("duplicate binding for property {:?} on {:?}", b.property, b.target));
-            }
-            if self.tracks.iter().any(|t| t.object == b.target && t.property == b.property) {
                 return Err(format!(
-                    "property {:?} on {:?} is both keyframed and bound — remove the track or the binding",
-                    b.property, b.target
+                    "binding window on {:?}.{:?}: start {start} must be before end {end}",
+                    b.target, b.property
                 ));
             }
 
-            timeline.add_binding(Binding {
+            let binding = Binding {
                 target,
                 target_property: b.property.clone(),
                 source,
                 source_property: b.source_property.clone(),
                 offset: b.offset.clone(),
-            });
+                start: b.start,
+                end: b.end,
+            };
+
+            // Same-property bindings must not be active at the same time…
+            if timeline.bindings.iter().any(|other| {
+                other.target == binding.target && other.target_property == binding.target_property && other.window_overlaps(&binding)
+            }) {
+                return Err(format!(
+                    "overlapping bindings for property {:?} on {:?} — adjust their windows",
+                    b.property, b.target
+                ));
+            }
+            // …and only a *windowed* binding may share its property with a
+            // track (the track drives it outside the window).
+            if !binding.is_windowed() && self.tracks.iter().any(|t| t.object == b.target && t.property == b.property) {
+                return Err(format!(
+                    "property {:?} on {:?} is both keyframed and always-bound — window the binding or remove the track",
+                    b.property, b.target
+                ));
+            }
+
+            timeline.add_binding(binding);
         }
 
         if let Err(cycle) = timeline.sort_bindings() {
@@ -898,6 +947,8 @@ mod tests {
             source: "ball".to_string(),
             source_property: "radius".to_string(),
             offset: Some(AnimValue::Float(0.5)),
+            start: None,
+            end: None,
         });
         doc
     }
@@ -962,20 +1013,98 @@ mod tests {
     }
 
     #[test]
-    fn binding_on_tracked_property_errors() {
+    fn unwindowed_binding_on_tracked_property_errors() {
         let mut doc = bound_doc();
         // ball.radius already has a track in minimal_doc.
         doc.bindings[0].target = "ball".to_string();
         doc.bindings[0].source = "shadow".to_string();
-        assert!(build_err(&doc).contains("both keyframed and bound"));
+        assert!(build_err(&doc).contains("keyframed and always-bound"));
+        // Windowing the binding resolves the conflict.
+        doc.bindings[0].end = Some(1.0);
+        doc.build().unwrap();
     }
 
     #[test]
-    fn duplicate_binding_errors() {
+    fn overlapping_bindings_error_disjoint_windows_build() {
         let mut doc = bound_doc();
-        let dup = doc.bindings[0].clone();
+        // Same property twice, both unwindowed: overlap.
+        let mut dup = doc.bindings[0].clone();
+        dup.source_property = "radius".to_string();
         doc.bindings.push(dup);
-        assert!(build_err(&doc).contains("duplicate binding"));
+        assert!(build_err(&doc).contains("overlapping bindings"));
+
+        // Disjoint windows on the same property are fine.
+        doc.bindings[0].end = Some(2.0);
+        doc.bindings[1].start = Some(2.0);
+        doc.build().unwrap();
+
+        // Touch again and they overlap.
+        doc.bindings[1].start = Some(1.5);
+        assert!(build_err(&doc).contains("overlapping bindings"));
+    }
+
+    #[test]
+    fn inverted_binding_window_errors() {
+        let mut doc = bound_doc();
+        doc.bindings[0].start = Some(5.0);
+        doc.bindings[0].end = Some(2.0);
+        assert!(build_err(&doc).contains("start"));
+    }
+
+    #[test]
+    fn windowed_binding_hands_off_to_track() {
+        // The requested camera flow: bound to the ball's radius until t=2,
+        // keyframed on its own track afterwards.
+        let mut doc = bound_doc();
+        doc.bindings[0].target = "camera".to_string();
+        doc.bindings[0].property = "fov".to_string();
+        doc.bindings[0].offset = None;
+        doc.bindings[0].end = Some(2.0);
+        doc.tracks.push(TrackDoc {
+            object: "camera".to_string(),
+            property: "fov".to_string(),
+            keyframes: vec![
+                KeyframeDoc {
+                    time: 2.0,
+                    value: AnimValue::Float(90.0),
+                    easing: Easing::Linear,
+                },
+                KeyframeDoc {
+                    time: 4.0,
+                    value: AnimValue::Float(30.0),
+                    easing: Easing::Linear,
+                },
+            ],
+        });
+
+        let (mut scene, timeline, mut camera) = doc.build().unwrap();
+        // Inside the window: fov = ball.radius (tracked 1.0 -> 3.0 over 2s),
+        // overriding the fov track.
+        timeline.apply(1.0, &mut scene, &mut camera);
+        assert!((camera.fov - 2.0).abs() < 1e-5);
+        // After the window: the fov track owns it again.
+        timeline.apply(3.0, &mut scene, &mut camera);
+        assert!((camera.fov - 60.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn binding_window_round_trips_through_ron() {
+        let mut doc = bound_doc();
+        doc.bindings[0].start = Some(1.0);
+        doc.bindings[0].end = Some(3.5);
+        let parsed = SceneDoc::from_ron_str(&doc.to_ron_string().unwrap()).unwrap();
+        assert_eq!(parsed.bindings, doc.bindings);
+    }
+
+    #[test]
+    fn camera_set_overrides_apply_and_validate() {
+        let mut doc = minimal_doc();
+        doc.camera.set = vec![("rotation_z".to_string(), AnimValue::Float(0.5))];
+        let (_, _, camera) = doc.build().unwrap();
+        assert_eq!(camera.get("rotation_z"), Some(AnimValue::Float(0.5)));
+
+        doc.camera.set = vec![("rotation_zz".to_string(), AnimValue::Float(0.5))];
+        assert!(build_err(&doc).contains("rotation_zz"));
     }
 
     #[test]
@@ -988,6 +1117,8 @@ mod tests {
             source: "shadow".to_string(),
             source_property: "position".to_string(),
             offset: None,
+            start: None,
+            end: None,
         });
         let err = build_err(&doc);
         assert!(err.contains("binding cycle"), "unexpected error: {err}");
@@ -1003,6 +1134,8 @@ mod tests {
             source: "ball".to_string(),
             source_property: "radius".to_string(),
             offset: None,
+            start: None,
+            end: None,
         });
         let (mut scene, timeline, mut camera) = doc.build().unwrap();
         timeline.apply(2.0, &mut scene, &mut camera);

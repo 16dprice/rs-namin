@@ -153,7 +153,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
             camera_panel(ctx, overlay, scene, camera);
         }
         if let Some(editor) = editor.as_mut() {
-            editor::panels(ctx, editor);
+            editor::panels(ctx, editor, clock.current_time);
         }
         if overlay.inspector_visible {
             inspector_window(ctx, scene);

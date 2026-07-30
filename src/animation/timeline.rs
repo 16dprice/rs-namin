@@ -58,6 +58,9 @@ impl Timeline {
             }
         }
         for binding in &self.bindings {
+            if !binding.active_at(time) {
+                continue;
+            }
             let Some(value) = Self::binding_value(binding, scene, camera) else {
                 continue;
             };
@@ -86,6 +89,7 @@ impl Timeline {
         }
         for binding in &self.bindings {
             if let TrackTarget::Object(id) = binding.target
+                && binding.active_at(time)
                 && let Some(value) = Self::binding_value(binding, scene, camera)
                 && let Some(obj) = scene.get_mut(id)
             {
@@ -108,7 +112,14 @@ impl Timeline {
     }
 
     pub fn duration(&self) -> f32 {
-        self.tracks.iter().filter_map(|track| track.max_time()).fold(0.0_f32, f32::max)
+        // Finite binding-window edges count: "bound until 10s" should be
+        // reachable by the transport even if no track goes that far.
+        let track_max = self.tracks.iter().filter_map(|track| track.max_time()).fold(0.0_f32, f32::max);
+        self.bindings
+            .iter()
+            .flat_map(|b| [b.start, b.end])
+            .flatten()
+            .fold(track_max, f32::max)
     }
 }
 
@@ -154,6 +165,8 @@ mod tests {
             source: TrackTarget::Object(source),
             source_property: "position".to_string(),
             offset,
+            start: None,
+            end: None,
         }
     }
 
@@ -202,6 +215,42 @@ mod tests {
     }
 
     #[test]
+    fn windowed_binding_yields_to_track_outside_its_window() {
+        let (mut scene, ids) = scene_with_disks(2);
+        let mut timeline = Timeline::new();
+        // Leader sweeps to (10,0,0) over 1s; follower has its own track to
+        // (0,-5,0) AND a binding to the leader active only in [0.25, 0.75).
+        timeline.add_track(position_track(ids[0], vec3(10.0, 0.0, 0.0)));
+        timeline.add_track(position_track(ids[1], vec3(0.0, -5.0, 0.0)));
+        let mut binding = bind(ids[1], ids[0], None);
+        binding.start = Some(0.25);
+        binding.end = Some(0.75);
+        timeline.add_binding(binding);
+
+        let mut camera = Camera::default();
+        // Before the window: own track.
+        timeline.apply(0.2, &mut scene, &mut camera);
+        assert_eq!(vec3_prop(&scene, ids[1], "position"), vec3(0.0, -1.0, 0.0));
+        // Inside: bound to the leader.
+        timeline.apply(0.5, &mut scene, &mut camera);
+        assert_eq!(vec3_prop(&scene, ids[1], "position"), vec3(5.0, 0.0, 0.0));
+        // After: own track again.
+        timeline.apply(0.8, &mut scene, &mut camera);
+        assert_eq!(vec3_prop(&scene, ids[1], "position"), vec3(0.0, -4.0, 0.0));
+    }
+
+    #[test]
+    fn duration_includes_finite_window_edges() {
+        let (_, ids) = scene_with_disks(2);
+        let mut timeline = Timeline::new();
+        timeline.add_track(position_track(ids[0], Vec3::ONE)); // max time 1.0
+        let mut binding = bind(ids[1], ids[0], None);
+        binding.end = Some(10.0);
+        timeline.add_binding(binding);
+        assert!((timeline.duration() - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
     fn binding_can_target_camera_in_full_apply() {
         let (mut scene, ids) = scene_with_disks(1);
         let mut timeline = Timeline::new();
@@ -214,6 +263,8 @@ mod tests {
             source: TrackTarget::Object(ids[0]),
             source_property: "radius".to_string(),
             offset: None,
+            start: None,
+            end: None,
         });
 
         let mut camera = Camera::default();
@@ -231,6 +282,8 @@ mod tests {
             source: TrackTarget::Object(ids[0]),
             source_property: "radius".to_string(),
             offset: None,
+            start: None,
+            end: None,
         });
         timeline.add_binding(Binding {
             target: TrackTarget::Object(ids[1]),
@@ -238,6 +291,8 @@ mod tests {
             source: TrackTarget::Camera,
             source_property: "position".to_string(),
             offset: None,
+            start: None,
+            end: None,
         });
 
         let camera = Camera::new(vec3(5.0, 6.0, 7.0), Vec3::ZERO);
