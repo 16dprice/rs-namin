@@ -83,8 +83,8 @@ pub struct ObjectDoc {
 
 /// Constructible object types and their parameters. Colors are RGBA in 0-1.
 /// `VectorText` always uses the built-in default font; objects with other
-/// non-data constructor inputs (custom fonts, textures, LaTeX, L-system
-/// configs) are not yet representable.
+/// non-data constructor inputs (custom fonts, textures, LaTeX) are not yet
+/// representable.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ObjectSpec {
     Disk {
@@ -165,6 +165,24 @@ pub enum ObjectSpec {
         /// Display size: 1.0 = one em per world unit.
         scale: f32,
         color: Vec4,
+    },
+    /// An L-system: `axiom` rewritten by `rules` for `iterations` steps,
+    /// then drawn as turtle graphics (`F`/`G` draw forward, `+`/`-` turn by
+    /// `theta` radians, `[`/`]` push/pop, other letters are silent
+    /// variables). Each rule is `(symbol, replacement)`; only the symbol's
+    /// first char is used. `progress` reveals the path; the `pen_position`
+    /// output is the drawing tip. Optional `colors` is a segment gradient.
+    LSystem {
+        axiom: String,
+        rules: Vec<(String, String)>,
+        /// Turn angle in radians.
+        theta: f32,
+        iterations: f32,
+        position: Vec3,
+        scale: f32,
+        color: Vec4,
+        #[serde(default)]
+        colors: Vec<Vec4>,
     },
     /// A function plot: `y = f(x)` with axes, drawn into a `size` rectangle
     /// centered on `position`. `expression` is a math string in `x` (see
@@ -263,6 +281,36 @@ impl ObjectSpec {
                 let mut vt = VectorText::new(&content, crate::scene::font::default_font(), scale, color(c));
                 vt.position = position;
                 Box::new(vt)
+            }
+            ObjectSpec::LSystem {
+                axiom,
+                rules,
+                theta,
+                iterations,
+                position,
+                scale,
+                color: c,
+                colors,
+            } => {
+                let config = crate::scene::l_system::LSystemConfig {
+                    axiom,
+                    // Sanitize silently (spawn is infallible): empty symbols
+                    // are dropped, longer ones use their first char.
+                    rules: rules
+                        .iter()
+                        .filter_map(|(from, to)| {
+                            Some(crate::scene::l_system::ReplacementRule {
+                                from: from.chars().next()?,
+                                to: to.clone(),
+                            })
+                        })
+                        .collect(),
+                };
+                let mut ls = LSystem::new(config, theta, color(c)).with_colors(colors.iter().map(|v| color(*v)).collect());
+                ls.iterations = iterations;
+                ls.position = position;
+                ls.scale = scale;
+                Box::new(ls)
             }
             ObjectSpec::Plot {
                 expression,
@@ -684,6 +732,94 @@ mod tests {
         // Glyph outlines were actually extracted from the default font.
         let bb = vt.bounding_box();
         assert!(bb.max.x > bb.min.x);
+    }
+
+    /// The spec-spawned LSystem must be geometry-identical to one built
+    /// directly from the dragon_curve() preset with the same parameters.
+    #[test]
+    fn lsystem_spec_matches_reference_construction() {
+        use crate::scene::objects::LSystem;
+        use crate::scene::traits::{Animatable, SceneObject};
+        let (config, theta) = crate::scene::l_system::dragon_curve();
+        let mut reference = LSystem::new(config, theta, macroquad::prelude::WHITE);
+        reference.iterations = 10.0;
+        reference.scale = 0.15;
+        reference.position = macroquad::prelude::vec3(1.0, -2.0, 0.0);
+
+        let spec = ObjectSpec::LSystem {
+            axiom: "F".to_string(),
+            rules: vec![("F".to_string(), "F+G".to_string()), ("G".to_string(), "F-G".to_string())],
+            theta: std::f32::consts::FRAC_PI_2,
+            iterations: 10.0,
+            position: vec3(1.0, -2.0, 0.0),
+            scale: 0.15,
+            color: vec4(1.0, 1.0, 1.0, 1.0),
+            colors: vec![],
+        };
+        let spawned = spec.spawn();
+
+        let rb = reference.bounding_box();
+        let sb = spawned.bounding_box();
+        assert!((rb.min - sb.min).length() < 1e-4 && (rb.max - sb.max).length() < 1e-4);
+        assert_eq!(reference.get("pen_position"), spawned.get("pen_position"));
+    }
+
+    #[test]
+    fn lsystem_spec_builds_and_round_trips() {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "dragon".to_string(),
+            object: ObjectSpec::LSystem {
+                axiom: "F".to_string(),
+                rules: vec![("F".to_string(), "F+G".to_string()), ("G".to_string(), "F-G".to_string())],
+                theta: std::f32::consts::FRAC_PI_2,
+                iterations: 4.0,
+                position: vec3(1.0, 2.0, 0.0),
+                scale: 0.5,
+                color: vec4(0.2, 0.5, 1.0, 1.0),
+                colors: vec![vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 1.0, 1.0)],
+            },
+            set: vec![],
+        });
+
+        let ron_str = doc.to_ron_string().unwrap();
+        let parsed = SceneDoc::from_ron_str(&ron_str).unwrap();
+        let (scene, _, _) = parsed.build().unwrap();
+        let (_, ls) = scene.iter().nth(1).unwrap();
+        assert_eq!(ls.get("iterations"), Some(AnimValue::Float(4.0)));
+        assert_eq!(ls.get("scale"), Some(AnimValue::Float(0.5)));
+        // The rules were actually applied: 4 dragon iterations = 16 segments,
+        // giving a non-degenerate bounding box away from the origin.
+        let bb = ls.bounding_box();
+        assert!(bb.max.x > bb.min.x && bb.max.y > bb.min.y);
+        // pen_position output is live (binding source).
+        assert!(matches!(ls.get("pen_position"), Some(AnimValue::Vec3(_))));
+    }
+
+    #[test]
+    fn lsystem_spec_sanitizes_bad_rules_instead_of_failing() {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "weird".to_string(),
+            object: ObjectSpec::LSystem {
+                // Empty rule symbol (dropped), multi-char symbol (first char
+                // used), unmatched bracket in the axiom (ignored at draw).
+                axiom: "]F[".to_string(),
+                rules: vec![("".to_string(), "F".to_string()), ("Fx".to_string(), "F+F".to_string())],
+                theta: 1.0,
+                iterations: 2.0,
+                position: Vec3::ZERO,
+                scale: 1.0,
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+                colors: vec![],
+            },
+            set: vec![],
+        });
+        let (scene, _, _) = doc.build().unwrap();
+        let (_, ls) = scene.iter().nth(1).unwrap();
+        // F -> F+F applied twice: 4 drawing chars.
+        let bb = ls.bounding_box();
+        assert!(bb.max != bb.min, "expected some drawn segments");
     }
 
     #[test]

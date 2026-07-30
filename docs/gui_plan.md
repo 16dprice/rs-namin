@@ -157,7 +157,7 @@ UI build-out (iterative; order negotiable after the design conversation):
   viewer/library, snapshots, and CLI-exports to a valid MP4. VectorText joined the spec
   later (default font only — write-on/stagger/stroke are animatable properties; custom
   fonts and LaTeX stay Rust-scene features since `spawn()` must be cheap and infallible).
-  Still not representable: LSystem/Sprite/Turtle (non-data constructor inputs) — they get
+  LSystem joined the spec in Jul 2026 (axiom/rules are pure data; the editor gets a rules UI). Still not representable: Sprite/Turtle (non-data constructor inputs) — they get
   spec entries in a later milestone.
 - **M2.2** ✅ **DONE** — `src/editor.rs`: when a document scene is open, the viewer grows a
   left palette (object list with select/delete, add-object menu over the 11 spec templates,

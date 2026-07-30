@@ -40,17 +40,23 @@ impl LSystem {
         self
     }
 
+    /// Rewriting budget: rewriting reruns every frame, and user-authored
+    /// rules can grow exponentially — expansion stops at the last iteration
+    /// that fits this many chars (~at most that many segments).
+    const MAX_REWRITE_LEN: usize = 200_000;
+
+    fn rewritten(&self) -> String {
+        let iters = self.iterations.floor().max(0.0) as usize;
+        l_system::apply_rules_budgeted(&self.config, iters, Self::MAX_REWRITE_LEN)
+    }
+
     /// Total number of segments at full progress (for stable color mapping).
     fn total_segment_count(&self) -> usize {
-        let iters = self.iterations.floor().max(0.0) as usize;
-        let l_string = l_system::apply_rules(&self.config, iters);
-        l_system::get_lines(&l_string, self.theta, 1.0).len()
+        l_system::get_lines(&self.rewritten(), self.theta, 1.0).len()
     }
 
     fn get_segments(&self) -> Vec<LineSegment> {
-        let iters = self.iterations.floor().max(0.0) as usize;
-        let l_string = l_system::apply_rules(&self.config, iters);
-        let all = l_system::get_lines(&l_string, self.theta, 1.0);
+        let all = l_system::get_lines(&self.rewritten(), self.theta, 1.0);
         polyline::take_progress(&all, self.progress)
     }
 
@@ -59,9 +65,7 @@ impl LSystem {
     /// zero progress. Exposed as a read-only output property so other
     /// objects can bind to it (e.g. a label following the drawing).
     pub fn pen_position(&self) -> Vec3 {
-        let iters = self.iterations.floor().max(0.0) as usize;
-        let l_string = l_system::apply_rules(&self.config, iters);
-        let all = l_system::get_lines(&l_string, self.theta, 1.0);
+        let all = l_system::get_lines(&self.rewritten(), self.theta, 1.0);
         let drawn = polyline::take_progress(&all, self.progress);
         let local = match (drawn.last(), all.first()) {
             (Some(segment), _) => segment.end,

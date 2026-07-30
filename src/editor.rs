@@ -573,6 +573,21 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
             },
         ),
         (
+            "LSystem",
+            // The dragon curve: iteration 10 at this scale roughly fills
+            // the default viewport.
+            ObjectSpec::LSystem {
+                axiom: "F".to_string(),
+                rules: vec![("F".to_string(), "F+G".to_string()), ("G".to_string(), "F-G".to_string())],
+                theta: std::f32::consts::FRAC_PI_2,
+                iterations: 10.0,
+                position: vec3(1.0, -2.0, 0.0),
+                scale: 0.15,
+                color: white,
+                colors: Vec::new(),
+            },
+        ),
+        (
             "Plot",
             ObjectSpec::Plot {
                 expression: "sin(x)".to_string(),
@@ -601,6 +616,7 @@ fn spec_type_name(spec: &ObjectSpec) -> &'static str {
         ObjectSpec::Tube { .. } => "Tube",
         ObjectSpec::Text { .. } => "Text",
         ObjectSpec::VectorText { .. } => "VectorText",
+        ObjectSpec::LSystem { .. } => "LSystem",
         ObjectSpec::Plot { .. } => "Plot",
     }
 }
@@ -706,6 +722,9 @@ fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
         });
 }
 
+const LSYSTEM_ALPHABET_HELP: &str = "F/G draw forward, + turns left and - turns right by theta (radians), \
+[ ] push/pop the turtle state, other letters are silent rewriting variables";
+
 fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
     let Some(index) = editor.selected else { return };
     if index >= editor.doc.objects.len() {
@@ -738,6 +757,56 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState) {
                 ui.horizontal(|ui| {
                     ui.weak("content");
                     spec_changed |= ui.text_edit_singleline(content).changed();
+                });
+            }
+            if let ObjectSpec::LSystem { axiom, rules, colors, .. } = &mut editor.doc.objects[index].object {
+                ui.horizontal(|ui| {
+                    ui.weak("axiom").on_hover_text(LSYSTEM_ALPHABET_HELP);
+                    spec_changed |= ui.text_edit_singleline(axiom).changed();
+                });
+                ui.weak("rules").on_hover_text(LSYSTEM_ALPHABET_HELP);
+                let mut remove_rule: Option<usize> = None;
+                for (i, (from, to)) in rules.iter_mut().enumerate() {
+                    ui.horizontal(|ui| {
+                        spec_changed |= ui.add(egui::TextEdit::singleline(from).char_limit(1).desired_width(20.0)).changed();
+                        ui.weak("->");
+                        spec_changed |= ui.add(egui::TextEdit::singleline(to).desired_width(140.0)).changed();
+                        if ui.small_button("x").on_hover_text("Remove rule").clicked() {
+                            remove_rule = Some(i);
+                        }
+                    });
+                }
+                if let Some(i) = remove_rule {
+                    rules.remove(i);
+                    spec_changed = true;
+                }
+                if ui.small_button("+ rule").clicked() {
+                    rules.push(("X".to_string(), String::new()));
+                    spec_changed = true;
+                }
+
+                ui.horizontal(|ui| {
+                    ui.weak("gradient")
+                        .on_hover_text("2+ colors: segments blend through these in draw order; otherwise the color property is used");
+                    let mut remove_color: Option<usize> = None;
+                    for (i, c) in colors.iter_mut().enumerate() {
+                        let mut rgba = [c.x, c.y, c.z, c.w];
+                        if ui.color_edit_button_rgba_unmultiplied(&mut rgba).changed() {
+                            *c = vec4(rgba[0], rgba[1], rgba[2], rgba[3]);
+                            spec_changed = true;
+                        }
+                        if ui.small_button("x").clicked() {
+                            remove_color = Some(i);
+                        }
+                    }
+                    if let Some(i) = remove_color {
+                        colors.remove(i);
+                        spec_changed = true;
+                    }
+                    if ui.small_button("+").on_hover_text("Add gradient color").clicked() {
+                        colors.push(vec4(1.0, 1.0, 1.0, 1.0));
+                        spec_changed = true;
+                    }
                 });
             }
             if let ObjectSpec::Plot { expression, samples, .. } = &mut editor.doc.objects[index].object {

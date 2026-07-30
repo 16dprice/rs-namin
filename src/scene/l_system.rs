@@ -16,6 +16,15 @@ pub struct LSystemConfig {
 
 /// Iteratively apply replacement rules to the axiom string.
 pub fn apply_rules(config: &LSystemConfig, iterations: usize) -> String {
+    apply_rules_budgeted(config, iterations, usize::MAX)
+}
+
+/// Like [`apply_rules`], but stops expanding once the next iteration would
+/// exceed `max_len` chars, returning the largest in-budget expansion.
+/// User-authored rules (editor/scene documents) can grow explosively —
+/// e.g. `F -> FF` doubles per iteration — and the object re-runs rewriting
+/// every frame, so unbounded growth would hang the app.
+pub fn apply_rules_budgeted(config: &LSystemConfig, iterations: usize, max_len: usize) -> String {
     let mut current = config.axiom.clone();
     for _ in 0..iterations {
         let mut next = String::with_capacity(current.len() * 2);
@@ -25,6 +34,9 @@ pub fn apply_rules(config: &LSystemConfig, iterations: usize) -> String {
             } else {
                 next.push(ch);
             }
+        }
+        if next.len() > max_len {
+            return current;
         }
         current = next;
     }
@@ -38,7 +50,8 @@ pub fn apply_rules(config: &LSystemConfig, iterations: usize) -> String {
 /// - `+`: turn left (CCW) by theta
 /// - `-`: turn right (CW) by theta
 /// - `[`: push position and angle onto stack
-/// - `]`: pop position and angle from stack
+/// - `]`: pop position and angle from stack (a no-op when the stack is
+///   empty — strings come from user-editable rules, so this must not panic)
 /// - Anything else (X, A, B, etc.): ignored (rewriting-only variables)
 ///
 /// Initial direction is up (π/2), y-up coordinate system.
@@ -65,10 +78,11 @@ pub fn get_lines(l_string: &str, theta: f32, step_distance: f32) -> Vec<LineSegm
             '-' => angle -= theta,
             '[' => stack.push((x, y, angle)),
             ']' => {
-                let (sx, sy, sa) = stack.pop().expect("unmatched ']' in L-system string");
-                x = sx;
-                y = sy;
-                angle = sa;
+                if let Some((sx, sy, sa)) = stack.pop() {
+                    x = sx;
+                    y = sy;
+                    angle = sa;
+                }
             }
             _ => {} // ignore other characters
         }
@@ -379,9 +393,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "unmatched ']'")]
-    fn unmatched_bracket_panics() {
-        get_lines("]", std::f32::consts::FRAC_PI_2, 1.0);
+    fn unmatched_bracket_is_ignored_not_a_panic() {
+        // Strings come from user-editable rules; a stray `]` must not crash.
+        assert!(get_lines("]", std::f32::consts::FRAC_PI_2, 1.0).is_empty());
+        assert_eq!(get_lines("]F", std::f32::consts::FRAC_PI_2, 1.0).len(), 1);
+    }
+
+    #[test]
+    fn budgeted_rewrite_returns_largest_in_budget_expansion() {
+        let (config, _) = dragon_curve();
+        // Dragon roughly doubles per iteration: 1, 3, 7, 15, 31, 63, 127...
+        let s = apply_rules_budgeted(&config, 50, 100);
+        assert!(!s.is_empty() && s.len() <= 100, "got len {}", s.len());
+        // A generous budget matches the unbudgeted result.
+        assert_eq!(apply_rules_budgeted(&config, 6, usize::MAX), apply_rules(&config, 6));
     }
 
     #[test]

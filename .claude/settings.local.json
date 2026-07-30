@@ -37,7 +37,9 @@
       "Bash(cargo add *)",
       "Bash(cargo tree *)",
       "Bash(./target/debug/rs-namin *)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(git -C /home/dj/Code/rs-namin log --oneline -2)",
+      "Bash(git -C /home/dj/Code/rs-namin status --short)"
     ]
   }
 }
