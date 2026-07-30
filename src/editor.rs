@@ -25,12 +25,23 @@ pub struct EditorState {
     pub dirty: bool,
     /// A doc edit happened this frame; the owner rebuilds the scene.
     pub rebuild_needed: bool,
+    /// The scene file was renamed this frame; the owner re-resolves its
+    /// registry entry.
+    pub renamed: bool,
     /// Last build or save error (editing continues).
     pub error: Option<String>,
     /// Buffer for the id TextEdit (committed on focus loss / enter).
     id_buffer: String,
+    /// Buffer for the scene-name TextEdit (committed on focus loss / enter).
+    name_buffer: String,
     /// Which bezier handle (0/1) a curve-widget drag is holding.
     bezier_drag: Option<u8>,
+}
+
+/// The scene's registry name: the file stem of its .ron path.
+pub fn scene_stem(path: &str) -> &str {
+    let file = path.rsplit(['/', '\\']).next().unwrap_or(path);
+    file.strip_suffix(".ron").unwrap_or(file)
 }
 
 impl EditorState {
@@ -42,8 +53,10 @@ impl EditorState {
             selected_keyframe: None,
             dirty: false,
             rebuild_needed: false,
+            renamed: false,
             error: None,
             id_buffer: String::new(),
+            name_buffer: scene_stem(path).to_string(),
             bezier_drag: None,
         };
         if !state.doc.objects.is_empty() {
@@ -405,6 +418,41 @@ impl EditorState {
         self.dirty = false;
         Ok(())
     }
+
+    /// Rename the scene: move the backing .ron file and update `path` (the
+    /// registry name is the file stem). Rejects empty or path-escaping
+    /// names, and collisions with built-in scenes or existing files. On
+    /// success sets `renamed` so the owner re-resolves its registry entry.
+    pub fn rename_scene(&mut self, new_name: &str) -> Result<(), String> {
+        let new_name = new_name.trim();
+        if new_name == scene_stem(self.path) {
+            return Ok(());
+        }
+        if new_name.is_empty() {
+            return Err("scene name cannot be empty".to_string());
+        }
+        if new_name.contains('/') || new_name.contains('\\') || new_name.starts_with('.') {
+            return Err(format!("invalid scene name {new_name:?}"));
+        }
+        // Built-ins can never be shadowed. Doc entries are checked against
+        // the filesystem instead of the registry snapshot, which may hold a
+        // stale name from a previous rename in this session.
+        if let Some(entry) = crate::registry::find(new_name)
+            && matches!(entry.source, crate::registry::SceneSource::Builtin(_))
+        {
+            return Err(format!("{new_name:?} is a built-in scene name"));
+        }
+        let dir = std::path::Path::new(self.path).parent().filter(|d| !d.as_os_str().is_empty());
+        let new_path = dir.unwrap_or_else(|| std::path::Path::new(".")).join(format!("{new_name}.ron"));
+        if new_path.exists() {
+            return Err(format!("{} already exists", new_path.display()));
+        }
+        std::fs::rename(self.path, &new_path).map_err(|e| format!("cannot rename to {}: {e}", new_path.display()))?;
+        self.path = Box::leak(new_path.to_string_lossy().into_owned().into_boxed_str());
+        self.name_buffer = new_name.to_string();
+        self.renamed = true;
+        Ok(())
+    }
 }
 
 /// Palette templates: every spawnable object type with sensible defaults.
@@ -579,9 +627,25 @@ fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
                 }
             });
 
-            if ui.text_edit_singleline(&mut editor.doc.description).changed() {
-                editor.dirty = true;
-            }
+            // Scene name = file stem = registry name; committing the edit
+            // renames the .ron file.
+            ui.horizontal(|ui| {
+                ui.weak("name");
+                let response = ui.text_edit_singleline(&mut editor.name_buffer);
+                if response.lost_focus() {
+                    let requested = editor.name_buffer.clone();
+                    if let Err(e) = editor.rename_scene(&requested) {
+                        editor.error = Some(e);
+                    }
+                    editor.name_buffer = scene_stem(editor.path).to_string();
+                }
+            });
+            ui.horizontal(|ui| {
+                ui.weak("desc");
+                if ui.text_edit_singleline(&mut editor.doc.description).changed() {
+                    editor.dirty = true;
+                }
+            });
 
             ui.add_space(4.0);
             ui.horizontal(|ui| {
@@ -1343,6 +1407,71 @@ mod tests {
 
     fn editor(doc: SceneDoc) -> EditorState {
         EditorState::new(doc, "scenes/test.ron")
+    }
+
+    #[test]
+    fn scene_stem_extracts_file_stem() {
+        assert_eq!(scene_stem("scenes/foo.ron"), "foo");
+        assert_eq!(scene_stem("foo.ron"), "foo");
+        assert_eq!(scene_stem("a/b/c.ron"), "c");
+        assert_eq!(scene_stem("scenes/noext"), "noext");
+    }
+
+    /// Create a real .ron file in a per-process temp dir and leak its path.
+    fn temp_scene(name: &str) -> &'static str {
+        let dir = std::env::temp_dir().join(format!("rs_namin_editor_tests_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(format!("{name}.ron"));
+        std::fs::write(&path, "(objects: [], tracks: [])").unwrap();
+        Box::leak(path.to_string_lossy().into_owned().into_boxed_str())
+    }
+
+    #[test]
+    fn rename_scene_moves_the_file_and_updates_path() {
+        let path = temp_scene("rename_me_src");
+        // A stale target from an earlier failed run would block the rename.
+        let target = std::path::Path::new(path).with_file_name("rename_me_dst.ron");
+        let _ = std::fs::remove_file(&target);
+
+        let mut ed = EditorState::new(doc_with(vec![], vec![]), path);
+        assert_eq!(ed.name_buffer, "rename_me_src");
+        ed.rename_scene("rename_me_dst").unwrap();
+        assert!(ed.renamed);
+        assert!(ed.path.ends_with("rename_me_dst.ron"));
+        assert_eq!(ed.name_buffer, "rename_me_dst");
+        assert!(!std::path::Path::new(path).exists());
+        assert!(std::path::Path::new(ed.path).exists());
+
+        // Renaming to the current name is a no-op.
+        ed.renamed = false;
+        ed.rename_scene("rename_me_dst").unwrap();
+        assert!(!ed.renamed);
+
+        // Saving writes to the new path.
+        ed.dirty = true;
+        ed.save().unwrap();
+        assert!(!ed.dirty);
+        std::fs::remove_file(ed.path).unwrap();
+    }
+
+    #[test]
+    fn rename_scene_rejects_bad_names_and_collisions() {
+        let path = temp_scene("rename_reject_src");
+        let other = temp_scene("rename_reject_existing");
+        let mut ed = EditorState::new(doc_with(vec![], vec![]), path);
+
+        assert!(ed.rename_scene("").is_err());
+        assert!(ed.rename_scene("  ").is_err());
+        assert!(ed.rename_scene("a/b").is_err());
+        assert!(ed.rename_scene("a\\b").is_err());
+        assert!(ed.rename_scene(".hidden").is_err());
+        assert!(ed.rename_scene("rename_reject_existing").is_err()); // file exists
+        assert!(ed.rename_scene("turtle_intro").is_err()); // built-in name
+
+        assert_eq!(scene_stem(ed.path), "rename_reject_src");
+        assert!(!ed.renamed);
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(other).unwrap();
     }
 
     #[test]

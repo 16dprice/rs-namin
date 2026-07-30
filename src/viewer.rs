@@ -124,6 +124,17 @@ impl ViewerMode {
             self.editor.as_mut().unwrap().rebuild_needed = false;
             self.rebuild_from_doc();
         }
+        // A rename moved the .ron file: re-resolve the registry entry so the
+        // app bar, export, and library all agree on the new name.
+        if self.editor.as_ref().is_some_and(|e| e.renamed) {
+            let editor = self.editor.as_mut().unwrap();
+            editor.renamed = false;
+            let name = crate::editor::scene_stem(editor.path).to_string();
+            crate::registry::rescan();
+            if let Some(entry) = crate::registry::find(&name) {
+                self.entry = entry;
+            }
+        }
         let mut request = ui_response.request;
         if ui_response.export {
             request = UiRequest::OpenExport(self.entry);
