@@ -224,6 +224,14 @@ properties (`animatable!` `outputs` block) expose derived values as binding
 sources — first: `LSystem::pen_position`. See
 [animation_and_clock.md](animation_and_clock.md) > "Property Bindings".
 
+Later additions (Jul 2026): **time windows** — bindings carry optional
+start/end; inside the window they win over tracks, outside the track takes
+over; disjoint windows may share a property; the dope-sheet bar spans the
+window and bound rows get from/until controls. **Camera editing** — the
+camera is a palette entry with its own inspector page (typed CameraDoc
+fields + a `set` overrides list) and full bind-menu support, so
+camera.position/target can ride an L-system pen and hand off to keyframes.
+
 Parked follow-ups: dragging a bound object edits the binding offset
 (AE-style); binding-aware camera UI (docs can bind the camera; the editor
 menu only binds objects); time-shifted follows via evaluate-at-(t − delay) —

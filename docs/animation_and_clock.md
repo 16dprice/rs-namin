@@ -39,11 +39,22 @@ Author with `sb.bind(&follower, "progress", &leader, "progress")` or
 `bind_with_offset(...)`; scene documents have a `bindings:` section with the
 same semantics (either end may be `"camera"`).
 
+A binding may be limited to a **time window** (`start`/`end`, either side
+open; `sb.bind_during(...)`, or `start:`/`end:` in a doc's binding): inside
+the window it drives the property, outside it does nothing. That's the
+"bind the camera to the pen until 10s, then keyframe it" move — the same
+property can carry a windowed binding *and* a track (binding wins inside the
+window, track outside), or several bindings with disjoint windows. Note that
+outside every window, an untracked property just keeps its last-evaluated
+value (scrub-order dependent) — give it a track or override if determinism
+matters there.
+
 Rules, all validated at build time (panic from `SceneBuilder`, `Err` from
 `SceneDoc::build`):
 
-- **A property is tracked or bound, never both.** Bindings replace keyframes
-  for their target property.
+- **An unwindowed binding owns its property outright.** Combining one with a
+  track (which it would shadow at every time) is an error, as are two
+  bindings on one property with overlapping windows.
 - **Bindings chain but never cycle.** They are topo-sorted at build so a
   binding runs after any binding that writes its source. Ordering is at
   *object* granularity, not (object, property) — setters can have side
