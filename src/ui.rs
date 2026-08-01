@@ -155,12 +155,15 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
             });
         });
 
+        // Camera strip first so it sits at the very bottom; the transport
+        // stacks above it, leaving the transport's top edge bordering the
+        // viewport — that edge is its resize handle, and a panel docked
+        // flush against it would sit in the hover zone and steal the drag.
+        if overlay.hud_visible {
+            camera_panel(ctx, overlay, scene, camera);
+        }
         if overlay.transport_visible {
             transport_panel(ctx, transport, clock, timeline, editor.as_deref_mut());
-        }
-        if overlay.hud_visible {
-            // Added after the transport so it docks directly above it.
-            camera_panel(ctx, overlay, scene, camera);
         }
         if let Some(editor) = editor.as_mut() {
             editor::panels(ctx, editor, clock.current_time);

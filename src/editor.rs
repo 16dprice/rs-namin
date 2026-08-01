@@ -744,7 +744,7 @@ fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
     egui::SidePanel::left("editor_palette")
         .resizable(true)
         .default_width(230.0)
-        .width_range(180.0..=420.0)
+        .width_range(140.0..=420.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
@@ -852,7 +852,7 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
     egui::SidePanel::right("editor_inspector")
         .resizable(true)
         .default_width(280.0)
-        .width_range(220.0..=520.0)
+        .width_range(200.0..=520.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
             ui.heading(spec_type_name(&editor.doc.objects[index].object));
@@ -956,6 +956,10 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
             let properties = editor.property_names(index);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("editor_props").num_columns(2).spacing([10.0, 6.0]).show(ui, |ui| {
+                    // Narrow panel: slim the drag boxes so vector rows keep
+                    // all components visible instead of clipping.
+                    let drag_width = ((ui.available_width() - 100.0) / 3.0 - 8.0).clamp(26.0, 40.0);
+                    ui.spacing_mut().interact_size.x = drag_width;
                     for property in &properties {
                         let Some(value) = editor.effective_value(index, property) else {
                             continue;
@@ -978,7 +982,7 @@ fn camera_inspector(ctx: &egui::Context, editor: &mut EditorState, playhead: f32
     egui::SidePanel::right("editor_inspector")
         .resizable(true)
         .default_width(280.0)
-        .width_range(220.0..=520.0)
+        .width_range(200.0..=520.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
             ui.heading("Camera");
@@ -994,6 +998,10 @@ fn camera_inspector(ctx: &egui::Context, editor: &mut EditorState, playhead: f32
                     .num_columns(2)
                     .spacing([10.0, 6.0])
                     .show(ui, |ui| {
+                        // Narrow panel: slim the drag boxes so vector rows keep
+                        // all components visible instead of clipping.
+                        let drag_width = ((ui.available_width() - 100.0) / 3.0 - 8.0).clamp(26.0, 40.0);
+                        ui.spacing_mut().interact_size.x = drag_width;
                         for property in &properties {
                             let Some(value) = editor.camera_effective_value(property) else {
                                 continue;
