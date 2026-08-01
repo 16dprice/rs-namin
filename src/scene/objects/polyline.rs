@@ -30,6 +30,22 @@ impl Polyline {
         self.colors = colors.into_iter().map(|c| vec4(c.r, c.g, c.b, c.a)).collect();
         self
     }
+
+    /// World-space drawing tip at the current progress (read-only output —
+    /// a binding source).
+    pub fn pen_position(&self) -> Vec3 {
+        let local = polyline::pen_pose(&self.segments, self.progress).map_or(Vec2::ZERO, |(p, _)| p);
+        vec3(
+            local.x * self.scale + self.position.x,
+            local.y * self.scale + self.position.y,
+            self.position.z,
+        )
+    }
+
+    /// Heading of the segment under the pen in radians.
+    pub fn pen_angle(&self) -> f32 {
+        polyline::pen_pose(&self.segments, self.progress).map_or(0.0, |(_, a)| a)
+    }
 }
 
 impl SceneObject for Polyline {
@@ -92,6 +108,9 @@ animatable!(Polyline {
     scale: Float,
     progress: Float,
     line_width: Float,
+} outputs {
+    pen_position: Vec3,
+    pen_angle: Float,
 });
 
 #[cfg(test)]

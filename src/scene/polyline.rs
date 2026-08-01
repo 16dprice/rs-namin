@@ -48,6 +48,23 @@ pub fn take_progress(segments: &[LineSegment], progress: f32) -> Vec<LineSegment
     result
 }
 
+/// Position and heading (radians) of the drawing tip at `progress`: the end
+/// of the last revealed segment (`take_progress` semantics, so it moves
+/// smoothly mid-segment), or the path's start at zero progress. The heading
+/// always comes from the *full* segment under the pen — the partially-drawn
+/// copy can be degenerate right at a step boundary. `None` for an empty
+/// path. Shared by every object exposing `pen_position`/`pen_angle` outputs.
+pub fn pen_pose(segments: &[LineSegment], progress: f32) -> Option<(Vec2, f32)> {
+    let first = segments.first()?;
+    let drawn = take_progress(segments, progress);
+    let (point, segment) = match drawn.len() {
+        0 => (first.start, first),
+        n => (drawn[n - 1].end, &segments[n - 1]),
+    };
+    let d = segment.end - segment.start;
+    Some((point, d.y.atan2(d.x)))
+}
+
 /// Tessellate `segments` into screen-aligned quads (one per segment) and emit
 /// `draw_mesh` calls via `MeshBuilder`, which handles draw-call chunking.
 /// Segment `i` is colored by sampling `style.colors` at position
@@ -84,6 +101,51 @@ pub fn draw_polyline_mesh(segments: &[LineSegment], style: &PolylineStyle, xform
         mb.quad([mk(seg.start - p), mk(seg.start + p), mk(seg.end + p), mk(seg.end - p)]);
     }
     mb.draw();
+}
+
+#[cfg(test)]
+mod pen_pose_tests {
+    use super::*;
+    use macroquad::prelude::vec2;
+
+    fn l_path() -> Vec<LineSegment> {
+        // Right 2 units, then up 2 units.
+        vec![
+            LineSegment {
+                start: vec2(0.0, 0.0),
+                end: vec2(2.0, 0.0),
+            },
+            LineSegment {
+                start: vec2(2.0, 0.0),
+                end: vec2(2.0, 2.0),
+            },
+        ]
+    }
+
+    #[test]
+    fn pen_pose_moves_smoothly_and_turns_with_segments() {
+        let path = l_path();
+        // Zero progress: path start, first segment's heading.
+        let (p, a) = pen_pose(&path, 0.0).unwrap();
+        assert_eq!(p, vec2(0.0, 0.0));
+        assert!(a.abs() < 1e-6);
+        // Mid first segment.
+        let (p, a) = pen_pose(&path, 0.25).unwrap();
+        assert!((p - vec2(1.0, 0.0)).length() < 1e-5);
+        assert!(a.abs() < 1e-6);
+        // Mid second segment: heading up.
+        let (p, a) = pen_pose(&path, 0.75).unwrap();
+        assert!((p - vec2(2.0, 1.0)).length() < 1e-5);
+        assert!((a - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+        // Full.
+        let (p, _) = pen_pose(&path, 1.0).unwrap();
+        assert!((p - vec2(2.0, 2.0)).length() < 1e-5);
+    }
+
+    #[test]
+    fn pen_pose_empty_path_is_none() {
+        assert!(pen_pose(&[], 0.5).is_none());
+    }
 }
 
 #[cfg(test)]

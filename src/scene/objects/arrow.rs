@@ -7,6 +7,9 @@ use crate::scene::traits::{BoundingBox, SceneObject, animatable};
 pub struct Arrow {
     pub start: Vec3,
     pub end: Vec3,
+    /// 0-1 reveal fraction: the arrow grows from `start`, head riding the
+    /// advancing tip.
+    pub progress: f32,
     /// Width of the shaft.
     pub shaft_width: f32,
     /// Width of the arrowhead (perpendicular to direction).
@@ -22,6 +25,7 @@ impl Arrow {
         Self {
             start,
             end,
+            progress: 1.0,
             shaft_width: length * 0.04,
             head_width: length * 0.12,
             head_length: length * 0.15,
@@ -33,6 +37,7 @@ impl Arrow {
         Self {
             start,
             end,
+            progress: 1.0,
             shaft_width,
             head_width,
             head_length,
@@ -40,12 +45,28 @@ impl Arrow {
         }
     }
 
+    /// The tip of the revealed arrow.
+    fn visible_end(&self) -> Vec3 {
+        self.start.lerp(self.end, self.progress.clamp(0.0, 1.0))
+    }
+
+    /// The revealed tip (read-only output — a binding source).
+    pub fn pen_position(&self) -> Vec3 {
+        self.visible_end()
+    }
+
+    /// XY heading of the arrow in radians (constant along it).
+    pub fn pen_angle(&self) -> f32 {
+        let d = self.end - self.start;
+        d.y.atan2(d.x)
+    }
+
     /// Build the shaft quad and head triangle. Appends nothing for a
     /// zero-length arrow.
     fn build(&self, mb: &mut MeshBuilder) {
         let color = color_bytes(self.color);
 
-        let dir = self.end - self.start;
+        let dir = self.visible_end() - self.start;
         let length = dir.length();
         if length < 1e-6 {
             return;
@@ -76,7 +97,7 @@ impl Arrow {
         // v6 = end (tip)
         let v4 = shaft_end - perp * head_half;
         let v5 = shaft_end + perp * head_half;
-        let v6 = self.end;
+        let v6 = self.start + fwd * length;
 
         let mk = |pos: Vec3| flat_vertex(vec3(pos.x, pos.y, z), vec2(0.0, 0.0), color);
 
@@ -94,7 +115,8 @@ impl SceneObject for Arrow {
 
     fn bounding_box(&self) -> BoundingBox {
         let half = self.head_width / 2.0;
-        let dir = self.end - self.start;
+        let end = self.visible_end();
+        let dir = end - self.start;
         let length = dir.length();
         let perp = if length > 1e-6 {
             let fwd = dir / length;
@@ -106,26 +128,26 @@ impl SceneObject for Arrow {
         let xs = [
             self.start.x - perp.x.abs(),
             self.start.x + perp.x.abs(),
-            self.end.x - perp.x.abs(),
-            self.end.x + perp.x.abs(),
+            end.x - perp.x.abs(),
+            end.x + perp.x.abs(),
         ];
         let ys = [
             self.start.y - perp.y.abs(),
             self.start.y + perp.y.abs(),
-            self.end.y - perp.y.abs(),
-            self.end.y + perp.y.abs(),
+            end.y - perp.y.abs(),
+            end.y + perp.y.abs(),
         ];
 
         BoundingBox {
             min: vec3(
                 xs.iter().copied().reduce(f32::min).unwrap(),
                 ys.iter().copied().reduce(f32::min).unwrap(),
-                self.start.z.min(self.end.z),
+                self.start.z.min(end.z),
             ),
             max: vec3(
                 xs.iter().copied().reduce(f32::max).unwrap(),
                 ys.iter().copied().reduce(f32::max).unwrap(),
-                self.start.z.max(self.end.z),
+                self.start.z.max(end.z),
             ),
         }
     }
@@ -134,10 +156,14 @@ impl SceneObject for Arrow {
 animatable!(Arrow {
     start: Vec3,
     end: Vec3,
+    progress: Float,
     shaft_width: Float,
     head_width: Float,
     head_length: Float,
     color: Vec4,
+} outputs {
+    pen_position: Vec3,
+    pen_angle: Float,
 });
 
 #[cfg(test)]
@@ -147,6 +173,17 @@ mod tests {
 
     fn make_arrow() -> Arrow {
         Arrow::new(vec3(0.0, 0.0, 0.0), vec3(10.0, 0.0, 0.0), WHITE)
+    }
+
+    #[test]
+    fn pen_follows_the_growing_tip() {
+        let mut arrow = Arrow::new(Vec3::ZERO, vec3(4.0, 0.0, 0.0), WHITE);
+        assert_eq!(arrow.pen_position(), vec3(4.0, 0.0, 0.0));
+        arrow.progress = 0.5;
+        assert_eq!(arrow.pen_position(), vec3(2.0, 0.0, 0.0));
+        assert!(arrow.pen_angle().abs() < 1e-6);
+        // The bounding box shrinks with the reveal.
+        assert!(arrow.bounding_box().max.x < 2.5);
     }
 
     #[test]

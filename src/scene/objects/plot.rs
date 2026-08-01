@@ -177,12 +177,7 @@ impl Plot {
     /// center. Exposed as a read-only output property for bindings.
     pub fn pen_position(&self) -> Vec3 {
         let curve = self.curve_segments();
-        let drawn = polyline::take_progress(&curve, self.progress);
-        let local = match (drawn.last(), curve.first()) {
-            (Some(segment), _) => segment.end,
-            (None, Some(first)) => first.start,
-            (None, None) => Vec2::ZERO,
-        };
+        let local = polyline::pen_pose(&curve, self.progress).map_or(Vec2::ZERO, |(p, _)| p);
         vec3(local.x + self.position.x, local.y + self.position.y, self.position.z)
     }
 }
@@ -195,14 +190,7 @@ impl Plot {
     /// `pen_position`) to ride the graph facing along it.
     pub fn pen_angle(&self) -> f32 {
         let curve = self.curve_segments();
-        let drawn = polyline::take_progress(&curve, self.progress);
-        let segment = match (drawn.len(), curve.first()) {
-            (0, Some(first)) => first,
-            (0, None) => return 0.0,
-            (n, _) => &curve[n - 1],
-        };
-        let d = segment.end - segment.start;
-        d.y.atan2(d.x)
+        polyline::pen_pose(&curve, self.progress).map_or(0.0, |(_, a)| a)
     }
 }
 

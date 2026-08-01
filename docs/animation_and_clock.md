@@ -65,9 +65,11 @@ Rules, all validated at build time (panic from `SceneBuilder`, `Err` from
 
 Bindings can also read **output properties** — read-only derived values
 declared via the `animatable!` macro's `outputs { name: Variant }` block,
-where each name is a same-named computing method — e.g. `pen_position` (the
-world-space drawing tip) and `pen_angle` (its heading, Turtle's atan2
-convention) on both `LSystem` and `Plot`. A Sprite with `position`/`rotation`
+where each name is a same-named computing method. Every path-like object
+(`Line`, `Arrow`, `Ring`, `Polyline`, `LSystem`, `Plot`) exposes the pair
+`pen_position` (world-space drawing tip at the current progress) and
+`pen_angle` (its heading, Turtle's atan2 convention; tangent on `Ring`),
+via the shared `polyline::pen_pose` helper where a segment path exists. A Sprite with `position`/`rotation`
 bound to them rides a drawing turtle-style; set the sprite's `center` (e.g.
 `(0, -h/2)`) to pivot around its base like `turtle_intro` does. Outputs are served by
 `Animatable::get`, listed by `output_names()`, and are valid binding sources

@@ -66,12 +66,7 @@ impl LSystem {
     /// objects can bind to it (e.g. a label following the drawing).
     pub fn pen_position(&self) -> Vec3 {
         let all = l_system::get_lines(&self.rewritten(), self.theta, 1.0);
-        let drawn = polyline::take_progress(&all, self.progress);
-        let local = match (drawn.last(), all.first()) {
-            (Some(segment), _) => segment.end,
-            (None, Some(first)) => first.start,
-            (None, None) => Vec2::ZERO,
-        };
+        let local = polyline::pen_pose(&all, self.progress).map_or(Vec2::ZERO, |(p, _)| p);
         vec3(
             local.x * self.scale + self.position.x,
             local.y * self.scale + self.position.y,
@@ -81,22 +76,12 @@ impl LSystem {
 
     /// Heading of the drawing tip in radians (`atan2(dy, dx)` of the segment
     /// under the pen — the same convention as `Turtle`'s sprite rotation).
-    /// At zero progress this is the path's initial heading (π/2, up).
-    /// Exposed as a read-only output: bind a Sprite's `rotation` to it (plus
+    /// At zero progress this is the first segment's heading. Exposed as a
+    /// read-only output: bind a Sprite's `rotation` to it (plus
     /// `pen_position` for its position) to ride the drawing turtle-style.
     pub fn pen_angle(&self) -> f32 {
         let all = l_system::get_lines(&self.rewritten(), self.theta, 1.0);
-        let drawn = polyline::take_progress(&all, self.progress);
-        // Direction comes from the *full* segment the pen is on — the
-        // partially-drawn copy can be degenerate right at a step boundary.
-        match drawn.len() {
-            0 => std::f32::consts::FRAC_PI_2,
-            n => {
-                let segment = &all[n - 1];
-                let d = segment.end - segment.start;
-                d.y.atan2(d.x)
-            }
-        }
+        polyline::pen_pose(&all, self.progress).map_or(std::f32::consts::FRAC_PI_2, |(_, a)| a)
     }
 }
 

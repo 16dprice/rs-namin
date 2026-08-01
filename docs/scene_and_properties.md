@@ -50,7 +50,7 @@ animatable!(LSystem { position: Vec3, progress: Float, ... } outputs { pen_posit
 
 ## Property Conventions
 
-- **`progress: Float` means "0.0–1.0 reveal fraction" everywhere it appears** (`Text`, `Ring`, `LSystem`, `VectorText`, `Turtle`, `Plot`). 0.0 = nothing shown/at path start, 1.0 = fully shown/at path end. Keep this meaning if you add `progress` to a new object — it's what lets generic "write-on" animation code work across object types.
+- **`progress: Float` means "0.0–1.0 reveal fraction" everywhere it appears** (`Text`, `Ring`, `Line`, `Arrow`, `Polyline`, `LSystem`, `VectorText`, `Turtle`, `Plot`). 0.0 = nothing shown/at path start, 1.0 = fully shown/at path end. Keep this meaning if you add `progress` to a new object — it's what lets generic "write-on" animation code work across object types.
 - **`rotation: Float` vs `orientation: Mat4` are different things.** `rotation` (present on 2D objects like `Polygon`) is a single planar Z-axis angle in radians. `orientation` (only on `Torus`, a true 3D mesh) is a full `Mat4` — animate it with `AnimValue::Mat4` keyframes (see `Torus::orientation` and the `examples/torus.rs` scene), not `rotation_x/y/z` (those are Camera-only Euler fields, see [camera_and_rendering.md](camera_and_rendering.md)).
 - **Some properties are conceptually integers but stored as `Float`** so they can be keyframed (`AnimValue` has no integer variant): `Polygon::sides`, `LSystem::iterations`. Both are floored (and `sides` clamped to a minimum of 3) at draw/use time, not at set time — the stored float value round-trips exactly through `set`/`get` even mid-animation.
 

@@ -26,6 +26,23 @@ impl Ring {
         }
     }
 
+    /// The point on the ring's centerline at the sweep's leading edge
+    /// (read-only output — a binding source).
+    pub fn pen_position(&self) -> Vec3 {
+        let angle = self.progress.clamp(0.0, 1.0) * TAU;
+        vec3(
+            self.position.x + self.radius * angle.cos(),
+            self.position.y + self.radius * angle.sin(),
+            self.position.z,
+        )
+    }
+
+    /// Tangent direction at the sweep's leading edge in radians (the sweep
+    /// is counter-clockwise, so this is the angle + 90 degrees).
+    pub fn pen_angle(&self) -> f32 {
+        self.progress.clamp(0.0, 1.0) * TAU + std::f32::consts::FRAC_PI_2
+    }
+
     /// Build a flat ring on the XY plane: a quad strip between an inner
     /// circle (radius - thickness/2) and outer circle (radius + thickness/2),
     /// sweeping `progress` fraction of the full arc.
@@ -97,6 +114,9 @@ animatable!(Ring {
     thickness: Float,
     progress: Float,
     color: Vec4,
+} outputs {
+    pen_position: Vec3,
+    pen_angle: Float,
 });
 
 #[cfg(test)]
@@ -111,6 +131,16 @@ mod tests {
     #[test]
     fn property_round_trip() {
         assert_property_roundtrip(&mut make_circle());
+    }
+
+    #[test]
+    fn pen_rides_the_sweep() {
+        let mut c = make_circle();
+        c.position = vec3(1.0, 0.0, 0.0);
+        c.progress = 0.25; // quarter sweep: (0, r) relative, tangent facing left
+        let p = c.pen_position();
+        assert!((p - vec3(1.0, 1.0, 0.0)).length() < 1e-5, "got {p}");
+        assert!((c.pen_angle() - std::f32::consts::PI).abs() < 1e-5);
     }
 
     #[test]
