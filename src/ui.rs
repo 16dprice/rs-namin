@@ -180,7 +180,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
     response
 }
 
-fn transport_panel(
+pub(crate) fn transport_panel(
     ctx: &egui::Context,
     transport: &mut TransportState,
     clock: &mut Clock,
@@ -268,10 +268,15 @@ fn transport_panel(
         );
 
         // Dope sheet: track lanes with editable keyframes (documents only).
+        // It ends by pinning content to the panel's exact inner bottom (the
+        // resizable panel persists content height), so it must be the LAST
+        // thing in the panel — even trailing padding here would inflate the
+        // stored height and make the panel creep taller every frame.
         if let Some(editor) = editor {
             editor::dope_sheet(ui, editor, clock, transport);
+        } else {
+            ui.add_space(4.0);
         }
-        ui.add_space(4.0);
     });
 }
 
@@ -640,6 +645,104 @@ mod tests {
         let mut clock = Clock::new(10.0, 60.0);
         clock.play();
         clock
+    }
+
+    /// Regression: the editor transport panel must HOLD a resized height.
+    /// egui panels persist their *content* rect, so content that shrinks
+    /// below the allocation (a shrinking ScrollArea, an over-estimated
+    /// detail-strip reserve) makes a resize snap or creep back. Drive the
+    /// real panel headlessly with a synthetic drag on its top-edge handle
+    /// and assert the height sticks over many idle frames.
+    #[test]
+    fn editor_transport_panel_holds_resized_height() {
+        use crate::doc::{ObjectDoc, ObjectSpec, SceneDoc};
+        use crate::editor::EditorState;
+
+        let doc = SceneDoc {
+            description: String::new(),
+            camera: Default::default(),
+            export: Default::default(),
+            objects: vec![ObjectDoc {
+                id: "a".to_string(),
+                object: ObjectSpec::Disk {
+                    position: vec3(0.0, 0.0, 0.0),
+                    radius: 1.0,
+                    color: vec4(1.0, 1.0, 1.0, 1.0),
+                },
+                set: Vec::new(),
+            }],
+            tracks: Vec::new(),
+            bindings: Vec::new(),
+        };
+        let mut editor = EditorState::new(doc, "scenes/panel_test.ron");
+        let mut clock = Clock::new(6.0, 60.0);
+        let mut transport = TransportState::default();
+        let timeline = Timeline::new();
+
+        let ctx = egui::Context::default();
+        let screen = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 720.0));
+        let mut heights: Vec<f32> = Vec::new();
+
+        let mut run_frame = |events: Vec<egui::Event>, heights: &mut Vec<f32>| {
+            let input = egui::RawInput {
+                screen_rect: Some(screen),
+                events,
+                ..Default::default()
+            };
+            ctx.run(input, |ctx| {
+                transport_panel(ctx, &mut transport, &mut clock, &timeline, Some(&mut editor));
+                let panel_top = ctx.available_rect().max.y;
+                heights.push(720.0 - panel_top);
+            });
+        };
+
+        // Settle at the default height.
+        for _ in 0..5 {
+            run_frame(vec![], &mut heights);
+        }
+        let initial = *heights.last().unwrap();
+        assert!(initial > 100.0, "panel should have a real default height, got {initial}");
+
+        // Drag the top-edge resize handle up by 150px.
+        let handle = egui::pos2(640.0, 720.0 - initial);
+        run_frame(vec![egui::Event::PointerMoved(handle)], &mut heights);
+        run_frame(
+            vec![egui::Event::PointerButton {
+                pos: handle,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers: egui::Modifiers::NONE,
+            }],
+            &mut heights,
+        );
+        let target = egui::pos2(640.0, handle.y - 150.0);
+        run_frame(vec![egui::Event::PointerMoved(target)], &mut heights);
+        run_frame(
+            vec![egui::Event::PointerButton {
+                pos: target,
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+            &mut heights,
+        );
+
+        let resized = *heights.last().unwrap();
+        assert!(
+            (resized - (initial + 150.0)).abs() < 10.0,
+            "drag should grow the panel ~150px: {initial} -> {resized}"
+        );
+
+        // The height must hold over idle frames — no snap-back, no creep.
+        for _ in 0..30 {
+            run_frame(vec![], &mut heights);
+        }
+        let settled = *heights.last().unwrap();
+        assert!(
+            (settled - resized).abs() < 2.0,
+            "resized height must stick: {resized} settled to {settled} (history: {:?})",
+            &heights[heights.len().saturating_sub(6)..]
+        );
     }
 
     #[test]

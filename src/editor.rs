@@ -1258,145 +1258,157 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
     // reserving room for the detail strip below when a keyframe is selected.
     let detail_reserve = if editor.selected_keyframe.is_some() { 84.0 } else { 8.0 };
     let lanes_height = (ui.available_height() - detail_reserve).max(2.0 * SHEET_ROW_H);
-    egui::ScrollArea::vertical().max_height(lanes_height).show(ui, |ui| {
-        for track_index in 0..editor.doc.tracks.len() {
-            let label = format!(
-                "{}.{}",
-                editor.doc.tracks[track_index].object, editor.doc.tracks[track_index].property
-            );
-            ui.horizontal(|ui| {
-                let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
-                {
-                    let text_area = egui::Rect::from_min_max(label_rect.min, egui::pos2(label_rect.right() - 40.0, label_rect.bottom()));
-                    let clip = ui.painter().with_clip_rect(text_area);
-                    clip.text(
-                        label_rect.left_center() + egui::vec2(4.0, 0.0),
-                        egui::Align2::LEFT_CENTER,
-                        &label,
-                        egui::FontId::proportional(12.0),
-                        ui.visuals().weak_text_color(),
-                    );
-                }
-                let add_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(38.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
-                if ui
-                    .put(add_rect, egui::Button::new("+").small())
-                    .on_hover_text("Add keyframe at the playhead (or double-click the lane at any time)")
-                    .clicked()
-                {
-                    action = Some(SheetAction::AddKeyframe(track_index, clock.current_time));
-                }
-                let delete_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(18.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
-                if ui
-                    .put(delete_rect, egui::Button::new("x").small())
-                    .on_hover_text("Delete track")
-                    .clicked()
-                {
-                    action = Some(SheetAction::RemoveTrack(track_index));
-                }
-
-                let (lane_rect, lane_resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), SHEET_ROW_H), egui::Sense::click());
-                let lane_resp = lane_resp
-                    .on_hover_text("Double-click: add keyframe · drag a diamond to retime · a track needs 2+ keyframes to animate");
-                if track_index % 2 == 0 {
-                    ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
-                }
-                if lane_resp.double_clicked()
-                    && let Some(pos) = lane_resp.interact_pointer_pos()
-                {
-                    action = Some(SheetAction::AddKeyframe(track_index, x_to_time(pos.x, lane_rect, display_duration)));
-                }
-
-                for kf_index in 0..editor.doc.tracks[track_index].keyframes.len() {
-                    let kf_time = editor.doc.tracks[track_index].keyframes[kf_index].time;
-                    let x = time_to_x(kf_time, lane_rect, display_duration);
-                    let center = egui::pos2(x, lane_rect.center().y);
-                    let hit = egui::Rect::from_center_size(center, egui::vec2(12.0, SHEET_ROW_H));
-                    let id = ui.id().with(("kf", track_index, kf_index));
-                    let resp = ui.interact(hit, id, egui::Sense::click_and_drag());
-
-                    if resp.clicked() || resp.drag_started() {
-                        action = Some(SheetAction::Select(track_index, kf_index));
+    // auto_shrink(false): claim the full lane height even when there are
+    // few lanes — the panel persists its *content* height, so a shrinking
+    // scroll area would snap a resize right back (egui panel.rs stores
+    // inner_response.response.rect).
+    egui::ScrollArea::vertical()
+        .max_height(lanes_height)
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            for track_index in 0..editor.doc.tracks.len() {
+                let label = format!(
+                    "{}.{}",
+                    editor.doc.tracks[track_index].object, editor.doc.tracks[track_index].property
+                );
+                ui.horizontal(|ui| {
+                    let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
+                    {
+                        let text_area =
+                            egui::Rect::from_min_max(label_rect.min, egui::pos2(label_rect.right() - 40.0, label_rect.bottom()));
+                        let clip = ui.painter().with_clip_rect(text_area);
+                        clip.text(
+                            label_rect.left_center() + egui::vec2(4.0, 0.0),
+                            egui::Align2::LEFT_CENTER,
+                            &label,
+                            egui::FontId::proportional(12.0),
+                            ui.visuals().weak_text_color(),
+                        );
                     }
-                    if resp.dragged() && resp.drag_delta().x != 0.0 {
-                        let dt = resp.drag_delta().x / lane_rect.width() * display_duration;
-                        action = Some(SheetAction::Move(
-                            track_index,
-                            kf_index,
-                            (kf_time + dt).clamp(0.0, display_duration),
-                        ));
+                    let add_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(38.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
+                    if ui
+                        .put(add_rect, egui::Button::new("+").small())
+                        .on_hover_text("Add keyframe at the playhead (or double-click the lane at any time)")
+                        .clicked()
+                    {
+                        action = Some(SheetAction::AddKeyframe(track_index, clock.current_time));
+                    }
+                    let delete_rect =
+                        egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(18.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
+                    if ui
+                        .put(delete_rect, egui::Button::new("x").small())
+                        .on_hover_text("Delete track")
+                        .clicked()
+                    {
+                        action = Some(SheetAction::RemoveTrack(track_index));
                     }
 
-                    let selected = editor.selected_keyframe == Some((track_index, kf_index));
-                    let fill = if selected {
-                        ui.visuals().selection.bg_fill
-                    } else {
-                        egui::Color32::from_gray(200)
+                    let (lane_rect, lane_resp) =
+                        ui.allocate_exact_size(egui::vec2(ui.available_width(), SHEET_ROW_H), egui::Sense::click());
+                    let lane_resp = lane_resp
+                        .on_hover_text("Double-click: add keyframe · drag a diamond to retime · a track needs 2+ keyframes to animate");
+                    if track_index % 2 == 0 {
+                        ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
+                    }
+                    if lane_resp.double_clicked()
+                        && let Some(pos) = lane_resp.interact_pointer_pos()
+                    {
+                        action = Some(SheetAction::AddKeyframe(track_index, x_to_time(pos.x, lane_rect, display_duration)));
+                    }
+
+                    for kf_index in 0..editor.doc.tracks[track_index].keyframes.len() {
+                        let kf_time = editor.doc.tracks[track_index].keyframes[kf_index].time;
+                        let x = time_to_x(kf_time, lane_rect, display_duration);
+                        let center = egui::pos2(x, lane_rect.center().y);
+                        let hit = egui::Rect::from_center_size(center, egui::vec2(12.0, SHEET_ROW_H));
+                        let id = ui.id().with(("kf", track_index, kf_index));
+                        let resp = ui.interact(hit, id, egui::Sense::click_and_drag());
+
+                        if resp.clicked() || resp.drag_started() {
+                            action = Some(SheetAction::Select(track_index, kf_index));
+                        }
+                        if resp.dragged() && resp.drag_delta().x != 0.0 {
+                            let dt = resp.drag_delta().x / lane_rect.width() * display_duration;
+                            action = Some(SheetAction::Move(
+                                track_index,
+                                kf_index,
+                                (kf_time + dt).clamp(0.0, display_duration),
+                            ));
+                        }
+
+                        let selected = editor.selected_keyframe == Some((track_index, kf_index));
+                        let fill = if selected {
+                            ui.visuals().selection.bg_fill
+                        } else {
+                            egui::Color32::from_gray(200)
+                        };
+                        paint_diamond(ui.painter(), center, KEYFRAME_RADIUS, fill);
+                    }
+
+                    paint_playhead(ui, lane_rect, clock.current_time, display_duration);
+                });
+            }
+
+            // Binding lanes: no keyframes — a flat bar spanning the binding's
+            // active window (full width when unwindowed).
+            let track_count = editor.doc.tracks.len();
+            for binding_index in 0..editor.doc.bindings.len() {
+                let binding = &editor.doc.bindings[binding_index];
+                let label = format!("{}.{}", binding.target, binding.property);
+                let source_label = format!("<- {}.{}", binding.source, binding.source_property);
+                let (window_start, window_end) = (binding.start, binding.end);
+                ui.horizontal(|ui| {
+                    let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
+                    {
+                        let text_area =
+                            egui::Rect::from_min_max(label_rect.min, egui::pos2(label_rect.right() - 20.0, label_rect.bottom()));
+                        let clip = ui.painter().with_clip_rect(text_area);
+                        clip.text(
+                            label_rect.left_center() + egui::vec2(4.0, 0.0),
+                            egui::Align2::LEFT_CENTER,
+                            &label,
+                            egui::FontId::proportional(12.0),
+                            ui.visuals().weak_text_color(),
+                        );
+                    }
+                    let delete_rect =
+                        egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(18.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
+                    if ui
+                        .put(delete_rect, egui::Button::new("x").small())
+                        .on_hover_text("Remove binding")
+                        .clicked()
+                    {
+                        action = Some(SheetAction::RemoveBinding(binding_index));
+                    }
+
+                    let (lane_rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), SHEET_ROW_H), egui::Sense::hover());
+                    if (track_count + binding_index).is_multiple_of(2) {
+                        ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
+                    }
+                    let bar_left = match window_start {
+                        Some(s) => time_to_x(s, lane_rect, display_duration),
+                        None => lane_rect.left() + 4.0,
                     };
-                    paint_diamond(ui.painter(), center, KEYFRAME_RADIUS, fill);
-                }
-
-                paint_playhead(ui, lane_rect, clock.current_time, display_duration);
-            });
-        }
-
-        // Binding lanes: no keyframes — a flat bar spanning the binding's
-        // active window (full width when unwindowed).
-        let track_count = editor.doc.tracks.len();
-        for binding_index in 0..editor.doc.bindings.len() {
-            let binding = &editor.doc.bindings[binding_index];
-            let label = format!("{}.{}", binding.target, binding.property);
-            let source_label = format!("<- {}.{}", binding.source, binding.source_property);
-            let (window_start, window_end) = (binding.start, binding.end);
-            ui.horizontal(|ui| {
-                let (label_rect, _) = ui.allocate_exact_size(egui::vec2(SHEET_LABEL_W, SHEET_ROW_H), egui::Sense::hover());
-                {
-                    let text_area = egui::Rect::from_min_max(label_rect.min, egui::pos2(label_rect.right() - 20.0, label_rect.bottom()));
-                    let clip = ui.painter().with_clip_rect(text_area);
-                    clip.text(
-                        label_rect.left_center() + egui::vec2(4.0, 0.0),
+                    let bar_right = match window_end {
+                        Some(e) => time_to_x(e, lane_rect, display_duration),
+                        None => lane_rect.right() - 4.0,
+                    };
+                    let bar = egui::Rect::from_min_max(
+                        egui::pos2(bar_left.max(lane_rect.left() + 4.0), lane_rect.bottom() - 6.0),
+                        egui::pos2(bar_right.min(lane_rect.right() - 4.0), lane_rect.bottom() - 3.0),
+                    );
+                    ui.painter().rect_filled(bar, 1.5, egui::Color32::from_gray(120));
+                    ui.painter().text(
+                        lane_rect.left_center() + egui::vec2(8.0, -2.0),
                         egui::Align2::LEFT_CENTER,
-                        &label,
-                        egui::FontId::proportional(12.0),
+                        &source_label,
+                        egui::FontId::proportional(11.0),
                         ui.visuals().weak_text_color(),
                     );
-                }
-                let delete_rect = egui::Rect::from_min_size(label_rect.right_top() - egui::vec2(18.0, 0.0), egui::vec2(16.0, SHEET_ROW_H));
-                if ui
-                    .put(delete_rect, egui::Button::new("x").small())
-                    .on_hover_text("Remove binding")
-                    .clicked()
-                {
-                    action = Some(SheetAction::RemoveBinding(binding_index));
-                }
-
-                let (lane_rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), SHEET_ROW_H), egui::Sense::hover());
-                if (track_count + binding_index).is_multiple_of(2) {
-                    ui.painter().rect_filled(lane_rect, 0.0, ui.visuals().faint_bg_color);
-                }
-                let bar_left = match window_start {
-                    Some(s) => time_to_x(s, lane_rect, display_duration),
-                    None => lane_rect.left() + 4.0,
-                };
-                let bar_right = match window_end {
-                    Some(e) => time_to_x(e, lane_rect, display_duration),
-                    None => lane_rect.right() - 4.0,
-                };
-                let bar = egui::Rect::from_min_max(
-                    egui::pos2(bar_left.max(lane_rect.left() + 4.0), lane_rect.bottom() - 6.0),
-                    egui::pos2(bar_right.min(lane_rect.right() - 4.0), lane_rect.bottom() - 3.0),
-                );
-                ui.painter().rect_filled(bar, 1.5, egui::Color32::from_gray(120));
-                ui.painter().text(
-                    lane_rect.left_center() + egui::vec2(8.0, -2.0),
-                    egui::Align2::LEFT_CENTER,
-                    &source_label,
-                    egui::FontId::proportional(11.0),
-                    ui.visuals().weak_text_color(),
-                );
-                paint_playhead(ui, lane_rect, clock.current_time, display_duration);
-            });
-        }
-    });
+                    paint_playhead(ui, lane_rect, clock.current_time, display_duration);
+                });
+            }
+        });
 
     match action {
         Some(SheetAction::Select(t, k)) => editor.selected_keyframe = Some((t, k)),
@@ -1421,6 +1433,21 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
     }
 
     keyframe_detail_strip(ui, editor);
+
+    // Pin the content's bottom to exactly the panel's inner bottom. The
+    // panel persists its *content* height every frame, so any constant gap
+    // (reserve over-estimate) or overshoot (allocate_space adds item
+    // spacing) feeds back and makes a resized panel creep down or up a few
+    // pixels per frame until it hits a range limit. An exact allocate_rect
+    // is the fixed point. Pinned by ui::tests::editor_transport_panel_holds_resized_height.
+    let bottom = ui.max_rect().bottom();
+    let cursor = ui.next_widget_position().y;
+    if bottom > cursor {
+        ui.allocate_rect(
+            egui::Rect::from_min_max(egui::pos2(ui.max_rect().left(), cursor), egui::pos2(ui.max_rect().right(), bottom)),
+            egui::Sense::hover(),
+        );
+    }
 }
 
 fn add_track_menu(ui: &mut egui::Ui, editor: &mut EditorState) {
