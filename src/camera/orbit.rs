@@ -80,7 +80,17 @@ impl OrbitController {
             self.distance = self.distance.clamp(self.min_distance, self.max_distance);
         }
 
-        // WASD + Q/E: move target (camera follows)
+        // WASD + Q/E: move target (camera follows). Suppressed while a
+        // command modifier is held — Ctrl+S (save) and friends must not
+        // also fly the camera.
+        let command_held = input.is_key_down(KeyCode::LeftControl)
+            || input.is_key_down(KeyCode::RightControl)
+            || input.is_key_down(KeyCode::LeftSuper)
+            || input.is_key_down(KeyCode::RightSuper);
+        if command_held {
+            self.apply_to_camera(camera);
+            return;
+        }
         let dt = input.frame_time();
         let speed = self.move_speed * dt;
         let forward = self.forward_vector();
@@ -250,6 +260,28 @@ mod tests {
         orbit.update(&mut cam, &input);
         // Forward at azimuth=0 is -Z
         assert!(orbit.target.z < initial_z);
+    }
+
+    #[test]
+    fn wasd_is_suppressed_while_a_command_modifier_is_held() {
+        // Ctrl+S is the save shortcut; it must not also fly the camera.
+        for modifier in [KeyCode::LeftControl, KeyCode::RightControl, KeyCode::LeftSuper, KeyCode::RightSuper] {
+            let mut cam = Camera::default();
+            let mut orbit = OrbitController::from_camera(&cam);
+            let initial_target = orbit.target;
+
+            let input = ScriptedInput::default().with_key_down(KeyCode::S).with_key_down(modifier);
+            orbit.update(&mut cam, &input);
+            assert_eq!(orbit.target, initial_target, "target moved with {modifier:?} held");
+        }
+
+        // Sanity: S alone still moves.
+        let mut cam = Camera::default();
+        let mut orbit = OrbitController::from_camera(&cam);
+        let initial_z = orbit.target.z;
+        let input = ScriptedInput::default().with_key_down(KeyCode::S);
+        orbit.update(&mut cam, &input);
+        assert!(orbit.target.z > initial_z);
     }
 
     #[test]
