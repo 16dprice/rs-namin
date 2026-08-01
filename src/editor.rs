@@ -732,11 +732,25 @@ fn spec_type_name(spec: &ObjectSpec) -> &'static str {
 /// Draw the editor panels (palette left, inspector right). Call inside the
 /// egui pass, viewer mode only.
 pub fn panels(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
+    // Ctrl+S (Cmd+S on mac) saves, same as the Save button. consume_key
+    // works even while a text field has keyboard focus — and eats the
+    // event so no stray "s" lands in it.
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
+        save_scene(editor);
+    }
+
     palette_panel(ctx, editor);
     if editor.camera_selected {
         camera_inspector(ctx, editor, playhead);
     } else if editor.selected.is_some() {
         inspector_panel(ctx, editor, playhead);
+    }
+}
+
+fn save_scene(editor: &mut EditorState) {
+    match editor.save() {
+        Ok(()) => editor.error = None,
+        Err(e) => editor.error = Some(e),
     }
 }
 
@@ -776,11 +790,8 @@ fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
 
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                if ui.button("Save").clicked() {
-                    match editor.save() {
-                        Ok(()) => editor.error = None,
-                        Err(e) => editor.error = Some(e),
-                    }
+                if ui.button("Save").on_hover_text("Ctrl+S").clicked() {
+                    save_scene(editor);
                 }
                 ui.weak(editor.path);
             });
@@ -1975,6 +1986,33 @@ mod tests {
         assert_eq!(ed.binding_for("a", "radius"), Some(0));
         assert_eq!(ed.binding_for("a", "position"), None);
         assert_eq!(ed.binding_for("b", "radius"), None);
+    }
+
+    #[test]
+    fn ctrl_s_saves_the_scene() {
+        let path = temp_scene("ctrl_s_save");
+        let mut ed = EditorState::new(doc_with(vec![disk("a")], vec![]), path);
+        ed.doc.description = "saved by shortcut".to_string();
+        ed.dirty = true;
+
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 720.0))),
+            events: vec![egui::Event::Key {
+                key: egui::Key::S,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::COMMAND,
+            }],
+            ..Default::default()
+        };
+        ctx.run(input, |ctx| panels(ctx, &mut ed, 0.0));
+
+        assert!(!ed.dirty, "Ctrl+S should have saved");
+        let saved = std::fs::read_to_string(ed.path).unwrap();
+        assert!(saved.contains("saved by shortcut"), "file should hold the edited doc");
+        std::fs::remove_file(ed.path).unwrap();
     }
 
     #[test]
