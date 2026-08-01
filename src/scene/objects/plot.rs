@@ -187,6 +187,25 @@ impl Plot {
     }
 }
 
+impl Plot {
+    /// Heading of the curve at the pen in radians (`atan2` of the last
+    /// revealed segment in plot space — the same convention as the
+    /// L-system's `pen_angle`). At zero progress it is the first segment's
+    /// direction; 0 with no curve. Bind a Sprite's `rotation` to it (plus
+    /// `pen_position`) to ride the graph facing along it.
+    pub fn pen_angle(&self) -> f32 {
+        let curve = self.curve_segments();
+        let drawn = polyline::take_progress(&curve, self.progress);
+        let segment = match (drawn.len(), curve.first()) {
+            (0, Some(first)) => first,
+            (0, None) => return 0.0,
+            (n, _) => &curve[n - 1],
+        };
+        let d = segment.end - segment.start;
+        d.y.atan2(d.x)
+    }
+}
+
 /// A "nice" tick interval (1/2/5 ladder) yielding roughly 4–10 ticks per
 /// span.
 fn tick_step(span: f32) -> f32 {
@@ -258,6 +277,7 @@ animatable!(Plot {
     progress: Float,
 } outputs {
     pen_position: Vec3,
+    pen_angle: Float,
 });
 
 #[cfg(test)]
@@ -371,8 +391,30 @@ mod tests {
     #[test]
     fn pen_position_is_an_output() {
         let plot = identity_plot();
-        assert_eq!(plot.output_names(), &["pen_position"]);
+        assert_eq!(plot.output_names(), &["pen_position", "pen_angle"]);
         assert!(matches!(plot.get("pen_position"), Some(AnimValue::Vec3(_))));
+    }
+
+    #[test]
+    fn pen_angle_follows_the_curve_slope() {
+        // y = x on the identity mapping: slope 1 everywhere, angle = pi/4.
+        let mut plot = identity_plot();
+        for progress in [0.0, 0.5, 1.0] {
+            plot.progress = progress;
+            assert!(
+                (plot.pen_angle() - std::f32::consts::FRAC_PI_4).abs() < 1e-3,
+                "progress {progress}: {}",
+                plot.pen_angle()
+            );
+        }
+
+        // A constant function runs flat.
+        plot.set_expression("0.5");
+        assert!(plot.pen_angle().abs() < 1e-3);
+
+        // No curve at all (parse failure): a stable 0.
+        plot.set_expression("wat(");
+        assert_eq!(plot.pen_angle(), 0.0);
     }
 
     #[test]

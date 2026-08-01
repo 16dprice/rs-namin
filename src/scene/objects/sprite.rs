@@ -147,6 +147,8 @@ animatable!(Sprite {
     position: Vec3,
     rotation: Float,
     size: Vec2,
+    center: Vec2,
+    flip_x: Bool,
     color: Vec4,
 });
 

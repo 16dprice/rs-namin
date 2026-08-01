@@ -31,17 +31,6 @@
             ],
         ),
         (
-            id: "disk_1",
-            object: Disk(
-                position: (0.0, 0.0, 0.0),
-                radius: 1.0,
-                color: (1.0, 1.0, 1.0, 1.0),
-            ),
-            set: [
-                ("radius", Float(0.03)),
-            ],
-        ),
-        (
             id: "sprite_1",
             object: Sprite(
                 image: "assets/aseprite-files/turtle.png",
@@ -49,7 +38,11 @@
                 size: (1.0, 1.0),
                 color: (1.0, 1.0, 1.0, 1.0),
             ),
-            set: [],
+            set: [
+                ("position", Vec3((0.4221248, -0.020718075, 0.0))),
+                ("size", Vec2((0.25, 0.25))),
+                ("center", Vec2((0.0, -0.125))),
+            ],
         ),
     ],
     tracks: [
@@ -73,11 +66,20 @@
     ],
     bindings: [
         (
-            target: "disk_1",
+            target: "sprite_1",
             property: "position",
             source: "lsystem_1",
             source_property: "pen_position",
-            offset: Some(Vec3((0.0, 0.0, 0.01))),
+            offset: None,
+            start: None,
+            end: None,
+        ),
+        (
+            target: "sprite_1",
+            property: "rotation",
+            source: "lsystem_1",
+            source_property: "pen_angle",
+            offset: None,
             start: None,
             end: None,
         ),
