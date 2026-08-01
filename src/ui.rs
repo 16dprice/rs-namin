@@ -25,6 +25,15 @@ use crate::scene::value::AnimValue;
 pub struct UiCapture {
     pub pointer: bool,
     pub keyboard: bool,
+    /// The pointer is over any egui panel/window/popup this frame. Broader
+    /// than `pointer`: egui's `wants_pointer_input` goes *false* on the
+    /// frame a press lands on non-interactive panel space (its `!any_down`
+    /// clause), which is exactly when a click must NOT fall through to
+    /// scene selection (e.g. clicking panel background to dismiss a color
+    /// popup used to deselect the object). Gate selection clicks on this;
+    /// keep drags gated on `pointer` so an orbit that crosses a panel
+    /// doesn't stall.
+    pub pointer_over_ui: bool,
 }
 
 /// App-level navigation requested by this frame's UI.
@@ -109,6 +118,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
         capture: UiCapture {
             pointer: false,
             keyboard: false,
+            pointer_over_ui: false,
         },
         request: UiRequest::None,
         snapshot: false,
@@ -161,6 +171,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
 
         response.capture.pointer = ctx.wants_pointer_input();
         response.capture.keyboard = ctx.wants_keyboard_input();
+        response.capture.pointer_over_ui = ctx.is_pointer_over_area();
     });
 
     response
@@ -173,7 +184,19 @@ fn transport_panel(
     timeline: &Timeline,
     editor: Option<&mut EditorState>,
 ) {
-    egui::TopBottomPanel::bottom("transport").show(ctx, |ui| {
+    // With an editor (dope sheet) the panel is user-resizable; its height
+    // persists in egui memory for the app's lifetime, keyed by the panel id,
+    // so it survives scene switches. The plain transport keeps a separate id
+    // so it stays snug instead of inheriting the editor height.
+    let panel = if editor.is_some() {
+        egui::TopBottomPanel::bottom("transport_editor")
+            .resizable(true)
+            .default_height(250.0)
+            .height_range(140.0..=640.0)
+    } else {
+        egui::TopBottomPanel::bottom("transport")
+    };
+    panel.show(ctx, |ui| {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             let play_label = match clock.playback_state {
@@ -264,6 +287,7 @@ pub fn library_layout(pending_delete: &mut Option<&'static str>) -> (UiCapture, 
     let mut capture = UiCapture {
         pointer: false,
         keyboard: false,
+        pointer_over_ui: false,
     };
     let mut request = UiRequest::None;
 
@@ -345,6 +369,7 @@ pub fn export_layout(phase: &mut ExportPhase, scene_name: &str, duration: f32, i
     let mut capture = UiCapture {
         pointer: false,
         keyboard: false,
+        pointer_over_ui: false,
     };
     let mut event = ExportUiEvent::None;
     let rendering = matches!(phase, ExportPhase::Render(_));

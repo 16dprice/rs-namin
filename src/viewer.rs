@@ -155,7 +155,7 @@ impl ViewerMode {
             SnapView::None => {}
         }
 
-        self.viewport_interact(&input);
+        self.viewport_interact(&input, ui_response.capture.pointer_over_ui);
 
         self.clock.tick(get_frame_time());
 
@@ -216,7 +216,7 @@ impl ViewerMode {
     /// Dragging pauses the clock (edits land at a fixed playhead) and writes
     /// through `EditorState::auto_key` — keyframe when tracked, initial
     /// override otherwise.
-    fn viewport_interact(&mut self, input: &dyn InputProvider) {
+    fn viewport_interact(&mut self, input: &dyn InputProvider, pointer_over_ui: bool) {
         let Some(editor) = &mut self.editor else { return };
         // A failed build means the visible scene may not match the doc's
         // object list — indices would lie, so don't interact.
@@ -228,7 +228,12 @@ impl ViewerMode {
         let screen = vec2(input.screen_width(), input.screen_height());
         let mouse = input.mouse_position();
 
-        if input.is_mouse_button_pressed(MouseButton::Left) {
+        // Selection only responds to clean viewport clicks: a press anywhere
+        // over egui chrome (panels, popups — even non-interactive panel
+        // space, which the `pointer` gate lets through) must never select or
+        // deselect. Drag continuation below stays gated on `pointer` only,
+        // so an in-progress drag survives crossing a panel.
+        if !pointer_over_ui && input.is_mouse_button_pressed(MouseButton::Left) {
             let (origin, dir) = self.camera.screen_ray(mouse, screen);
             let mut best: Option<(usize, f32)> = None;
             for (index, (_, object)) in self.scene.iter().enumerate() {

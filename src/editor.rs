@@ -742,8 +742,9 @@ pub fn panels(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
 
 fn palette_panel(ctx: &egui::Context, editor: &mut EditorState) {
     egui::SidePanel::left("editor_palette")
-        .resizable(false)
-        .exact_width(230.0)
+        .resizable(true)
+        .default_width(230.0)
+        .width_range(180.0..=420.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
@@ -849,8 +850,9 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
     }
 
     egui::SidePanel::right("editor_inspector")
-        .resizable(false)
-        .exact_width(280.0)
+        .resizable(true)
+        .default_width(280.0)
+        .width_range(220.0..=520.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
             ui.heading(spec_type_name(&editor.doc.objects[index].object));
@@ -974,8 +976,9 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
 /// menu as objects, writing to `CameraDoc` (typed fields + `set` overrides).
 fn camera_inspector(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
     egui::SidePanel::right("editor_inspector")
-        .resizable(false)
-        .exact_width(280.0)
+        .resizable(true)
+        .default_width(280.0)
+        .width_range(220.0..=520.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
             ui.heading("Camera");
@@ -1243,7 +1246,11 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
     });
 
     // Track lanes.
-    egui::ScrollArea::vertical().max_height(5.5 * SHEET_ROW_H).show(ui, |ui| {
+    // Fill whatever height the (resizable) transport panel provides,
+    // reserving room for the detail strip below when a keyframe is selected.
+    let detail_reserve = if editor.selected_keyframe.is_some() { 84.0 } else { 8.0 };
+    let lanes_height = (ui.available_height() - detail_reserve).max(2.0 * SHEET_ROW_H);
+    egui::ScrollArea::vertical().max_height(lanes_height).show(ui, |ui| {
         for track_index in 0..editor.doc.tracks.len() {
             let label = format!(
                 "{}.{}",
