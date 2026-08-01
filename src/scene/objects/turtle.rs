@@ -146,6 +146,7 @@ mod tests {
             flip_x: false,
             color: vec4(1.0, 1.0, 1.0, 1.0),
             texture: None,
+            image_path: None,
         }
     }
 

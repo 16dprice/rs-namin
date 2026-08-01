@@ -18,6 +18,11 @@ pub struct Sprite {
     /// Tint color — white (1,1,1,1) renders the texture unmodified.
     pub color: Vec4,
     pub(crate) texture: Option<Texture2D>,
+    /// Image file resolved lazily at draw time through the texture cache.
+    /// Scene-document sprites use this: constructing one must not touch the
+    /// GL context or fail (specs spawn per-frame in the inspector and in
+    /// headless tests).
+    pub(crate) image_path: Option<String>,
 }
 
 impl Sprite {
@@ -35,6 +40,24 @@ impl Sprite {
             flip_x: false,
             color: vec4(color.r, color.g, color.b, color.a),
             texture: Some(texture),
+            image_path: None,
+        }
+    }
+
+    /// Create a sprite whose image loads lazily at first draw (see
+    /// `scene::texture_cache`) — a missing or unreadable file draws a
+    /// placeholder. `size` must be explicit: geometry can't depend on a
+    /// texture that may never load.
+    pub fn from_path(path: &str, position: Vec3, size: Vec2, color: Color) -> Self {
+        Self {
+            position,
+            rotation: 0.0,
+            size,
+            center: Vec2::ZERO,
+            flip_x: false,
+            color: vec4(color.r, color.g, color.b, color.a),
+            texture: None,
+            image_path: Some(path.to_string()),
         }
     }
 
@@ -74,8 +97,12 @@ impl Sprite {
 
 impl SceneObject for Sprite {
     fn draw(&self) {
-        let mut mb = match &self.texture {
-            Some(texture) => MeshBuilder::with_texture(texture.clone()),
+        let texture = self
+            .texture
+            .clone()
+            .or_else(|| self.image_path.as_deref().map(crate::scene::texture_cache::get));
+        let mut mb = match texture {
+            Some(texture) => MeshBuilder::with_texture(texture),
             None => MeshBuilder::new(),
         };
         self.build(&mut mb);
@@ -139,7 +166,18 @@ mod tests {
             flip_x: false,
             color: vec4(1.0, 1.0, 1.0, 1.0),
             texture: None,
+            image_path: None,
         }
+    }
+
+    #[test]
+    fn from_path_is_gl_free_and_sized_explicitly() {
+        let sprite = Sprite::from_path("assets/nope.png", vec3(1.0, 2.0, 0.0), vec2(3.0, 1.0), WHITE);
+        assert_eq!(sprite.image_path.as_deref(), Some("assets/nope.png"));
+        assert!(sprite.texture.is_none());
+        // Geometry comes from the explicit size, never the (unloaded) image.
+        let bb = sprite.bounding_box();
+        assert!((bb.max.x - 2.5).abs() < 1e-5 && (bb.max.y - 2.5).abs() < 1e-5);
     }
 
     fn build_mesh(sprite: &Sprite) -> Mesh {

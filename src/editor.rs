@@ -681,6 +681,15 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
             },
         ),
         (
+            "Sprite",
+            ObjectSpec::Sprite {
+                image: "assets/aseprite-files/tutle.png".to_string(),
+                position: Vec3::ZERO,
+                size: vec2(1.0, 1.0),
+                color: white,
+            },
+        ),
+        (
             "LSystem",
             // The dragon curve: iteration 10 at this scale roughly fills
             // the default viewport.
@@ -724,6 +733,7 @@ fn spec_type_name(spec: &ObjectSpec) -> &'static str {
         ObjectSpec::Tube { .. } => "Tube",
         ObjectSpec::Text { .. } => "Text",
         ObjectSpec::VectorText { .. } => "VectorText",
+        ObjectSpec::Sprite { .. } => "Sprite",
         ObjectSpec::LSystem { .. } => "LSystem",
         ObjectSpec::Plot { .. } => "Plot",
     }
@@ -887,6 +897,16 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
                     ui.weak("content");
                     spec_changed |= ui.text_edit_singleline(content).changed();
                 });
+            }
+            if let ObjectSpec::Sprite { image, .. } = &mut editor.doc.objects[index].object {
+                ui.horizontal(|ui| {
+                    ui.weak("image")
+                        .on_hover_text("Path to a PNG (relative to the app's working directory)");
+                    spec_changed |= ui.text_edit_singleline(image).changed();
+                });
+                if !std::path::Path::new(image.as_str()).exists() {
+                    ui.colored_label(ui.visuals().error_fg_color, "file not found — drawing a placeholder");
+                }
             }
             if let ObjectSpec::LSystem { axiom, rules, colors, .. } = &mut editor.doc.objects[index].object {
                 ui.horizontal(|ui| {

@@ -78,6 +78,26 @@ impl LSystem {
             self.position.z,
         )
     }
+
+    /// Heading of the drawing tip in radians (`atan2(dy, dx)` of the segment
+    /// under the pen — the same convention as `Turtle`'s sprite rotation).
+    /// At zero progress this is the path's initial heading (π/2, up).
+    /// Exposed as a read-only output: bind a Sprite's `rotation` to it (plus
+    /// `pen_position` for its position) to ride the drawing turtle-style.
+    pub fn pen_angle(&self) -> f32 {
+        let all = l_system::get_lines(&self.rewritten(), self.theta, 1.0);
+        let drawn = polyline::take_progress(&all, self.progress);
+        // Direction comes from the *full* segment the pen is on — the
+        // partially-drawn copy can be degenerate right at a step boundary.
+        match drawn.len() {
+            0 => std::f32::consts::FRAC_PI_2,
+            n => {
+                let segment = &all[n - 1];
+                let d = segment.end - segment.start;
+                d.y.atan2(d.x)
+            }
+        }
+    }
 }
 
 impl SceneObject for LSystem {
@@ -146,6 +166,7 @@ animatable!(LSystem {
     line_width: Float,
 } outputs {
     pen_position: Vec3,
+    pen_angle: Float,
 });
 
 #[cfg(test)]
@@ -233,9 +254,27 @@ mod tests {
     #[test]
     fn pen_position_is_a_readable_output_not_a_settable_property() {
         let ls = make_lsystem();
-        assert_eq!(ls.output_names(), &["pen_position"]);
+        assert_eq!(ls.output_names(), &["pen_position", "pen_angle"]);
         assert!(matches!(ls.get("pen_position"), Some(AnimValue::Vec3(_))));
         assert!(!ls.property_names().contains(&"pen_position"));
+    }
+
+    #[test]
+    fn pen_angle_follows_the_current_segment_heading() {
+        let mut ls = make_lsystem();
+        ls.iterations = 1.0; // "F+G": up, then (after a left turn) left.
+
+        ls.progress = 0.0;
+        assert!((ls.pen_angle() - std::f32::consts::FRAC_PI_2).abs() < 1e-5, "initial heading is up");
+        ls.progress = 0.4; // mid first segment, still heading up
+        assert!((ls.pen_angle() - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+        ls.progress = 0.9; // on the second segment, heading left (π)
+        assert!((ls.pen_angle().abs() - std::f32::consts::PI).abs() < 1e-4);
+
+        // Scale and position don't affect heading.
+        ls.scale = 3.0;
+        ls.position = vec3(5.0, -2.0, 1.0);
+        assert!((ls.pen_angle().abs() - std::f32::consts::PI).abs() < 1e-4);
     }
 
     #[test]

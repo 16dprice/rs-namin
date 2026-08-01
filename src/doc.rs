@@ -87,9 +87,11 @@ pub struct ObjectDoc {
 }
 
 /// Constructible object types and their parameters. Colors are RGBA in 0-1.
-/// `VectorText` always uses the built-in default font; objects with other
-/// non-data constructor inputs (custom fonts, textures, LaTeX) are not yet
-/// representable.
+/// `VectorText` always uses the built-in default font, and `Sprite` images
+/// are file paths resolved lazily at draw time; custom fonts and LaTeX are
+/// not yet representable. `Turtle` is deliberately absent — in documents it
+/// is composed instead: a `Sprite` with `position`/`rotation` bound to an
+/// L-system's `pen_position`/`pen_angle` outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ObjectSpec {
     Disk {
@@ -169,6 +171,18 @@ pub enum ObjectSpec {
         position: Vec3,
         /// Display size: 1.0 = one em per world unit.
         scale: f32,
+        color: Vec4,
+    },
+    /// A textured quad. `image` is a file path (relative to the working
+    /// directory) loaded lazily at first draw through the texture cache — a
+    /// missing or unreadable file draws a magenta placeholder, and editing
+    /// the path retries. `size` is explicit world units (geometry never
+    /// depends on the image). Bind `position`/`rotation` to an L-system's
+    /// `pen_position`/`pen_angle` to ride a drawing turtle-style.
+    Sprite {
+        image: String,
+        position: Vec3,
+        size: Vec2,
         color: Vec4,
     },
     /// An L-system: `axiom` rewritten by `rules` for `iterations` steps,
@@ -287,6 +301,12 @@ impl ObjectSpec {
                 vt.position = position;
                 Box::new(vt)
             }
+            ObjectSpec::Sprite {
+                image,
+                position,
+                size,
+                color: c,
+            } => Box::new(Sprite::from_path(&image, position, size, color(c))),
             ObjectSpec::LSystem {
                 axiom,
                 rules,
@@ -819,6 +839,117 @@ mod tests {
         let sb = spawned.bounding_box();
         assert!((rb.min - sb.min).length() < 1e-4 && (rb.max - sb.max).length() < 1e-4);
         assert_eq!(reference.get("pen_position"), spawned.get("pen_position"));
+    }
+
+    #[test]
+    fn sprite_spec_builds_headless_and_round_trips() {
+        let mut doc = minimal_doc();
+        doc.objects.push(ObjectDoc {
+            id: "turtle_art".to_string(),
+            object: ObjectSpec::Sprite {
+                image: "assets/aseprite-files/tutle.png".to_string(),
+                position: vec3(2.0, 1.0, 0.0),
+                size: vec2(1.5, 1.0),
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+            },
+            set: vec![("rotation".to_string(), AnimValue::Float(0.5))],
+        });
+
+        let ron_str = doc.to_ron_string().unwrap();
+        let parsed = SceneDoc::from_ron_str(&ron_str).unwrap();
+        // Spawn must not touch the GL context (this test runs headless):
+        // the image resolves at draw time, never at build.
+        let (scene, _, _) = parsed.build().unwrap();
+        let (_, sprite) = scene.iter().nth(1).unwrap();
+        assert_eq!(sprite.get("position"), Some(AnimValue::Vec3(vec3(2.0, 1.0, 0.0))));
+        assert_eq!(sprite.get("rotation"), Some(AnimValue::Float(0.5)));
+        // Geometry comes from the explicit size.
+        let bb = sprite.bounding_box();
+        assert!(bb.max.x > bb.min.x && bb.max.y > bb.min.y);
+
+        // A bogus image path still builds (placeholder at draw time).
+        doc.objects[1].object = ObjectSpec::Sprite {
+            image: "does/not/exist.png".to_string(),
+            position: Vec3::ZERO,
+            size: vec2(1.0, 1.0),
+            color: vec4(1.0, 1.0, 1.0, 1.0),
+        };
+        doc.build().unwrap();
+    }
+
+    #[test]
+    fn sprite_rides_the_lsystem_pen_via_bindings() {
+        // The doc-land "turtle": sprite position/rotation bound to the
+        // l-system's pen outputs.
+        let mut doc = minimal_doc();
+        doc.tracks.clear();
+        doc.objects.push(ObjectDoc {
+            id: "dragon".to_string(),
+            object: ObjectSpec::LSystem {
+                axiom: "F".to_string(),
+                rules: vec![("F".to_string(), "F+G".to_string()), ("G".to_string(), "F-G".to_string())],
+                theta: std::f32::consts::FRAC_PI_2,
+                iterations: 1.0,
+                position: Vec3::ZERO,
+                scale: 1.0,
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+                colors: vec![],
+            },
+            set: vec![],
+        });
+        doc.objects.push(ObjectDoc {
+            id: "rider".to_string(),
+            object: ObjectSpec::Sprite {
+                image: "x.png".to_string(),
+                position: Vec3::ZERO,
+                size: vec2(0.5, 0.5),
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+            },
+            set: vec![],
+        });
+        doc.tracks.push(TrackDoc {
+            object: "dragon".to_string(),
+            property: "progress".to_string(),
+            keyframes: vec![
+                KeyframeDoc {
+                    time: 0.0,
+                    value: AnimValue::Float(0.0),
+                    easing: Easing::Linear,
+                    steps: None,
+                },
+                KeyframeDoc {
+                    time: 2.0,
+                    value: AnimValue::Float(1.0),
+                    easing: Easing::Linear,
+                    steps: None,
+                },
+            ],
+        });
+        for (property, source_property) in [("position", "pen_position"), ("rotation", "pen_angle")] {
+            doc.bindings.push(BindingDoc {
+                target: "rider".to_string(),
+                property: property.to_string(),
+                source: "dragon".to_string(),
+                source_property: source_property.to_string(),
+                offset: None,
+                start: None,
+                end: None,
+            });
+        }
+
+        let (mut scene, timeline, mut camera) = doc.build().unwrap();
+        // At t=1.9 (progress 0.95) the pen is on "F+G"'s second segment:
+        // heading left (|angle| = pi), position near (-0.9, 1).
+        timeline.apply(1.9, &mut scene, &mut camera);
+        let (_, rider) = scene.iter().nth(2).unwrap();
+        let Some(AnimValue::Float(rotation)) = rider.get("rotation") else {
+            panic!("expected Float")
+        };
+        assert!((rotation.abs() - std::f32::consts::PI).abs() < 1e-3, "got {rotation}");
+        let Some(AnimValue::Vec3(p)) = rider.get("position") else {
+            panic!("expected Vec3")
+        };
+        assert!(p.y > 0.9 && p.x < -0.5, "rider should be on the second segment, got {p}");
     }
 
     #[test]

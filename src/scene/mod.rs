@@ -7,6 +7,7 @@ pub mod latex;
 pub mod mesh;
 pub mod objects;
 pub mod polyline;
+pub mod texture_cache;
 pub mod traits;
 pub mod value;
 
