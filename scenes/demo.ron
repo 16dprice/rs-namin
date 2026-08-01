@@ -47,15 +47,19 @@
             ],
         ),
         (
-            id: "label",
-            object: Text(
-                content: "hello from a scene document",
-                position: (480.0, 60.0),
-                font_size: 40.0,
+            id: "vectortext_1",
+            object: VectorText(
+                content: "these are shapes",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
                 color: (1.0, 1.0, 1.0, 1.0),
             ),
             set: [
+                ("position", Vec3((-3.7, 4.5712705, 0.0))),
                 ("progress", Float(0.0)),
+                ("stagger", Float(0.9)),
+                ("scale", Float(1.0)),
+                ("color", Vec4((0.6712065, 0.014039297, 0.96520257, 1.0))),
             ],
         ),
     ],
@@ -71,7 +75,7 @@
                 ),
                 (
                     time: 1.0,
-                    value: Vec3((0.0, 4.5, 0.0)),
+                    value: Vec3((0.0, 3.5, 0.0)),
                     easing: QuadOut,
                 ),
                 (
@@ -81,7 +85,7 @@
                 ),
                 (
                     time: 3.0,
-                    value: Vec3((0.0, 3.0, 0.0)),
+                    value: Vec3((0.0, 2.4, 0.0)),
                     easing: QuadOut,
                 ),
                 (
@@ -124,22 +128,6 @@
             ],
         ),
         (
-            object: "label",
-            property: "progress",
-            keyframes: [
-                (
-                    time: 0.5,
-                    value: Float(0.0),
-                    easing: Linear,
-                ),
-                (
-                    time: 2.5,
-                    value: Float(1.0),
-                    easing: Linear,
-                ),
-            ],
-        ),
-        (
             object: "camera",
             property: "rotation_y",
             keyframes: [
@@ -152,6 +140,22 @@
                     time: 4.0,
                     value: Float(0.5),
                     easing: SineInOut,
+                ),
+            ],
+        ),
+        (
+            object: "vectortext_1",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 3.479133,
+                    value: Float(1.0),
+                    easing: CubicInOut,
                 ),
             ],
         ),

@@ -57,7 +57,7 @@ fn get_star_line_segments() -> Vec<LineSegment> {
 pub fn build() -> (Scene, Timeline, Camera) {
     let mut sb = SceneBuilder::new();
 
-    let texture = Texture2D::from_file_with_format(include_bytes!("../assets/aseprite-files/tutle.png"), None);
+    let texture = Texture2D::from_file_with_format(include_bytes!("../assets/aseprite-files/turtle.png"), None);
     texture.set_filter(FilterMode::Nearest);
     let mut sprite = Sprite::new(texture, vec3(0.0, 0.0, 0.0), Some(vec2(1.0, 1.0)), WHITE);
     sprite.center = vec2(0.0, -0.5);

@@ -847,7 +847,7 @@ mod tests {
         doc.objects.push(ObjectDoc {
             id: "turtle_art".to_string(),
             object: ObjectSpec::Sprite {
-                image: "assets/aseprite-files/tutle.png".to_string(),
+                image: "assets/aseprite-files/turtle.png".to_string(),
                 position: vec3(2.0, 1.0, 0.0),
                 size: vec2(1.5, 1.0),
                 color: vec4(1.0, 1.0, 1.0, 1.0),

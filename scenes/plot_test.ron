@@ -1,0 +1,37 @@
+(
+    description: "first_scene",
+    camera: (
+        position: (0.0, 5.0, 10.0),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+    ),
+    objects: [
+        (
+            id: "plot_1",
+            object: Plot(
+                expression: "e^x",
+                position: (0.0, 0.0, 0.0),
+                size: (8.0, 4.5),
+                x_bounds: (-6.3, 6.3),
+                y_bounds: (-1.5, 1.5),
+                color: (0.35, 0.8, 1.0, 1.0),
+                samples: 200,
+            ),
+            set: [
+                ("size", Vec2((8.0, 4.5))),
+                ("x_bounds", Vec2((-5.0, 5.0))),
+                ("y_bounds", Vec2((-5.0, 5.0))),
+                ("position", Vec3((0.61321485, 0.6368773, 0.0))),
+                ("line_width", Float(0.05)),
+                ("progress", Float(1.0)),
+            ],
+        ),
+    ],
+    tracks: [],
+    bindings: [],
+    export: (
+        resolution: None,
+        fps: None,
+        output: None,
+    ),
+)

@@ -1,0 +1,90 @@
+(
+    description: "New scene",
+    camera: (
+        position: (0.0, 5.0, 10.0),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+        set: [],
+    ),
+    objects: [
+        (
+            id: "lsystem_1",
+            object: LSystem(
+                axiom: "F",
+                rules: [
+                    ("F", "F+G"),
+                    ("G", "F-G"),
+                ],
+                theta: 1.5707964,
+                iterations: 10.0,
+                position: (1.0, -2.0, 0.0),
+                scale: 0.15,
+                color: (1.0, 1.0, 1.0, 1.0),
+                colors: [],
+            ),
+            set: [
+                ("position", Vec3((-0.0062045157, 0.42138514, 0.0))),
+                ("line_width", Float(0.1)),
+                ("iterations", Float(4.0)),
+                ("progress", Float(1.0)),
+                ("color", Vec4((1.0, 0.0, 0.0, 1.0))),
+            ],
+        ),
+        (
+            id: "disk_1",
+            object: Disk(
+                position: (0.0, 0.0, 0.0),
+                radius: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("radius", Float(0.03)),
+            ],
+        ),
+        (
+            id: "sprite_1",
+            object: Sprite(
+                image: "assets/aseprite-files/turtle.png",
+                position: (0.0, 0.0, 0.0),
+                size: (1.0, 1.0),
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [],
+        ),
+    ],
+    tracks: [
+        (
+            object: "lsystem_1",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 16.0,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                    steps: Some(16),
+                ),
+            ],
+        ),
+    ],
+    bindings: [
+        (
+            target: "disk_1",
+            property: "position",
+            source: "lsystem_1",
+            source_property: "pen_position",
+            offset: Some(Vec3((0.0, 0.0, 0.01))),
+            start: None,
+            end: None,
+        ),
+    ],
+    export: (
+        resolution: None,
+        fps: None,
+        output: None,
+    ),
+)

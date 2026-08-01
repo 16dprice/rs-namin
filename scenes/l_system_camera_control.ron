@@ -1,0 +1,80 @@
+(
+    description: "New scene",
+    camera: (
+        position: (0.0, 5.0, 10.0),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+        set: [
+            ("rotation_x", Float(0.0)),
+            ("rotation_y", Float(0.0)),
+        ],
+    ),
+    objects: [
+        (
+            id: "lsystem_1",
+            object: LSystem(
+                axiom: "F",
+                rules: [
+                    ("F", "F+G"),
+                    ("G", "F-G"),
+                ],
+                theta: 1.5707964,
+                iterations: 10.0,
+                position: (1.0, -2.0, 0.0),
+                scale: 0.15,
+                color: (1.0, 1.0, 1.0, 1.0),
+                colors: [
+                    (1.0, 0.0, 0.0, 1.0),
+                    (0.88727236, 0.0, 1.0, 1.0),
+                ],
+            ),
+            set: [
+                ("line_width", Float(0.15)),
+                ("position", Vec3((1.0, -2.0, 0.0))),
+            ],
+        ),
+    ],
+    tracks: [
+        (
+            object: "lsystem_1",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 10.15,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+    ],
+    bindings: [
+        (
+            target: "camera",
+            property: "position",
+            source: "lsystem_1",
+            source_property: "pen_position",
+            offset: Some(Vec3((0.0, 0.0, 6.2))),
+            start: None,
+            end: Some(2.1),
+        ),
+        (
+            target: "camera",
+            property: "target",
+            source: "lsystem_1",
+            source_property: "pen_position",
+            offset: Some(Vec3((0.0, 0.0, 0.3))),
+            start: None,
+            end: None,
+        ),
+    ],
+    export: (
+        resolution: None,
+        fps: None,
+        output: None,
+    ),
+)

@@ -1,9 +1,3 @@
-// Property bindings demo. Only the orange leader and the ring have
-// keyframes — everything else is driven by bindings:
-//   follower.position <- leader.position   (+ offset up)
-//   caboose.position  <- follower.position (+ offset up-right; chained,
-//                        and listed first to show order doesn't matter)
-//   title.progress    <- ring.progress     (write-on locked to the ring)
 (
     description: "Property bindings: follower chain + progress lock",
     camera: (
@@ -68,19 +62,47 @@
             object: "leader",
             property: "position",
             keyframes: [
-                (time: 0.0, value: Vec3((-4.0, -1.2, 0.0)), easing: Linear),
-                (time: 1.5, value: Vec3((0.0, 0.2, 0.0)), easing: SineInOut),
-                (time: 3.0, value: Vec3((4.0, -1.2, 0.0)), easing: SineInOut),
-                (time: 4.5, value: Vec3((0.0, -2.4, 0.0)), easing: SineInOut),
-                (time: 6.0, value: Vec3((-4.0, -1.2, 0.0)), easing: SineInOut),
+                (
+                    time: 0.0,
+                    value: Vec3((-4.0, -1.2, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 1.5,
+                    value: Vec3((0.0, 0.2, 0.0)),
+                    easing: SineInOut,
+                ),
+                (
+                    time: 3.0,
+                    value: Vec3((4.0, -1.2, 0.0)),
+                    easing: SineInOut,
+                ),
+                (
+                    time: 4.5,
+                    value: Vec3((0.0, -2.4, 0.0)),
+                    easing: SineInOut,
+                ),
+                (
+                    time: 6.0,
+                    value: Vec3((-4.0, -1.2, 0.0)),
+                    easing: SineInOut,
+                ),
             ],
         ),
         (
             object: "ring",
             property: "progress",
             keyframes: [
-                (time: 0.5, value: Float(0.0), easing: Linear),
-                (time: 5.5, value: Float(1.0), easing: SineInOut),
+                (
+                    time: 0.5,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 5.5,
+                    value: Float(1.0),
+                    easing: SineInOut,
+                ),
             ],
         ),
     ],
@@ -104,6 +126,19 @@
             property: "progress",
             source: "ring",
             source_property: "progress",
+            offset: None,
+        ),
+        (
+            target: "ring",
+            property: "position",
+            source: "leader",
+            source_property: "position",
+            offset: None,
         ),
     ],
+    export: (
+        resolution: None,
+        fps: None,
+        output: None,
+    ),
 )

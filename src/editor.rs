@@ -683,7 +683,7 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
         (
             "Sprite",
             ObjectSpec::Sprite {
-                image: "assets/aseprite-files/tutle.png".to_string(),
+                image: "assets/aseprite-files/turtle.png".to_string(),
                 position: Vec3::ZERO,
                 size: vec2(1.0, 1.0),
                 color: white,
