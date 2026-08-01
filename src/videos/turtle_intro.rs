@@ -118,16 +118,12 @@ pub fn build() -> (Scene, Timeline, Camera) {
             tb.keyframe(camera_finish_zoom_out_time, AnimValue::Vec3(vec3(15.0, 2.0, 0.0)))
         });
 
-        p.animate(&l_system_ref, "progress", |mut tb| {
-            tb = tb.keyframe(0.0, AnimValue::Float(0.0));
-            for i in 0..lines.len() {
-                tb = tb.animate_for(
-                    seconds_per_segment,
-                    AnimValue::Float((i + 1) as f32 / lines.len() as f32),
-                    Easing::SineInOut,
-                )
-            }
-            tb
+        // One stepped keyframe replaces the old per-segment keyframe loop:
+        // arrive at full progress in `lines.len()` eased sub-steps.
+        p.animate(&l_system_ref, "progress", |tb| {
+            tb.keyframe(0.0, AnimValue::Float(0.0))
+                .animate_for(total_seconds_l_system_drawing_seconds, AnimValue::Float(1.0), Easing::SineInOut)
+                .in_steps(lines.len() as u32)
         });
 
         p.animate(&l_system_ref, "line_width", |tb| {

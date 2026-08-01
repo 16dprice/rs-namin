@@ -88,6 +88,12 @@ Custom curves are plain `fn(f32) -> f32` functions wrapped in `Easing::Custom`. 
 
 ## Gotchas
 
+- **`Keyframe::steps` staircases a segment.** `steps: n` on the arrival
+  keyframe divides the incoming segment into n equal sub-steps, each shaped
+  by that keyframe's easing — one stepped keyframe replaces per-segment
+  keyframe generation (see docs/keyframe_generation.md; `turtle_intro`'s
+  L-system reveal is the reference use). `TrackBuilder::in_steps(n)` applies
+  it to the most recent keyframe; in docs it's `steps: Some(n)`.
 - **Easing is per-segment, attached to the arrival keyframe.** The easing on keyframe N shapes the curve from keyframe N-1 *into* N ("ease in to this keyframe"). The first keyframe's easing is unused — there is no incoming segment. This flipped in July 2026 (it used to sit on the departure keyframe); `animate_for(duration, value, easing)` always had arrival semantics and is unaffected.
 - **`Bool` doesn't interpolate — it holds the start value until the segment midpoint, then snaps.** `AnimValue::lerp` for `Bool` returns `a` while `t < 0.5` and `b` from `t >= 0.5` onward (see `src/scene/value.rs`). Easing curves on a `Bool` track still only affect which side of 0.5 `t` lands on, not any gradient.
 - **Timeline runs every frame regardless of pause state.** This is what makes scrubbing work — the clock position changes, and the next `timeline.apply()` picks it up.

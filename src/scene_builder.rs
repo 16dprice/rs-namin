@@ -500,6 +500,23 @@ impl TrackBuilder {
         self
     }
 
+    /// Subdivide the arrival into the most recent keyframe into `steps`
+    /// equal sub-steps, each shaped by that keyframe's easing — e.g. reveal
+    /// an L-system one eased segment at a time:
+    /// ```ignore
+    /// tb.keyframe(0.0, AnimValue::Float(0.0))
+    ///   .animate_for(30.0, AnimValue::Float(1.0), Easing::SineInOut)
+    ///   .in_steps(segment_count)
+    /// ```
+    pub fn in_steps(mut self, steps: u32) -> Self {
+        let keyframe = self
+            .keyframes
+            .last_mut()
+            .expect("TrackBuilder::in_steps: requires a keyframe to apply steps to");
+        keyframe.steps = steps;
+        self
+    }
+
     fn validate_type(&self, value: &AnimValue) {
         let actual = variant_name(value);
         assert_eq!(

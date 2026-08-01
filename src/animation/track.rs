@@ -10,6 +10,11 @@ pub struct Keyframe {
     /// keyframe to this one uses this curve. The first keyframe's easing is
     /// unused (there is no incoming segment).
     pub easing: Easing,
+    /// Arrive in this many equal sub-steps, each shaped by `easing` — e.g. a
+    /// progress keyframe with `steps = segment count` reveals an L-system
+    /// one eased segment at a time without per-segment keyframes. 0/1 =
+    /// plain single-segment interpolation.
+    pub steps: u32,
 }
 
 impl Keyframe {
@@ -18,11 +23,22 @@ impl Keyframe {
             time,
             value,
             easing: Easing::Linear,
+            steps: 1,
         }
     }
 
     pub fn with_easing(time: f32, value: AnimValue, easing: Easing) -> Self {
-        Self { time, value, easing }
+        Self {
+            time,
+            value,
+            easing,
+            steps: 1,
+        }
+    }
+
+    pub fn with_steps(mut self, steps: u32) -> Self {
+        self.steps = steps;
+        self
     }
 }
 
@@ -99,7 +115,16 @@ impl Track {
         let segment_duration = k1.time - k0.time;
         let t = (time - k0.time) / segment_duration;
         // Easing belongs to the arrival keyframe: k1's curve shapes k0 -> k1.
-        let eased_t = k1.easing.eval(t);
+        // With `steps > 1` the segment is a staircase of N equal sub-steps,
+        // each eased by k1's curve.
+        let eased_t = if k1.steps > 1 {
+            let n = k1.steps as f32;
+            let x = (t * n).clamp(0.0, n);
+            let i = x.floor().min(n - 1.0);
+            (i + k1.easing.eval(x - i)) / n
+        } else {
+            k1.easing.eval(t)
+        };
 
         Some(AnimValue::lerp(&k0.value, &k1.value, eased_t))
     }
@@ -198,6 +223,85 @@ mod tests {
 
         assert_eq!(track.evaluate(0.5), Some(AnimValue::Float(50.0)));
         assert_eq!(track.evaluate(1.5), Some(AnimValue::Float(50.0)));
+    }
+
+    #[test]
+    fn stepped_keyframe_staircases_the_segment() {
+        let mut track = Track::new(dummy_id(), "progress");
+        track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+        track.add_keyframe(Keyframe::with_easing(4.0, AnimValue::Float(1.0), Easing::Linear).with_steps(4));
+
+        // With linear easing per step, stepping is invisible (each sub-step
+        // linearly covers its share): value == t/4 throughout.
+        for t in [0.5, 1.0, 2.0, 3.7] {
+            let AnimValue::Float(v) = track.evaluate(t).unwrap() else {
+                panic!("expected Float")
+            };
+            assert!((v - t / 4.0).abs() < 1e-5, "t={t}: {v}");
+        }
+    }
+
+    #[test]
+    fn stepped_keyframe_eases_within_each_substep() {
+        let mut track = Track::new(dummy_id(), "progress");
+        track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+        track.add_keyframe(Keyframe::with_easing(4.0, AnimValue::Float(1.0), Easing::QuadIn).with_steps(4));
+
+        // Sub-step boundaries land exactly on the uniform ramp…
+        for (t, expected) in [(1.0, 0.25), (2.0, 0.5), (3.0, 0.75), (4.0, 1.0)] {
+            let AnimValue::Float(v) = track.evaluate(t).unwrap() else {
+                panic!("expected Float")
+            };
+            assert!((v - expected).abs() < 1e-5, "t={t}: {v}");
+        }
+        // …and mid-sub-step values follow the easing inside the step:
+        // halfway through step 3 (t=2.5), quad_in(0.5)=0.25, so
+        // value = (2 + 0.25) / 4.
+        let AnimValue::Float(v) = track.evaluate(2.5).unwrap() else {
+            panic!("expected Float")
+        };
+        assert!((v - 0.5625).abs() < 1e-5, "got {v}");
+    }
+
+    #[test]
+    fn stepped_matches_equivalent_generated_keyframes() {
+        // The turtle_intro pattern: N generated keyframes with uniform
+        // time/value increments and SineInOut each == one stepped keyframe.
+        let n = 17;
+        let duration = 5.0;
+        let mut generated = Track::new(dummy_id(), "progress");
+        generated.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+        for i in 0..n {
+            generated.add_keyframe(Keyframe::with_easing(
+                (i + 1) as f32 / n as f32 * duration,
+                AnimValue::Float((i + 1) as f32 / n as f32),
+                Easing::SineInOut,
+            ));
+        }
+        let mut stepped = Track::new(dummy_id(), "progress");
+        stepped.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+        stepped.add_keyframe(Keyframe::with_easing(duration, AnimValue::Float(1.0), Easing::SineInOut).with_steps(n));
+
+        for i in 0..=100 {
+            let t = i as f32 / 100.0 * duration;
+            let (AnimValue::Float(a), AnimValue::Float(b)) = (generated.evaluate(t).unwrap(), stepped.evaluate(t).unwrap()) else {
+                panic!("expected Floats")
+            };
+            assert!((a - b).abs() < 1e-4, "t={t}: generated {a} vs stepped {b}");
+        }
+    }
+
+    #[test]
+    fn steps_of_zero_or_one_behave_like_plain_easing() {
+        for steps in [0, 1] {
+            let mut track = Track::new(dummy_id(), "radius");
+            track.add_keyframe(Keyframe::new(0.0, AnimValue::Float(0.0)));
+            track.add_keyframe(Keyframe::with_easing(2.0, AnimValue::Float(100.0), Easing::QuadOut).with_steps(steps));
+            let AnimValue::Float(v) = track.evaluate(1.0).unwrap() else {
+                panic!("expected Float")
+            };
+            assert!((v - 75.0).abs() < 1e-4, "steps={steps}: {v}");
+        }
     }
 
     #[test]

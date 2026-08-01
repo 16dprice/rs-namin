@@ -348,6 +348,10 @@ pub struct KeyframeDoc {
     pub value: AnimValue,
     #[serde(default)]
     pub easing: Easing,
+    /// Arrive in this many equal sub-steps, each shaped by `easing` (see
+    /// `Keyframe::steps`). Absent/1 = plain interpolation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steps: Option<u32>,
 }
 
 /// Locks `target.property` to `source.source_property` every frame. Either
@@ -478,7 +482,7 @@ impl SceneDoc {
                 Track::new(id, track_doc.property.clone())
             };
             for kf in &track_doc.keyframes {
-                track.add_keyframe(Keyframe::with_easing(kf.time, kf.value.clone(), kf.easing));
+                track.add_keyframe(Keyframe::with_easing(kf.time, kf.value.clone(), kf.easing).with_steps(kf.steps.unwrap_or(1)));
             }
             timeline.add_track(track);
         }
@@ -663,11 +667,13 @@ mod tests {
                         time: 0.0,
                         value: AnimValue::Float(1.0),
                         easing: Easing::QuadOut,
+                        steps: None,
                     },
                     KeyframeDoc {
                         time: 2.0,
                         value: AnimValue::Float(3.0),
                         easing: Easing::Linear,
+                        steps: None,
                     },
                 ],
             }],
@@ -743,6 +749,7 @@ mod tests {
                 time: 0.0,
                 value: AnimValue::Float(60.0),
                 easing: Easing::Linear,
+                steps: None,
             }],
         }];
         doc.build().unwrap();
@@ -768,6 +775,7 @@ mod tests {
                 time: 1.0,
                 value: AnimValue::Float(1.0),
                 easing: Easing::Linear,
+                steps: None,
             }],
         });
 
@@ -922,6 +930,28 @@ mod tests {
     }
 
     #[test]
+    fn keyframe_steps_round_trip_and_drive_evaluation() {
+        let mut doc = minimal_doc();
+        doc.tracks[0].keyframes[1].steps = Some(4);
+
+        let ron_str = doc.to_ron_string().unwrap();
+        assert!(ron_str.contains("steps"), "steps should serialize when set");
+        let parsed = SceneDoc::from_ron_str(&ron_str).unwrap();
+        assert_eq!(parsed.tracks[0].keyframes[1].steps, Some(4));
+
+        // radius 1 -> 3 over 2s in 4 steps: at t=1.0 (two full steps) the
+        // staircase sits exactly halfway.
+        let (mut scene, timeline, mut camera) = parsed.build().unwrap();
+        timeline.apply(1.0, &mut scene, &mut camera);
+        let (_, ball) = scene.iter().next().unwrap();
+        assert_eq!(ball.get("radius"), Some(AnimValue::Float(2.0)));
+
+        // Unset steps stays out of the file entirely.
+        doc.tracks[0].keyframes[1].steps = None;
+        assert!(!doc.to_ron_string().unwrap().contains("steps"));
+    }
+
+    #[test]
     fn custom_easing_does_not_serialize() {
         let mut doc = minimal_doc();
         doc.tracks[0].keyframes[0].easing = Easing::Custom(crate::animation::easing::linear);
@@ -1068,11 +1098,13 @@ mod tests {
                     time: 2.0,
                     value: AnimValue::Float(90.0),
                     easing: Easing::Linear,
+                    steps: None,
                 },
                 KeyframeDoc {
                     time: 4.0,
                     value: AnimValue::Float(30.0),
                     easing: Easing::Linear,
+                    steps: None,
                 },
             ],
         });

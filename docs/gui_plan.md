@@ -232,6 +232,8 @@ camera is a palette entry with its own inspector page (typed CameraDoc
 fields + a `set` overrides list) and full bind-menu support, so
 camera.position/target can ride an L-system pen and hand off to keyframes.
 
+Keyframe generators (live-spec "Generate keyframes" dialog) are designed but unbuilt — see docs/keyframe_generation.md. Stepped keyframes (the L-system per-segment reveal) shipped Aug 2026.
+
 Parked follow-ups: dragging a bound object edits the binding offset
 (AE-style); binding-aware camera UI (docs can bind the camera; the editor
 menu only binds objects); time-shifted follows via evaluate-at-(t − delay) —

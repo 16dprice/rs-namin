@@ -272,6 +272,7 @@ impl EditorState {
                 time: 0.0,
                 value,
                 easing: Easing::Linear,
+                steps: None,
             }],
         });
         self.touch();
@@ -419,7 +420,9 @@ impl EditorState {
         // constructor is just the target-free way to build one).
         let mut track = Track::camera(track_doc.property.clone());
         for kf in &track_doc.keyframes {
-            track.add_keyframe(crate::animation::track::Keyframe::with_easing(kf.time, kf.value.clone(), kf.easing));
+            track.add_keyframe(
+                crate::animation::track::Keyframe::with_easing(kf.time, kf.value.clone(), kf.easing).with_steps(kf.steps.unwrap_or(1)),
+            );
         }
         track.evaluate(time)
     }
@@ -433,6 +436,7 @@ impl EditorState {
             time: time.max(0.0),
             value,
             easing: Easing::Linear,
+            steps: None,
         });
         let index = keyframes.len() - 1;
         self.touch();
@@ -458,6 +462,13 @@ impl EditorState {
 
     pub fn set_keyframe_easing(&mut self, track_index: usize, kf_index: usize, easing: Easing) {
         self.doc.tracks[track_index].keyframes[kf_index].easing = easing;
+        self.touch();
+    }
+
+    /// Set the keyframe's sub-step count (arrive in N eased steps); 0/1
+    /// stores as None (plain interpolation, no field in the file).
+    pub fn set_keyframe_steps(&mut self, track_index: usize, kf_index: usize, steps: u32) {
+        self.doc.tracks[track_index].keyframes[kf_index].steps = (steps > 1).then_some(steps);
         self.touch();
     }
 
@@ -493,6 +504,7 @@ impl EditorState {
                         time,
                         value,
                         easing: Easing::default(),
+                        steps: None,
                     });
                     keyframes.len() - 1
                 }
@@ -1477,6 +1489,17 @@ fn keyframe_detail_strip(ui: &mut egui::Ui, editor: &mut EditorState) {
             if easing != kf.easing {
                 editor.set_keyframe_easing(track_index, kf_index, easing);
             }
+
+            let mut steps = kf.steps.unwrap_or(1);
+            ui.weak("steps");
+            if ui
+                .add(egui::DragValue::new(&mut steps).speed(0.2).range(1..=100_000))
+                .on_hover_text("Arrive in N equal sub-steps, each eased by this curve — e.g. steps = segment count reveals an L-system one eased segment at a time")
+                .changed()
+            {
+                editor.set_keyframe_steps(track_index, kf_index, steps);
+            }
+
             curve_widget(ui, editor, track_index, kf_index);
         }
 
@@ -1506,11 +1529,24 @@ fn curve_widget(ui: &mut egui::Ui, editor: &mut EditorState, track_index: usize,
     painter.hline(rect.x_range(), to_px(0.0, 0.0).y, weak);
     painter.hline(rect.x_range(), to_px(0.0, 1.0).y, weak);
 
+    // Plot the effective interpolation, staircase included when stepped.
     let easing = editor.doc.tracks[track_index].keyframes[kf_index].easing;
-    let points: Vec<egui::Pos2> = (0..=32)
+    let steps = editor.doc.tracks[track_index].keyframes[kf_index].steps.unwrap_or(1);
+    let eval = |t: f32| -> f32 {
+        if steps > 1 {
+            let n = steps as f32;
+            let x = (t * n).clamp(0.0, n);
+            let i = x.floor().min(n - 1.0);
+            (i + easing.eval(x - i)) / n
+        } else {
+            easing.eval(t)
+        }
+    };
+    let samples = if steps > 1 { 128 } else { 32 };
+    let points: Vec<egui::Pos2> = (0..=samples)
         .map(|i| {
-            let t = i as f32 / 32.0;
-            to_px(t, easing.eval(t).clamp(-0.5, 1.5))
+            let t = i as f32 / samples as f32;
+            to_px(t, eval(t).clamp(-0.5, 1.5))
         })
         .collect();
     painter.add(egui::Shape::line(points, egui::Stroke::new(1.5, ui.visuals().selection.bg_fill)));
@@ -1704,6 +1740,7 @@ mod tests {
                 time: 0.0,
                 value: AnimValue::Float(1.0),
                 easing: Default::default(),
+                steps: None,
             }],
         }
     }
@@ -1896,6 +1933,18 @@ mod tests {
         assert_eq!(ed.binding_for("a", "radius"), Some(0));
         assert_eq!(ed.binding_for("a", "position"), None);
         assert_eq!(ed.binding_for("b", "radius"), None);
+    }
+
+    #[test]
+    fn set_keyframe_steps_normalizes_to_none_at_one() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![track_for("a")]));
+        ed.set_keyframe_steps(0, 0, 16);
+        assert_eq!(ed.doc.tracks[0].keyframes[0].steps, Some(16));
+        ed.set_keyframe_steps(0, 0, 1);
+        assert_eq!(ed.doc.tracks[0].keyframes[0].steps, None);
+        ed.set_keyframe_steps(0, 0, 0);
+        assert_eq!(ed.doc.tracks[0].keyframes[0].steps, None);
+        ed.doc.build().unwrap();
     }
 
     #[test]
