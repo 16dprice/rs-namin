@@ -291,12 +291,7 @@ impl EditorState {
         if self.doc.tracks.iter().any(|t| t.object == target && t.property == property) {
             return Err(format!("track {target}.{property} already exists"));
         }
-        if self
-            .doc
-            .bindings
-            .iter()
-            .any(|b| b.target == target && b.property == property && !b.is_windowed())
-        {
+        if self.always_bound(target, property) {
             return Err(format!("{target}.{property} is always-bound — window or remove the binding first"));
         }
         let value = self
@@ -401,6 +396,16 @@ impl EditorState {
             .bindings
             .iter()
             .position(|b| b.target == object_id && b.property == property)
+    }
+
+    /// Whether an unwindowed binding owns `target.property` at every time —
+    /// the one case that blocks tracks and further bindings on it. Windowed
+    /// bindings coexist with both.
+    pub fn always_bound(&self, target: &str, property: &str) -> bool {
+        self.doc
+            .bindings
+            .iter()
+            .any(|b| b.target == target && b.property == property && !b.is_windowed())
     }
 
     /// Indices of every binding driving `object_id.property` (several may
@@ -1229,8 +1234,7 @@ fn bind_menu_for(ui: &mut egui::Ui, editor: &mut EditorState, target_id: &str, p
     ui.menu_button("+ Bind property", |ui| {
         for property in editor.target_property_names(target_id).unwrap_or_default() {
             let existing = editor.bindings_for(target_id, &property);
-            let always_bound = existing.iter().any(|&i| !editor.doc.bindings[i].is_windowed());
-            if always_bound {
+            if editor.always_bound(target_id, &property) {
                 ui.add_enabled(false, egui::Button::new(&property))
                     .on_disabled_hover_text("already bound at every time — window or remove that binding first");
                 continue;
@@ -1257,7 +1261,15 @@ fn bind_menu_for(ui: &mut egui::Ui, editor: &mut EditorState, target_id: &str, p
                             }
                             if ui.button(&source_property).clicked() {
                                 let result = if needs_window {
-                                    editor.add_binding_windowed(target_id, &property, source, &source_property, Some(playhead), None)
+                                    // Start at the playhead, or after every
+                                    // existing window if that's later —
+                                    // sequential rebinds shouldn't collide.
+                                    let start = editor
+                                        .bindings_for(target_id, &property)
+                                        .iter()
+                                        .filter_map(|&i| editor.doc.bindings[i].end)
+                                        .fold(playhead, f32::max);
+                                    editor.add_binding_windowed(target_id, &property, source, &source_property, Some(start), None)
                                 } else {
                                     editor.add_binding(target_id, &property, source, &source_property)
                                 };
@@ -1271,9 +1283,9 @@ fn bind_menu_for(ui: &mut egui::Ui, editor: &mut EditorState, target_id: &str, p
                 }
             });
             if needs_window {
-                response
-                    .response
-                    .on_hover_text("already tracked or window-bound — the new binding will be active from the playhead onward");
+                response.response.on_hover_text(
+                    "already tracked or window-bound — the new binding starts at the playhead, or right after existing windows",
+                );
             }
         }
     });
@@ -1548,10 +1560,12 @@ fn add_track_menu(ui: &mut egui::Ui, editor: &mut EditorState) {
             ui.menu_button(target, |ui| {
                 for property in editor.target_property_names(target).unwrap_or_default() {
                     let exists = editor.doc.tracks.iter().any(|t| &t.object == target && t.property == property);
-                    let bound = editor.binding_for(target, &property).is_some();
-                    let response = ui.add_enabled(!exists && !bound, egui::Button::new(&property));
-                    if bound {
-                        response.on_disabled_hover_text("bound — a property is tracked or bound, never both");
+                    let blocked = editor.always_bound(target, &property);
+                    let response = ui.add_enabled(!exists && !blocked, egui::Button::new(&property));
+                    if blocked {
+                        response.on_disabled_hover_text(
+                            "always-bound — window or remove the binding first; a windowed binding coexists with a track",
+                        );
                     } else if response.clicked() {
                         let _ = editor.add_track(target, &property);
                         ui.close_menu();
@@ -2221,6 +2235,19 @@ mod tests {
         // Tracks are still addable on a property with only windowed bindings.
         assert!(ed.add_track("a", "position").is_ok());
         ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn always_bound_only_for_unwindowed_bindings() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![]));
+        ed.doc.bindings = vec![binding("a", "b")];
+        assert!(ed.always_bound("a", "radius"));
+        assert!(!ed.always_bound("a", "position"));
+        assert!(!ed.always_bound("b", "radius"));
+        // Windowing it frees the property for tracks and further bindings.
+        ed.doc.bindings[0].end = Some(2.0);
+        assert!(!ed.always_bound("a", "radius"));
+        assert!(ed.add_track("a", "radius").is_ok());
     }
 
     #[test]

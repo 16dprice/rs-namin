@@ -890,6 +890,81 @@ mod tests {
     }
 
     #[test]
+    fn sprite_hops_between_two_pens_with_sequential_windows() {
+        // Bind the sprite to line_a's pen until t=2, then to line_b's pen —
+        // the sequential-rebind flow the editor's bind menu produces.
+        let mut doc = minimal_doc();
+        doc.tracks.clear();
+        for (id, y) in [("line_a", 0.0), ("line_b", 3.0)] {
+            doc.objects.push(ObjectDoc {
+                id: id.to_string(),
+                object: ObjectSpec::Line {
+                    start: vec3(0.0, y, 0.0),
+                    end: vec3(4.0, y, 0.0),
+                    color: vec4(1.0, 1.0, 1.0, 1.0),
+                    thickness: 0.0,
+                },
+                set: vec![],
+            });
+            doc.tracks.push(TrackDoc {
+                object: id.to_string(),
+                property: "progress".to_string(),
+                keyframes: vec![
+                    KeyframeDoc {
+                        time: 0.0,
+                        value: AnimValue::Float(0.0),
+                        easing: Easing::Linear,
+                        steps: None,
+                    },
+                    KeyframeDoc {
+                        time: 4.0,
+                        value: AnimValue::Float(1.0),
+                        easing: Easing::Linear,
+                        steps: None,
+                    },
+                ],
+            });
+        }
+        doc.objects.push(ObjectDoc {
+            id: "rider".to_string(),
+            object: ObjectSpec::Sprite {
+                image: "x.png".to_string(),
+                position: Vec3::ZERO,
+                size: vec2(0.5, 0.5),
+                color: vec4(1.0, 1.0, 1.0, 1.0),
+            },
+            set: vec![],
+        });
+        for (source, start, end) in [("line_a", None, Some(2.0)), ("line_b", Some(2.0), None)] {
+            doc.bindings.push(BindingDoc {
+                target: "rider".to_string(),
+                property: "position".to_string(),
+                source: source.to_string(),
+                source_property: "pen_position".to_string(),
+                offset: None,
+                start,
+                end,
+            });
+        }
+
+        let (mut scene, timeline, mut camera) = doc.build().unwrap();
+        let rider_position = |scene: &Scene| {
+            let (_, rider) = scene.iter().nth(3).unwrap();
+            let Some(AnimValue::Vec3(p)) = rider.get("position") else {
+                panic!("expected Vec3")
+            };
+            p
+        };
+
+        // t=1: on line_a's pen (progress 0.25 -> x=1, y=0).
+        timeline.apply(1.0, &mut scene, &mut camera);
+        assert!((rider_position(&scene) - vec3(1.0, 0.0, 0.0)).length() < 1e-4);
+        // t=3: hopped to line_b's pen (progress 0.75 -> x=3, y=3).
+        timeline.apply(3.0, &mut scene, &mut camera);
+        assert!((rider_position(&scene) - vec3(3.0, 3.0, 0.0)).length() < 1e-4);
+    }
+
+    #[test]
     fn sprite_rides_the_lsystem_pen_via_bindings() {
         // The doc-land "turtle": sprite position/rotation bound to the
         // l-system's pen outputs.
