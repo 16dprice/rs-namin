@@ -121,6 +121,43 @@ impl EditorState {
         self.touch();
     }
 
+    /// Duplicate an object: the same spec and initial overrides under a
+    /// fresh id, nudged slightly so the copy is visible beside the original.
+    /// Tracks, keyframes, and bindings are deliberately NOT copied — this is
+    /// "add a new object whose starting values come from an existing one".
+    /// Returns the new object's index.
+    pub fn duplicate_object(&mut self, index: usize) -> usize {
+        let source = self.doc.objects[index].clone();
+        let mut id = format!("{}_copy", source.id);
+        let mut n = 2;
+        while self.doc.objects.iter().any(|o| o.id == id) {
+            id = format!("{}_copy_{n}", source.id);
+            n += 1;
+        }
+        self.doc.objects.push(ObjectDoc {
+            id,
+            object: source.object,
+            set: source.set,
+        });
+        let new_index = self.doc.objects.len() - 1;
+        // Nudge spatial anchors (position, or start+end for Line/Arrow) so
+        // the copy doesn't sit exactly behind the original.
+        for property in ["position", "start", "end"] {
+            match self.effective_value(new_index, property) {
+                Some(AnimValue::Vec3(v)) => {
+                    self.upsert_override(new_index, property, AnimValue::Vec3(v + vec3(0.4, -0.4, 0.0)));
+                }
+                Some(AnimValue::Vec2(v)) => {
+                    // Screen-space Text: design-canvas pixels, y-down.
+                    self.upsert_override(new_index, property, AnimValue::Vec2(v + vec2(25.0, 25.0)));
+                }
+                _ => {}
+            }
+        }
+        self.touch();
+        new_index
+    }
+
     /// Rename an object, cascading to tracks and bindings. Rejects empty,
     /// duplicate, and reserved ids; returns whether the rename applied.
     pub fn rename_object(&mut self, index: usize, new_id: &str) -> bool {
@@ -750,6 +787,14 @@ pub fn panels(ctx: &egui::Context, editor: &mut EditorState, playhead: f32) {
         save_scene(editor);
     }
 
+    // Ctrl+D duplicates the selected object (initial properties only).
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::D))
+        && let Some(index) = editor.selected
+    {
+        let new_index = editor.duplicate_object(index);
+        editor.select(Some(new_index));
+    }
+
     palette_panel(ctx, editor);
     if editor.camera_selected {
         camera_inspector(ctx, editor, playhead);
@@ -877,7 +922,19 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
         .width_range(200.0..=520.0)
         .show(ctx, |ui| {
             ui.add_space(6.0);
-            ui.heading(spec_type_name(&editor.doc.objects[index].object));
+            ui.horizontal(|ui| {
+                ui.heading(spec_type_name(&editor.doc.objects[index].object));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .button("Duplicate")
+                        .on_hover_text("Copy this object's spec and initial properties (no tracks/bindings) — Ctrl+D")
+                        .clicked()
+                    {
+                        let new_index = editor.duplicate_object(index);
+                        editor.select(Some(new_index));
+                    }
+                });
+            });
 
             // Id rename: commit on enter / focus loss.
             ui.horizontal(|ui| {
@@ -2007,6 +2064,56 @@ mod tests {
         assert_eq!(ed.binding_for("a", "radius"), Some(0));
         assert_eq!(ed.binding_for("a", "position"), None);
         assert_eq!(ed.binding_for("b", "radius"), None);
+    }
+
+    #[test]
+    fn duplicate_copies_spec_and_overrides_but_not_tracks_or_bindings() {
+        let mut ed = editor(doc_with(vec![disk("a"), disk("b")], vec![track_for("a")]));
+        ed.doc.objects[0].set = vec![("radius".to_string(), AnimValue::Float(7.0))];
+        ed.doc.bindings = vec![binding("b", "a")];
+
+        let new_index = ed.duplicate_object(0);
+        assert_eq!(ed.doc.objects.len(), 3);
+        assert_eq!(ed.doc.objects[new_index].id, "a_copy");
+        // Initial values carried over (radius override), position nudged.
+        assert_eq!(ed.effective_value(new_index, "radius"), Some(AnimValue::Float(7.0)));
+        assert_ne!(
+            ed.effective_value(new_index, "position"),
+            ed.effective_value(0, "position"),
+            "copy should be nudged off the original"
+        );
+        // Nothing animated or bound references the copy.
+        assert!(!ed.doc.tracks.iter().any(|t| t.object == "a_copy"));
+        assert!(!ed.doc.bindings.iter().any(|b| b.target == "a_copy" || b.source == "a_copy"));
+        ed.doc.build().unwrap();
+
+        // Ids stay unique on repeat duplication.
+        let again = ed.duplicate_object(0);
+        assert_eq!(ed.doc.objects[again].id, "a_copy_2");
+    }
+
+    #[test]
+    fn ctrl_d_duplicates_the_selected_object() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        ed.select(Some(0));
+
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 720.0))),
+            events: vec![egui::Event::Key {
+                key: egui::Key::D,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::COMMAND,
+            }],
+            ..Default::default()
+        };
+        ctx.run(input, |ctx| panels(ctx, &mut ed, 0.0));
+
+        assert_eq!(ed.doc.objects.len(), 2);
+        assert_eq!(ed.doc.objects[1].id, "a_copy");
+        assert_eq!(ed.selected, Some(1), "the copy should be selected");
     }
 
     #[test]

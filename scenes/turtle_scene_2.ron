@@ -13,41 +13,73 @@
                 start: (-1.0, 0.0, 0.0),
                 end: (1.0, 0.0, 0.0),
                 color: (1.0, 1.0, 1.0, 1.0),
+                thickness: 0.0,
             ),
             set: [
                 ("start", Vec3((0.0, 2.0, 0.0))),
                 ("end", Vec3((2.0, 2.0, 0.0))),
                 ("progress", Float(1.0)),
                 ("color", Vec4((0.6909089, 0.0, 1.0, 1.0))),
+                ("thickness", Float(0.01)),
             ],
         ),
         (
-            id: "sprite_1",
-            object: Sprite(
-                image: "assets/aseprite-files/turtle.png",
-                position: (0.0, 0.0, 0.0),
-                size: (1.0, 1.0),
+            id: "line_2",
+            object: Line(
+                start: (-1.0, 0.0, 0.0),
+                end: (1.0, 0.0, 0.0),
                 color: (1.0, 1.0, 1.0, 1.0),
+                thickness: 0.05,
             ),
             set: [
-                ("position", Vec3((0.0, 0.0, 0.0))),
-                ("center", Vec2((0.0, -0.125))),
-                ("size", Vec2((0.25, 0.25))),
+                ("start", Vec3((2.0, 2.0, 0.0))),
+                ("end", Vec3((2.0, 0.0, 0.0))),
+                ("thickness", Float(0.01)),
+                ("color", Vec4((0.6938715, 0.0, 1.0, 1.0))),
+                ("progress", Float(0.0)),
             ],
         ),
     ],
-    tracks: [],
-    bindings: [
+    tracks: [
         (
-            target: "sprite_1",
-            property: "position",
-            source: "line_1",
-            source_property: "pen_position",
-            offset: None,
-            start: None,
-            end: None,
+            object: "line_1",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 5.0,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "line_2",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 5.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 10.0,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
         ),
     ],
+    bindings: [],
     export: (
         resolution: None,
         fps: None,
