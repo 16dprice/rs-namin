@@ -607,6 +607,7 @@ pub fn palette_templates() -> Vec<(&'static str, ObjectSpec)> {
                 start: vec3(-1.0, 0.0, 0.0),
                 end: vec3(1.0, 0.0, 0.0),
                 color: white,
+                thickness: 0.05,
             },
         ),
         (

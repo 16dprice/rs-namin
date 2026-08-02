@@ -120,6 +120,9 @@ pub enum ObjectSpec {
         start: Vec3,
         end: Vec3,
         color: Vec4,
+        /// World-space width; 0 (the default) is a hairline.
+        #[serde(default)]
+        thickness: f32,
     },
     Arc {
         position: Vec3,
@@ -247,7 +250,16 @@ impl ObjectSpec {
                 sides,
                 color: c,
             } => Box::new(Polygon::new(position, radius, sides, color(c))),
-            ObjectSpec::Line { start, end, color: c } => Box::new(Line::new(start, end, color(c))),
+            ObjectSpec::Line {
+                start,
+                end,
+                color: c,
+                thickness,
+            } => {
+                let mut line = Line::new(start, end, color(c));
+                line.thickness = thickness;
+                Box::new(line)
+            }
             ObjectSpec::Arc {
                 position,
                 inner_radius,

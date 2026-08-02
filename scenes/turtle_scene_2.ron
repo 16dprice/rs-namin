@@ -15,13 +15,39 @@
                 color: (1.0, 1.0, 1.0, 1.0),
             ),
             set: [
-                ("start", Vec3((-0.21086419, 1.4701383, 0.0))),
-                ("end", Vec3((1.7891358, 0.47013837, 0.0))),
+                ("start", Vec3((0.0, 2.0, 0.0))),
+                ("end", Vec3((2.0, 2.0, 0.0))),
+                ("progress", Float(1.0)),
+                ("color", Vec4((0.6909089, 0.0, 1.0, 1.0))),
+            ],
+        ),
+        (
+            id: "sprite_1",
+            object: Sprite(
+                image: "assets/aseprite-files/turtle.png",
+                position: (0.0, 0.0, 0.0),
+                size: (1.0, 1.0),
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("position", Vec3((0.0, 0.0, 0.0))),
+                ("center", Vec2((0.0, -0.125))),
+                ("size", Vec2((0.25, 0.25))),
             ],
         ),
     ],
     tracks: [],
-    bindings: [],
+    bindings: [
+        (
+            target: "sprite_1",
+            property: "position",
+            source: "line_1",
+            source_property: "pen_position",
+            offset: None,
+            start: None,
+            end: None,
+        ),
+    ],
     export: (
         resolution: None,
         fps: None,
