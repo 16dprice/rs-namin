@@ -39,6 +39,10 @@ pub struct EditorState {
     name_buffer: String,
     /// Which bezier handle (0/1) a curve-widget drag is holding.
     bezier_drag: Option<u8>,
+    /// Dope-sheet ripple-shift controls: shift everything at/after
+    /// `shift_from` by `shift_delta` seconds.
+    pub shift_from: f32,
+    pub shift_delta: f32,
 }
 
 /// The scene's registry name: the file stem of its .ron path.
@@ -62,6 +66,8 @@ impl EditorState {
             id_buffer: String::new(),
             name_buffer: scene_stem(path).to_string(),
             bezier_drag: None,
+            shift_from: 0.0,
+            shift_delta: 1.0,
         };
         if !state.doc.objects.is_empty() {
             state.select(Some(0));
@@ -103,6 +109,7 @@ impl EditorState {
             id,
             object: spec,
             set: Vec::new(),
+            appear_at: None,
         });
         self.touch();
         self.doc.objects.len() - 1
@@ -138,6 +145,7 @@ impl EditorState {
             id,
             object: source.object,
             set: source.set,
+            appear_at: source.appear_at,
         });
         let new_index = self.doc.objects.len() - 1;
         // Nudge spatial anchors (position, or start+end for Line/Arrow) so
@@ -156,6 +164,67 @@ impl EditorState {
         }
         self.touch();
         new_index
+    }
+
+    /// Set or clear an object's appear time (hidden until then; it stays
+    /// animatable meanwhile). Negative times clamp to 0.
+    pub fn set_appear_at(&mut self, index: usize, appear_at: Option<f32>) {
+        self.doc.objects[index].appear_at = appear_at.map(|t| t.max(0.0));
+        self.touch();
+    }
+
+    /// Ripple edit: shift every keyframe, binding-window edge, and appear
+    /// time at or after `from` by `delta` seconds (negative pulls earlier) —
+    /// e.g. shift everything from 0s to make room for a new intro. A
+    /// keyframe pair straddling `from` stretches. Rejected (doc unchanged)
+    /// if anything would land before 0s or the shifted doc fails to build
+    /// (a binding window inverting or colliding under a negative delta).
+    pub fn shift_time(&mut self, from: f32, delta: f32) -> Result<(), String> {
+        if delta == 0.0 {
+            return Ok(());
+        }
+        let backup = self.doc.clone();
+        let shift = |t: &mut f32| {
+            if *t >= from {
+                *t += delta;
+            }
+        };
+        let mut min_time = f32::INFINITY;
+        for track in &mut self.doc.tracks {
+            for kf in &mut track.keyframes {
+                shift(&mut kf.time);
+                min_time = min_time.min(kf.time);
+            }
+        }
+        for binding in &mut self.doc.bindings {
+            for edge in [&mut binding.start, &mut binding.end].into_iter().flatten() {
+                shift(edge);
+                min_time = min_time.min(*edge);
+            }
+        }
+        for object in &mut self.doc.objects {
+            if let Some(appear_at) = &mut object.appear_at {
+                shift(appear_at);
+                min_time = min_time.min(*appear_at);
+            }
+        }
+        let result = if min_time < 0.0 {
+            Err(format!(
+                "shift by {delta}s would move something to {min_time}s, before the timeline start"
+            ))
+        } else {
+            self.doc.build().map(|_| ())
+        };
+        match result {
+            Ok(()) => {
+                self.touch();
+                Ok(())
+            }
+            Err(e) => {
+                self.doc = backup;
+                Err(e)
+            }
+        }
     }
 
     /// Rename an object, cascading to tracks and bindings. Rejects empty,
@@ -953,6 +1022,28 @@ fn inspector_panel(ctx: &egui::Context, editor: &mut EditorState, playhead: f32)
                 }
             });
 
+            // Appear time: hidden until then, animatable meanwhile.
+            ui.horizontal(|ui| {
+                let mut appears = editor.doc.objects[index].appear_at.is_some();
+                if ui
+                    .checkbox(&mut appears, "appears at")
+                    .on_hover_text(
+                        "Hidden until this time — set the object up now, reveal it when it becomes relevant. \
+                         Scrub the playhead past it to see and drag the object.",
+                    )
+                    .changed()
+                {
+                    editor.set_appear_at(index, appears.then_some(playhead));
+                }
+                if let Some(mut at) = editor.doc.objects[index].appear_at
+                    && ui
+                        .add(egui::DragValue::new(&mut at).speed(0.05).range(0.0..=f32::INFINITY).suffix("s"))
+                        .changed()
+                {
+                    editor.set_appear_at(index, Some(at));
+                }
+            });
+
             // Non-animatable spec params with dedicated editors.
             let mut spec_changed = false;
             if let ObjectSpec::Text { content, .. } | ObjectSpec::VectorText { content, .. } = &mut editor.doc.objects[index].object {
@@ -1336,6 +1427,7 @@ pub fn dope_sheet(ui: &mut egui::Ui, editor: &mut EditorState, clock: &mut Clock
     ui.horizontal(|ui| {
         let row_start = ui.cursor().min.x;
         add_track_menu(ui, editor);
+        shift_menu(ui, editor, clock.current_time);
         let used = ui.cursor().min.x - row_start;
         if used < SHEET_LABEL_W {
             ui.add_space(SHEET_LABEL_W - used);
@@ -1574,6 +1666,43 @@ fn add_track_menu(ui: &mut egui::Ui, editor: &mut EditorState) {
             });
         }
     });
+}
+
+/// Ripple-shift menu: move every keyframe, binding-window edge, and appear
+/// time at or after a chosen time by a delta — make room before an existing
+/// animation, or close a gap.
+fn shift_menu(ui: &mut egui::Ui, editor: &mut EditorState, playhead: f32) {
+    ui.menu_button("Shift", |ui| {
+        ui.set_min_width(230.0);
+        ui.weak("Move every keyframe, binding window,\nand appear time at/after a time by a delta.");
+        ui.horizontal(|ui| {
+            ui.weak("from");
+            ui.add(
+                egui::DragValue::new(&mut editor.shift_from)
+                    .speed(0.05)
+                    .range(0.0..=f32::INFINITY)
+                    .suffix("s"),
+            );
+            if ui.small_button("playhead").on_hover_text("Use the current playhead time").clicked() {
+                editor.shift_from = playhead;
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.weak("by");
+            ui.add(egui::DragValue::new(&mut editor.shift_delta).speed(0.05).suffix("s"))
+                .on_hover_text("Positive pushes later (making room), negative pulls earlier");
+        });
+        if ui.button("Apply").clicked() {
+            let (from, delta) = (editor.shift_from, editor.shift_delta);
+            match editor.shift_time(from, delta) {
+                Ok(()) => editor.error = None,
+                Err(e) => editor.error = Some(e),
+            }
+            ui.close_menu();
+        }
+    })
+    .response
+    .on_hover_text("Ripple edit: shift everything at/after a time — e.g. make room for a new intro before 0s");
 }
 
 fn keyframe_detail_strip(ui: &mut egui::Ui, editor: &mut EditorState) {
@@ -1874,6 +2003,7 @@ mod tests {
                 color: vec4(1.0, 1.0, 1.0, 1.0),
             },
             set: Vec::new(),
+            appear_at: None,
         }
     }
 
@@ -2406,5 +2536,110 @@ mod tests {
         ed.rename_object(0, "ball");
         ed.upsert_override(0, "radius", AnimValue::Float(2.0));
         ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn set_appear_at_clamps_and_clears() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        ed.set_appear_at(0, Some(-3.0));
+        assert_eq!(ed.doc.objects[0].appear_at, Some(0.0));
+        ed.set_appear_at(0, Some(2.5));
+        assert_eq!(ed.doc.objects[0].appear_at, Some(2.5));
+        ed.set_appear_at(0, None);
+        assert_eq!(ed.doc.objects[0].appear_at, None);
+        assert!(ed.dirty);
+    }
+
+    #[test]
+    fn duplicate_copies_appear_time() {
+        let mut ed = editor(doc_with(vec![disk("a")], vec![]));
+        ed.set_appear_at(0, Some(4.0));
+        let copy = ed.duplicate_object(0);
+        assert_eq!(ed.doc.objects[copy].appear_at, Some(4.0));
+    }
+
+    /// Two disks; `a.radius` keyframed at 0/1/3s, `b.position` bound to
+    /// `a.position` in [2, 4), `b` appearing at 2.5s.
+    fn shiftable_editor() -> EditorState {
+        let mut doc = doc_with(vec![disk("a"), disk("b")], vec![track_for("a")]);
+        doc.tracks[0].keyframes.push(KeyframeDoc {
+            time: 1.0,
+            value: AnimValue::Float(2.0),
+            easing: Default::default(),
+            steps: None,
+        });
+        doc.tracks[0].keyframes.push(KeyframeDoc {
+            time: 3.0,
+            value: AnimValue::Float(3.0),
+            easing: Default::default(),
+            steps: None,
+        });
+        doc.bindings.push(BindingDoc {
+            target: "b".to_string(),
+            property: "position".to_string(),
+            source: "a".to_string(),
+            source_property: "position".to_string(),
+            offset: None,
+            start: Some(2.0),
+            end: Some(4.0),
+        });
+        doc.objects[1].appear_at = Some(2.5);
+        doc.build().unwrap();
+        editor(doc)
+    }
+
+    #[test]
+    fn shift_time_moves_keyframes_windows_and_appearances_at_or_after_from() {
+        let mut ed = shiftable_editor();
+        ed.shift_time(2.0, 10.0).unwrap();
+        let times: Vec<f32> = ed.doc.tracks[0].keyframes.iter().map(|k| k.time).collect();
+        assert_eq!(times, vec![0.0, 1.0, 13.0], "keyframes before `from` stay put");
+        assert_eq!(ed.doc.bindings[0].start, Some(12.0));
+        assert_eq!(ed.doc.bindings[0].end, Some(14.0));
+        assert_eq!(ed.doc.objects[1].appear_at, Some(12.5));
+        assert!(ed.dirty);
+        ed.doc.build().unwrap();
+    }
+
+    #[test]
+    fn shift_time_pulls_earlier_with_negative_delta() {
+        let mut ed = shiftable_editor();
+        ed.shift_time(2.0, -1.0).unwrap();
+        assert_eq!(ed.doc.bindings[0].start, Some(1.0));
+        assert_eq!(ed.doc.bindings[0].end, Some(3.0));
+        assert_eq!(ed.doc.objects[1].appear_at, Some(1.5));
+    }
+
+    #[test]
+    fn shift_time_rejects_moves_before_zero_and_reverts() {
+        let mut ed = shiftable_editor();
+        let before = ed.doc.to_ron_string().unwrap();
+        let err = ed.shift_time(0.0, -1.0).unwrap_err();
+        assert!(err.contains("before the timeline start"), "unexpected error: {err}");
+        assert_eq!(ed.doc.to_ron_string().unwrap(), before, "doc must be unchanged");
+        assert!(!ed.dirty);
+    }
+
+    #[test]
+    fn shift_time_reverts_when_windows_would_collide() {
+        let mut ed = shiftable_editor();
+        // A second binding window right after the first; pulling only it
+        // backwards would overlap [2, 4).
+        ed.doc.bindings.push(BindingDoc {
+            start: Some(4.0),
+            end: Some(6.0),
+            ..ed.doc.bindings[0].clone()
+        });
+        ed.doc.build().unwrap();
+        let before = ed.doc.to_ron_string().unwrap();
+        assert!(ed.shift_time(4.0, -3.0).is_err());
+        assert_eq!(ed.doc.to_ron_string().unwrap(), before, "doc must be unchanged");
+    }
+
+    #[test]
+    fn shift_time_zero_delta_is_a_noop() {
+        let mut ed = shiftable_editor();
+        ed.shift_time(0.0, 0.0).unwrap();
+        assert!(!ed.dirty);
     }
 }

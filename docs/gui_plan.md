@@ -234,6 +234,15 @@ camera.position/target can ride an L-system pen and hand off to keyframes.
 
 Keyframe generators (live-spec "Generate keyframes" dialog) are designed but unbuilt — see docs/keyframe_generation.md. Stepped keyframes (the L-system per-segment reveal) shipped Aug 2026.
 
+Timeline-restructuring tools (Aug 2026): **ripple shift** — the dope sheet's
+"Shift" menu (`EditorState::shift_time`) moves every keyframe, binding-window
+edge, and appear time at/after a chosen time by a delta, so a finished
+animation can slide later to make room for a new intro (negative deltas close
+gaps; rejected if anything would land before 0s or the shifted doc fails to
+build). **Appear times** — objects hide until `appear_at` (inspector
+"appears at" row), staying animatable and palette-selectable meanwhile; see
+[animation_and_clock.md](animation_and_clock.md) > "Appearance Times".
+
 Parked follow-ups: dragging a bound object edits the binding offset
 (AE-style); binding-aware camera UI (docs can bind the camera; the editor
 menu only binds objects); time-shifted follows via evaluate-at-(t − delay) —

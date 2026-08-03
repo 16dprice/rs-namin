@@ -670,6 +670,7 @@ mod tests {
                     color: vec4(1.0, 1.0, 1.0, 1.0),
                 },
                 set: Vec::new(),
+                appear_at: None,
             }],
             tracks: Vec::new(),
             bindings: Vec::new(),

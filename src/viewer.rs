@@ -236,8 +236,11 @@ impl ViewerMode {
         if !pointer_over_ui && input.is_mouse_button_pressed(MouseButton::Left) {
             let (origin, dir) = self.camera.screen_ray(mouse, screen);
             let mut best: Option<(usize, f32)> = None;
-            for (index, (_, object)) in self.scene.iter().enumerate() {
-                if object.is_screen_space() {
+            for (index, (id, object)) in self.scene.iter().enumerate() {
+                // Hidden objects (appear_at in the future) don't steal
+                // clicks; select them in the palette, or scrub past their
+                // appear time to manipulate them here.
+                if object.is_screen_space() || !self.scene.is_visible(id) {
                     continue;
                 }
                 if let Some(t) = object.bounding_box().ray_intersect(origin, dir)

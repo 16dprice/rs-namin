@@ -1,7 +1,7 @@
 use crate::camera::Camera;
-use crate::scene::Scene;
 use crate::scene::traits::Animatable;
 use crate::scene::value::AnimValue;
+use crate::scene::{ObjectId, Scene};
 
 use super::binding::Binding;
 use super::track::{Track, TrackTarget};
@@ -12,6 +12,10 @@ pub struct Timeline {
     /// order — populate via [`add_binding`](Self::add_binding), then call
     /// [`sort_bindings`](Self::sort_bindings) once before playback.
     pub bindings: Vec<Binding>,
+    /// `(object, appear time)`: the object is hidden until that time. Like
+    /// everything else, re-derived on every apply — scrubbing backwards
+    /// re-hides.
+    pub appearances: Vec<(ObjectId, f32)>,
 }
 
 impl Timeline {
@@ -19,6 +23,7 @@ impl Timeline {
         Self {
             tracks: Vec::new(),
             bindings: Vec::new(),
+            appearances: Vec::new(),
         }
     }
 
@@ -28,6 +33,17 @@ impl Timeline {
 
     pub fn add_binding(&mut self, binding: Binding) {
         self.bindings.push(binding);
+    }
+
+    /// Hide `id` until `appear_at` seconds (visible from then on).
+    pub fn add_appearance(&mut self, id: ObjectId, appear_at: f32) {
+        self.appearances.push((id, appear_at));
+    }
+
+    fn apply_appearances(&self, time: f32, scene: &mut Scene) {
+        for &(id, appear_at) in &self.appearances {
+            scene.set_visible(id, time >= appear_at);
+        }
     }
 
     /// Topologically sort bindings so chained bindings evaluate in dependency
@@ -43,6 +59,7 @@ impl Timeline {
     /// Apply all tracks (scene objects + camera) at the given time, then all
     /// bindings in dependency order.
     pub fn apply(&self, time: f32, scene: &mut Scene, camera: &mut Camera) {
+        self.apply_appearances(time, scene);
         for track in &self.tracks {
             if let Some(value) = track.evaluate(time) {
                 match track.target {
@@ -79,6 +96,7 @@ impl Timeline {
     /// writes the camera. Bindings may still *read* the camera (`camera` is
     /// the live one, e.g. the orbit camera in manual mode).
     pub fn apply_scene_only(&self, time: f32, scene: &mut Scene, camera: &Camera) {
+        self.apply_appearances(time, scene);
         for track in &self.tracks {
             if let TrackTarget::Object(id) = track.target
                 && let Some(value) = track.evaluate(time)
@@ -112,13 +130,15 @@ impl Timeline {
     }
 
     pub fn duration(&self) -> f32 {
-        // Finite binding-window edges count: "bound until 10s" should be
-        // reachable by the transport even if no track goes that far.
+        // Finite binding-window edges and appear times count: "bound until
+        // 10s" or "appears at 10s" should be reachable by the transport even
+        // if no track goes that far.
         let track_max = self.tracks.iter().filter_map(|track| track.max_time()).fold(0.0_f32, f32::max);
         self.bindings
             .iter()
             .flat_map(|b| [b.start, b.end])
             .flatten()
+            .chain(self.appearances.iter().map(|&(_, t)| t))
             .fold(track_max, f32::max)
     }
 }
@@ -323,5 +343,43 @@ mod tests {
         timeline.add_binding(bind(ids[0], ids[1], None));
         timeline.add_binding(bind(ids[1], ids[0], None));
         assert!(timeline.sort_bindings().is_err());
+    }
+
+    #[test]
+    fn appearance_hides_before_its_time_and_rehides_on_scrub_back() {
+        let (mut scene, ids) = scene_with_disks(2);
+        let mut timeline = Timeline::new();
+        timeline.add_appearance(ids[1], 2.0);
+
+        let mut camera = Camera::default();
+        timeline.apply(1.0, &mut scene, &mut camera);
+        assert!(scene.is_visible(ids[0]), "no appearance = always visible");
+        assert!(!scene.is_visible(ids[1]));
+        timeline.apply(2.0, &mut scene, &mut camera);
+        assert!(scene.is_visible(ids[1]), "visible from its appear time on");
+        // Pure function of time: scrubbing back re-hides.
+        timeline.apply(0.5, &mut scene, &mut camera);
+        assert!(!scene.is_visible(ids[1]));
+    }
+
+    #[test]
+    fn apply_scene_only_also_applies_appearances() {
+        let (mut scene, ids) = scene_with_disks(1);
+        let mut timeline = Timeline::new();
+        timeline.add_appearance(ids[0], 3.0);
+        let camera = Camera::default();
+        timeline.apply_scene_only(1.0, &mut scene, &camera);
+        assert!(!scene.is_visible(ids[0]));
+        timeline.apply_scene_only(4.0, &mut scene, &camera);
+        assert!(scene.is_visible(ids[0]));
+    }
+
+    #[test]
+    fn duration_includes_appear_times() {
+        let (_, ids) = scene_with_disks(1);
+        let mut timeline = Timeline::new();
+        timeline.add_track(position_track(ids[0], Vec3::ONE)); // max time 1.0
+        timeline.add_appearance(ids[0], 7.5);
+        assert!((timeline.duration() - 7.5).abs() < 1e-6);
     }
 }

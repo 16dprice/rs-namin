@@ -211,6 +211,21 @@ impl SceneBuilder {
         self.bind_internal(target, property, source, source_property, None, start, end)
     }
 
+    /// Hide `obj` until `time` seconds — it skips drawing before then but
+    /// stays fully animatable, so tracks and bindings can pre-position it
+    /// for its entrance.
+    ///
+    /// # Panics
+    /// Panics if `time` is negative or non-finite.
+    pub fn appear_at(&mut self, obj: &ObjRef, time: f32) -> &mut Self {
+        assert!(
+            time.is_finite() && time >= 0.0,
+            "SceneBuilder::appear_at: time must be a non-negative number, got {time}",
+        );
+        self.timeline.add_appearance(obj.id, time);
+        self
+    }
+
     /// Like [`bind`](Self::bind), but adds `offset` to the source value each
     /// frame (component-wise; Float/Vec2/Vec3/Vec4 properties only).
     ///

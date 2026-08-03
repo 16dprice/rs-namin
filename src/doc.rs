@@ -84,6 +84,11 @@ pub struct ObjectDoc {
     /// `[("progress", Float(0.0))]`.
     #[serde(default)]
     pub set: Vec<(String, AnimValue)>,
+    /// Hidden until this time in seconds (`None` = always visible). The
+    /// object stays animatable while hidden, so tracks and bindings can
+    /// pre-position it for its entrance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appear_at: Option<f32>,
 }
 
 /// Constructible object types and their parameters. Colors are RGBA in 0-1.
@@ -490,6 +495,18 @@ impl SceneDoc {
         }
 
         let mut timeline = Timeline::new();
+        for obj_doc in &self.objects {
+            if let Some(appear_at) = obj_doc.appear_at {
+                if !appear_at.is_finite() || appear_at < 0.0 {
+                    return Err(format!(
+                        "object {:?}: appear_at must be a non-negative time, got {appear_at}",
+                        obj_doc.id
+                    ));
+                }
+                timeline.add_appearance(ids[obj_doc.id.as_str()], appear_at);
+            }
+        }
+
         let mut camera = Camera::new(self.camera.position, self.camera.target);
         camera.fov = self.camera.fov;
         for (property, value) in &self.camera.set {
@@ -690,6 +707,7 @@ mod tests {
                     color: vec4(1.0, 0.0, 0.0, 1.0),
                 },
                 set: vec![],
+                appear_at: None,
             }],
             tracks: vec![TrackDoc {
                 object: "ball".to_string(),
@@ -799,6 +817,7 @@ mod tests {
                 color: vec4(1.0, 1.0, 1.0, 1.0),
             },
             set: vec![("stagger".to_string(), AnimValue::Float(0.5))],
+            appear_at: None,
         });
         doc.tracks.push(TrackDoc {
             object: "title".to_string(),
@@ -865,6 +884,7 @@ mod tests {
                 color: vec4(1.0, 1.0, 1.0, 1.0),
             },
             set: vec![("rotation".to_string(), AnimValue::Float(0.5))],
+            appear_at: None,
         });
 
         let ron_str = doc.to_ron_string().unwrap();
@@ -905,6 +925,7 @@ mod tests {
                     thickness: 0.0,
                 },
                 set: vec![],
+                appear_at: None,
             });
             doc.tracks.push(TrackDoc {
                 object: id.to_string(),
@@ -934,6 +955,7 @@ mod tests {
                 color: vec4(1.0, 1.0, 1.0, 1.0),
             },
             set: vec![],
+            appear_at: None,
         });
         for (source, start, end) in [("line_a", None, Some(2.0)), ("line_b", Some(2.0), None)] {
             doc.bindings.push(BindingDoc {
@@ -983,6 +1005,7 @@ mod tests {
                 colors: vec![],
             },
             set: vec![],
+            appear_at: None,
         });
         doc.objects.push(ObjectDoc {
             id: "rider".to_string(),
@@ -993,6 +1016,7 @@ mod tests {
                 color: vec4(1.0, 1.0, 1.0, 1.0),
             },
             set: vec![],
+            appear_at: None,
         });
         doc.tracks.push(TrackDoc {
             object: "dragon".to_string(),
@@ -1055,6 +1079,7 @@ mod tests {
                 colors: vec![vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 0.0, 1.0, 1.0)],
             },
             set: vec![],
+            appear_at: None,
         });
 
         let ron_str = doc.to_ron_string().unwrap();
@@ -1089,6 +1114,7 @@ mod tests {
                 colors: vec![],
             },
             set: vec![],
+            appear_at: None,
         });
         let (scene, _, _) = doc.build().unwrap();
         let (_, ls) = scene.iter().nth(1).unwrap();
@@ -1112,6 +1138,7 @@ mod tests {
                 samples: 64,
             },
             set: vec![("progress".to_string(), AnimValue::Float(0.5))],
+            appear_at: None,
         });
 
         let ron_str = doc.to_ron_string().unwrap();
@@ -1142,6 +1169,7 @@ mod tests {
                 samples: 32,
             },
             set: vec![],
+            appear_at: None,
         });
         // Axes-only fallback, never a build error (spawn is infallible).
         doc.build().unwrap();
@@ -1188,6 +1216,7 @@ mod tests {
                 color: vec4(0.5, 0.5, 0.5, 1.0),
             },
             set: vec![],
+            appear_at: None,
         });
         doc.bindings.push(BindingDoc {
             target: "shadow".to_string(),
@@ -1390,5 +1419,36 @@ mod tests {
         let (mut scene, timeline, mut camera) = doc.build().unwrap();
         timeline.apply(2.0, &mut scene, &mut camera);
         assert!((camera.fov - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn appear_at_hides_the_object_until_its_time() {
+        let mut doc = minimal_doc();
+        doc.objects[0].appear_at = Some(2.0);
+        let (mut scene, timeline, mut camera) = doc.build().unwrap();
+        let id = scene.iter().next().unwrap().0;
+
+        timeline.apply(1.0, &mut scene, &mut camera);
+        assert!(!scene.is_visible(id));
+        timeline.apply(2.5, &mut scene, &mut camera);
+        assert!(scene.is_visible(id));
+        // Appear times extend the timeline like binding-window edges do.
+        assert!(timeline.duration() >= 2.0);
+    }
+
+    #[test]
+    fn negative_appear_at_is_a_build_error() {
+        let mut doc = minimal_doc();
+        doc.objects[0].appear_at = Some(-1.0);
+        assert!(build_err(&doc).contains("appear_at"));
+    }
+
+    #[test]
+    fn appear_at_round_trips_through_ron_and_is_omitted_when_none() {
+        let mut doc = minimal_doc();
+        assert!(!doc.to_ron_string().unwrap().contains("appear_at"));
+        doc.objects[0].appear_at = Some(1.5);
+        let parsed = SceneDoc::from_ron_str(&doc.to_ron_string().unwrap()).unwrap();
+        assert_eq!(parsed.objects[0].appear_at, Some(1.5));
     }
 }

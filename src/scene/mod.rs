@@ -26,8 +26,16 @@ impl ObjectId {
 pub trait SceneNode: SceneObject + Animatable {}
 impl<T: SceneObject + Animatable> SceneNode for T {}
 
+struct Entry {
+    object: Box<dyn SceneNode>,
+    /// Hidden objects skip both draw passes but stay fully addressable
+    /// (get/set/iter). Derived per-frame from appearance times by
+    /// `Timeline::apply` — never persisted state.
+    visible: bool,
+}
+
 pub struct Scene {
-    objects: Vec<Option<Box<dyn SceneNode>>>,
+    objects: Vec<Option<Entry>>,
 }
 
 impl Scene {
@@ -43,27 +51,37 @@ impl Scene {
     /// the concrete type is decided at runtime).
     pub fn add_boxed(&mut self, object: Box<dyn SceneNode>) -> ObjectId {
         let id = ObjectId(self.objects.len());
-        self.objects.push(Some(object));
+        self.objects.push(Some(Entry { object, visible: true }));
         id
     }
 
     pub fn remove(&mut self, id: ObjectId) -> Option<Box<dyn SceneNode>> {
-        self.objects.get_mut(id.0)?.take()
+        Some(self.objects.get_mut(id.0)?.take()?.object)
     }
 
     pub fn get(&self, id: ObjectId) -> Option<&dyn SceneNode> {
-        self.objects.get(id.0)?.as_deref()
+        Some(self.objects.get(id.0)?.as_ref()?.object.as_ref())
     }
 
     pub fn get_mut(&mut self, id: ObjectId) -> Option<&mut (dyn SceneNode + 'static)> {
-        self.objects.get_mut(id.0)?.as_deref_mut()
+        Some(self.objects.get_mut(id.0)?.as_mut()?.object.as_mut())
+    }
+
+    pub fn set_visible(&mut self, id: ObjectId, visible: bool) {
+        if let Some(Some(entry)) = self.objects.get_mut(id.0) {
+            entry.visible = visible;
+        }
+    }
+
+    pub fn is_visible(&self, id: ObjectId) -> bool {
+        matches!(self.objects.get(id.0), Some(Some(entry)) if entry.visible)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (ObjectId, &dyn SceneNode)> {
         self.objects
             .iter()
             .enumerate()
-            .filter_map(|(i, o)| o.as_deref().map(|obj| (ObjectId(i), obj)))
+            .filter_map(|(i, o)| o.as_ref().map(|entry| (ObjectId(i), entry.object.as_ref())))
     }
 
     pub fn len(&self) -> usize {
@@ -74,20 +92,20 @@ impl Scene {
         self.objects.iter().all(|o| o.is_none())
     }
 
-    /// Draw all world-space objects (called during the 3D camera pass).
+    /// Draw all visible world-space objects (called during the 3D camera pass).
     pub fn draw_world(&self) {
-        for object in self.objects.iter().flatten() {
-            if !object.is_screen_space() {
-                object.draw();
+        for entry in self.objects.iter().flatten() {
+            if entry.visible && !entry.object.is_screen_space() {
+                entry.object.draw();
             }
         }
     }
 
-    /// Draw all screen-space objects (called after set_default_camera).
+    /// Draw all visible screen-space objects (called after set_default_camera).
     pub fn draw_screen(&self) {
-        for object in self.objects.iter().flatten() {
-            if object.is_screen_space() {
-                object.draw();
+        for entry in self.objects.iter().flatten() {
+            if entry.visible && entry.object.is_screen_space() {
+                entry.object.draw();
             }
         }
     }

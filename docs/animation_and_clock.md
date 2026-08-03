@@ -79,7 +79,20 @@ Time-shifted follows ("trail the leader by 0.5s") are deliberately absent for
 now: evaluation is a pure function of time, so the eventual implementation is
 "evaluate the source at t - delay", **not** a history buffer.
 
-## Easing Functions
+## Appearance Times
+
+An object can be **hidden until a time**: `sb.appear_at(&obj, 5.0)`, or
+`appear_at: Some(5.0)` on a doc object (the inspector's "appears at" row).
+The timeline stores `(ObjectId, time)` pairs and, on every apply, sets a
+per-entry `visible` flag on the scene (`Scene::set_visible`/`is_visible`);
+both draw passes skip invisible entries. Like everything else it's re-derived
+from the current time each frame, so scrubbing backwards re-hides, and finite
+appear times extend `Timeline::duration()` the way binding-window edges do.
+A hidden object stays fully animatable — tracks and bindings keep evaluating,
+so it is already in position when it appears — and stays selectable in the
+editor palette, but does not take viewport clicks while hidden (scrub past
+the appear time to manipulate it in the viewport). There is deliberately no
+"disappear at" yet; keyframe the color's alpha for exits.
 
 Easing is **data**: keyframes store the `Easing` enum (`src/animation/easing.rs`) — 28 named variants (linear, quad, cubic, quart, quint, sine, expo, back, elastic, bounce, each with in/out/in-out) plus `Easing::Custom(fn)` for code-authored curves. Named variants serialize (scene documents use them); `Custom` does not. All named variants satisfy boundary invariants: `f(0)=0`, `f(1)=1`.
 
