@@ -13,7 +13,7 @@ use crate::camera::Camera;
 use crate::doc::{ExportDefaults, SceneDoc};
 use crate::input::{InputProvider, MacroquadInput, UiGatedInput};
 use crate::registry::{SceneEntry, SceneSource};
-use crate::render_util::{DESIGN_HEIGHT, DESIGN_WIDTH, OffscreenRenderer};
+use crate::render_util::{DESIGN_HEIGHT, DESIGN_WIDTH, OffscreenRenderer, draw_fitted_texture};
 use crate::scene::Scene;
 use crate::ui::{self, UiRequest};
 
@@ -592,29 +592,6 @@ impl ExportMode {
         form.notice = Some("Export cancelled.".to_string());
         self.phase = ExportPhase::Configure(form);
     }
-}
-
-/// Draw a texture letterboxed to fill the window (render targets are stored
-/// bottom-up, hence the Y flip).
-fn draw_fitted_texture(texture: &Texture2D) {
-    let (sw, sh) = (screen_width(), screen_height());
-    let (tw, th) = (texture.width(), texture.height());
-    if tw <= 0.0 || th <= 0.0 {
-        return;
-    }
-    let scale = (sw / tw).min(sh / th);
-    let (dw, dh) = (tw * scale, th * scale);
-    draw_texture_ex(
-        texture,
-        (sw - dw) / 2.0,
-        (sh - dh) / 2.0,
-        WHITE,
-        DrawTextureParams {
-            dest_size: Some(vec2(dw, dh)),
-            flip_y: true,
-            ..Default::default()
-        },
-    );
 }
 
 #[cfg(test)]

@@ -35,6 +35,29 @@ pub enum SnapView {
     Top,
 }
 
+/// Clock transport keys (play/pause, frame step, speed halve/double),
+/// shared by the overlay's input handling and the viewer's preview mode —
+/// which deliberately takes only these, not the panel toggles or snaps.
+pub fn transport_keys(clock: &mut Clock, kb: &Keybindings, input: &dyn InputProvider) {
+    if input.is_key_pressed(kb.play_pause) {
+        clock.toggle();
+    }
+    if input.is_key_pressed(kb.step_forward) {
+        clock.pause();
+        clock.step_forward();
+    }
+    if input.is_key_pressed(kb.step_backward) {
+        clock.pause();
+        clock.step_backward();
+    }
+    if input.is_key_pressed(kb.speed_up) {
+        clock.set_speed((clock.playback_speed * 2.0).min(8.0));
+    }
+    if input.is_key_pressed(kb.speed_down) {
+        clock.set_speed((clock.playback_speed * 0.5).max(0.125));
+    }
+}
+
 impl DebugOverlay {
     pub fn new() -> Self {
         Self {
@@ -75,23 +98,7 @@ impl DebugOverlay {
             self.mouse_coords_visible = !self.mouse_coords_visible;
         }
 
-        if input.is_key_pressed(kb.play_pause) {
-            clock.toggle();
-        }
-        if input.is_key_pressed(kb.step_forward) {
-            clock.pause();
-            clock.step_forward();
-        }
-        if input.is_key_pressed(kb.step_backward) {
-            clock.pause();
-            clock.step_backward();
-        }
-        if input.is_key_pressed(kb.speed_up) {
-            clock.set_speed((clock.playback_speed * 2.0).min(8.0));
-        }
-        if input.is_key_pressed(kb.speed_down) {
-            clock.set_speed((clock.playback_speed * 0.5).max(0.125));
-        }
+        transport_keys(clock, kb, input);
 
         // Snap-to-view
         if input.is_key_pressed(kb.snap_front) {
@@ -262,6 +269,20 @@ mod tests {
     use super::*;
     use crate::clock::PlaybackState;
     use crate::input::ScriptedInput;
+
+    #[test]
+    fn transport_keys_standalone_toggles_playback() {
+        let kb = Keybindings::default();
+        let mut clock = Clock::new(10.0, 60.0);
+        clock.pause();
+
+        let input = ScriptedInput::default().with_key_pressed(kb.play_pause);
+        transport_keys(&mut clock, &kb, &input);
+        assert!(matches!(clock.playback_state, PlaybackState::Playing));
+
+        transport_keys(&mut clock, &kb, &input);
+        assert!(matches!(clock.playback_state, PlaybackState::Paused));
+    }
 
     #[test]
     fn play_pause_toggle() {

@@ -85,6 +85,38 @@ pub fn screen_space_camera(render_target: Option<RenderTarget>) -> Camera2D {
     }
 }
 
+/// Largest width/height with `aspect` (w/h ratio) that fits inside `container`.
+pub fn fit_size(container: Vec2, aspect: f32) -> Vec2 {
+    if container.x <= 0.0 || container.y <= 0.0 || aspect <= 0.0 {
+        return Vec2::ZERO;
+    }
+    let height = (container.x / aspect).min(container.y);
+    vec2(height * aspect, height)
+}
+
+/// Draw a texture letterboxed to fill the window (render targets are stored
+/// bottom-up, hence the Y flip).
+pub fn draw_fitted_texture(texture: &Texture2D) {
+    let (sw, sh) = (screen_width(), screen_height());
+    let (tw, th) = (texture.width(), texture.height());
+    if tw <= 0.0 || th <= 0.0 {
+        return;
+    }
+    let scale = (sw / tw).min(sh / th);
+    let (dw, dh) = (tw * scale, th * scale);
+    draw_texture_ex(
+        texture,
+        (sw - dw) / 2.0,
+        (sh - dh) / 2.0,
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(vec2(dw, dh)),
+            flip_y: true,
+            ..Default::default()
+        },
+    );
+}
+
 /// Convert RGBA pixel data to RGB with Y-flip (OpenGL render targets are upside-down).
 pub fn rgba_to_rgb_flipped(rgba: &[[u8; 4]], width: usize, height: usize, out: &mut Vec<u8>) {
     out.clear();
@@ -115,6 +147,32 @@ pub fn rgba_flipped(rgba: &[[u8; 4]], width: usize, height: usize, out: &mut Vec
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fit_size_pillarboxes_wide_containers() {
+        let fit = fit_size(vec2(2000.0, 500.0), 16.0 / 9.0);
+        assert!((fit.y - 500.0).abs() < 1e-3);
+        assert!((fit.x - 500.0 * 16.0 / 9.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn fit_size_letterboxes_tall_containers() {
+        let fit = fit_size(vec2(800.0, 1000.0), 16.0 / 9.0);
+        assert!((fit.x - 800.0).abs() < 1e-3);
+        assert!((fit.y - 450.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn fit_size_exact_aspect_fills_container() {
+        let fit = fit_size(vec2(1280.0, 720.0), 16.0 / 9.0);
+        assert!((fit.x - 1280.0).abs() < 1e-3);
+        assert!((fit.y - 720.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn fit_size_degenerate_container_is_zero() {
+        assert_eq!(fit_size(vec2(0.0, 500.0), 16.0 / 9.0), Vec2::ZERO);
+    }
 
     #[test]
     fn rgb_flipped_strips_alpha_and_flips() {

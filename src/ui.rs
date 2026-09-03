@@ -93,6 +93,8 @@ pub struct ViewerUi<'a> {
 pub struct ViewerUiResponse {
     pub capture: UiCapture,
     pub request: UiRequest,
+    /// The app-bar Preview button: enter chrome-free export preview.
+    pub preview: bool,
     /// The Snapshot button was clicked this frame.
     pub snapshot: bool,
     /// The Export button was clicked this frame.
@@ -121,6 +123,7 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
             pointer_over_ui: false,
         },
         request: UiRequest::None,
+        preview: false,
         snapshot: false,
         export: false,
     };
@@ -144,12 +147,19 @@ pub fn viewer_layout(args: ViewerUi) -> ViewerUiResponse {
                 if ui.button("Export...").on_hover_text("Render this scene to MP4").clicked() {
                     response.export = true;
                 }
+                if ui
+                    .button("Preview")
+                    .on_hover_text("Hide all UI and play back exactly what export renders (P; Esc returns)")
+                    .clicked()
+                {
+                    response.preview = true;
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| match status {
                     Some(message) => {
                         ui.weak(message);
                     }
                     None => {
-                        ui.weak("Esc: library · F1: HUD · F2: transport · F3: inspector");
+                        ui.weak("Esc: library · F1: HUD · F2: transport · F3: inspector · P: preview");
                     }
                 });
             });

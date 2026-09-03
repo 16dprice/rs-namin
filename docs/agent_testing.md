@@ -59,6 +59,7 @@ grab whatever overlaps the window, including the user's other windows).
 ```sh
 RS_NAMIN_FRAME_DUMP=/tmp/viewer.png@30 cargo run                      # default scene
 RS_NAMIN_SCENE=demo RS_NAMIN_FRAME_DUMP=/tmp/editor.png@30 cargo run  # any scene (docs open with the editor)
+RS_NAMIN_PREVIEW=1 RS_NAMIN_SCENE=demo RS_NAMIN_FRAME_DUMP=/tmp/p.png@30 cargo run  # chrome-free export preview
 ```
 
 Key file: `src/viewer.rs` (`frame_dump_spec`).

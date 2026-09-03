@@ -19,6 +19,9 @@ use crate::ui::{self, TransportState, UiRequest};
 /// How many frames a transient status message stays in the app bar.
 const STATUS_FRAMES: u32 = 240;
 
+/// How many frames the "Esc exits" reminder lingers after entering preview.
+const PREVIEW_HINT_FRAMES: u32 = 180;
+
 /// An in-progress viewport drag of a document object.
 struct ViewportDrag {
     object_index: usize,
@@ -52,6 +55,15 @@ pub struct ViewerMode {
     /// Present when the scene is a document: palette + inspector editing.
     editor: Option<EditorState>,
     viewport_drag: Option<ViewportDrag>,
+    /// Chrome-free playback preview: the scene renders through the export
+    /// pipeline, letterboxed to the window, with every panel and overlay
+    /// hidden. The orbit camera is untouched, so leaving preview restores
+    /// the editing view.
+    preview: bool,
+    /// Offscreen target for preview frames; recreated when the window
+    /// letterbox size changes.
+    preview_renderer: Option<OffscreenRenderer>,
+    preview_hint_frames: u32,
 }
 
 impl ViewerMode {
@@ -86,6 +98,11 @@ impl ViewerMode {
             status: None,
             editor,
             viewport_drag: None,
+            // RS_NAMIN_PREVIEW=1 opens straight into preview — lets agents
+            // frame-dump the chrome-free render without scripted input.
+            preview: std::env::var("RS_NAMIN_PREVIEW").is_ok(),
+            preview_renderer: None,
+            preview_hint_frames: PREVIEW_HINT_FRAMES,
         }
     }
 
@@ -100,6 +117,10 @@ impl ViewerMode {
         // offscreen texture is now readable.
         if let Some((renderer, path)) = self.pending_snapshot.take() {
             self.save_snapshot(&renderer, &path);
+        }
+
+        if self.preview {
+            return self.preview_frame();
         }
 
         clear_background(BLACK);
@@ -146,6 +167,11 @@ impl ViewerMode {
 
         if matches!(request, UiRequest::None) && input.is_key_pressed(KeyCode::Escape) {
             request = UiRequest::OpenLibrary;
+        }
+
+        if ui_response.preview || (matches!(request, UiRequest::None) && input.is_key_pressed(KeyCode::P)) {
+            self.preview = true;
+            self.preview_hint_frames = PREVIEW_HINT_FRAMES;
         }
 
         match snap {
@@ -209,6 +235,52 @@ impl ViewerMode {
         }
 
         request
+    }
+
+    /// One frame of chrome-free preview: exactly what export renders — the
+    /// document camera driven by camera tracks, the offscreen two-pass
+    /// renderer — letterboxed to the window. Transport keys stay live;
+    /// Esc or P returns to the editor with its orbit view intact.
+    fn preview_frame(&mut self) -> UiRequest {
+        let input = MacroquadInput;
+        if input.is_key_pressed(KeyCode::Escape) || input.is_key_pressed(KeyCode::P) {
+            self.preview = false;
+            return UiRequest::None;
+        }
+        crate::debug::transport_keys(&mut self.clock, &self.debug_overlay.keybindings, &input);
+        self.clock.tick(get_frame_time());
+
+        let mut camera = self.initial_camera.clone();
+        self.timeline.apply(self.clock.current_time, &mut self.scene, &mut camera);
+
+        clear_background(BLACK);
+        let fit = render_util::fit_size(
+            vec2(screen_width(), screen_height()),
+            render_util::DESIGN_WIDTH / render_util::DESIGN_HEIGHT,
+        );
+        let (w, h) = (fit.x.round().max(1.0) as u32, fit.y.round().max(1.0) as u32);
+        if self.preview_renderer.as_ref().is_none_or(|r| r.width != w || r.height != h) {
+            self.preview_renderer = Some(OffscreenRenderer::new(w, h));
+        }
+        let renderer = self.preview_renderer.as_ref().unwrap();
+        renderer.render_frame(&self.scene, &camera);
+        set_default_camera();
+        render_util::draw_fitted_texture(&renderer.target.texture);
+
+        if self.preview_hint_frames > 0 {
+            self.preview_hint_frames -= 1;
+            let alpha = self.preview_hint_frames as f32 / PREVIEW_HINT_FRAMES as f32;
+            let text = "Esc exits preview";
+            let dims = measure_text(text, None, 24, 1.0);
+            draw_text(
+                text,
+                (screen_width() - dims.width) / 2.0,
+                screen_height() - 16.0,
+                24.0,
+                Color::new(1.0, 1.0, 1.0, alpha),
+            );
+        }
+        UiRequest::None
     }
 
     /// Viewport editing for document scenes: left-click selects (hit-testing
@@ -407,5 +479,18 @@ fn draggable_properties(spec: &ObjectSpec, scene: &Scene, index: usize) -> Optio
         ObjectSpec::Text { .. } => None,
         ObjectSpec::Line { .. } | ObjectSpec::Arrow { .. } => Some(vec![("start", get_vec3("start")?), ("end", get_vec3("end")?)]),
         _ => Some(vec![("position", get_vec3("position")?)]),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The torus builder is GL-free, so ViewerMode constructs headless.
+    #[test]
+    fn viewer_starts_outside_preview() {
+        let viewer = ViewerMode::new(crate::registry::find("torus").unwrap());
+        assert!(!viewer.preview);
+        assert!(viewer.preview_renderer.is_none());
     }
 }
