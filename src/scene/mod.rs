@@ -92,10 +92,35 @@ impl Scene {
         self.objects.iter().all(|o| o.is_none())
     }
 
-    /// Draw all visible world-space objects (called during the 3D camera pass).
+    /// Draw order for the world pass: visible world-space objects sorted
+    /// back-to-front by bounding-box Z center, ties keeping insertion order.
+    /// The depth buffer alone can't layer transparency — transparent
+    /// fragments blend but still write depth, so a nearer object drawn
+    /// early punches holes through anything behind it (e.g. a sprite's
+    /// transparent texels clipping a ring at lower Z).
+    pub fn world_draw_order(&self) -> Vec<ObjectId> {
+        let mut order: Vec<(ObjectId, f32)> = self
+            .objects
+            .iter()
+            .enumerate()
+            .filter_map(|(i, slot)| {
+                let entry = slot.as_ref()?;
+                if !entry.visible || entry.object.is_screen_space() {
+                    return None;
+                }
+                let bb = entry.object.bounding_box();
+                Some((ObjectId(i), (bb.min.z + bb.max.z) * 0.5))
+            })
+            .collect();
+        order.sort_by(|a, b| a.1.total_cmp(&b.1));
+        order.into_iter().map(|(id, _)| id).collect()
+    }
+
+    /// Draw all visible world-space objects back-to-front (called during the
+    /// 3D camera pass).
     pub fn draw_world(&self) {
-        for entry in self.objects.iter().flatten() {
-            if entry.visible && !entry.object.is_screen_space() {
+        for id in self.world_draw_order() {
+            if let Some(Some(entry)) = self.objects.get(id.0) {
                 entry.object.draw();
             }
         }

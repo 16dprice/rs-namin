@@ -15,6 +15,15 @@ Build flat meshes using `draw_mesh` with macroquad's `Vertex` struct. Each verte
 - Orbiting the camera reveals them as flat — giving depth context.
 - The `position.z` field controls depth ordering between objects.
 
+**Transparency forces a back-to-front world pass.** Alpha-blended fragments
+still write to the depth buffer — macroquad's pipeline has no alpha-test — so
+a nearer object drawn early punches invisible holes through anything behind
+it (classic case: a sprite's transparent texels clipping a ring at lower Z).
+`Scene::draw_world` therefore sorts visible world objects by bounding-box Z
+center, farthest first (`Scene::world_draw_order`); insertion order only
+breaks ties. Layering between overlapping objects is controlled by
+`position.z`, not by object order in the scene.
+
 **Two paths for new objects, both going through `MeshBuilder` (`src/scene/mesh.rs`):**
 
 1. **Line-based objects** (paths, curves, anything built from connected segments): delegate to `src/scene/polyline.rs`. It owns `LineSegment`, quad-per-segment mesh building (`draw_polyline_mesh`, one `MeshBuilder::quad` call per segment), progress-reveal (`take_progress`, sub-segment-accurate), and gradient coloring (via `src/scene/color.rs::gradient_sample`). `LSystem` and `Polyline` (`src/scene/objects/l_system.rs`, `polyline.rs`) are both thin wrappers over this — see [l_system_implementation.md](l_system_implementation.md) for how that delegation looks in practice.

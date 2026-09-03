@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 
 use crate::scene::Scene;
-use crate::scene::objects::{Disk, Line};
+use crate::scene::objects::{Disk, Line, Text};
 
 // Per-object property round-trip coverage lives inline in each object file
 // (see the `property_round_trip` test generated alongside each `animatable!`
@@ -54,4 +54,33 @@ fn iter_returns_all_objects() {
 fn is_empty() {
     let scene = Scene::new();
     assert!(scene.is_empty());
+}
+
+// Regression: a sprite added before a ring at lower Z drew first and its
+// transparent texels depth-clipped the ring. The world pass must draw
+// back-to-front by Z regardless of insertion order.
+#[test]
+fn world_draw_order_sorts_back_to_front() {
+    let mut scene = Scene::new();
+    let front = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let back = scene.add(Disk::new(vec3(0.0, 0.0, -0.01), 50.0, RED));
+    assert_eq!(scene.world_draw_order(), vec![back, front]);
+}
+
+#[test]
+fn world_draw_order_ties_keep_insertion_order() {
+    let mut scene = Scene::new();
+    let first = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let second = scene.add(Disk::new(vec3(1.0, 0.0, 0.0), 50.0, RED));
+    assert_eq!(scene.world_draw_order(), vec![first, second]);
+}
+
+#[test]
+fn world_draw_order_skips_hidden_and_screen_space() {
+    let mut scene = Scene::new();
+    let visible = scene.add(Disk::new(vec3(0.0, 0.0, 0.0), 50.0, BLUE));
+    let hidden = scene.add(Disk::new(vec3(0.0, 0.0, -1.0), 50.0, RED));
+    scene.add(Text::new("hud", vec2(0.0, 0.0), 24.0, WHITE));
+    scene.set_visible(hidden, false);
+    assert_eq!(scene.world_draw_order(), vec![visible]);
 }
