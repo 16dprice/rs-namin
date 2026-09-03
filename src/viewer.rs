@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use macroquad::color::hsl_to_rgb;
 use macroquad::prelude::*;
 
 use crate::animation::timeline::Timeline;
@@ -21,6 +22,9 @@ const STATUS_FRAMES: u32 = 240;
 
 /// How many frames the "Esc exits" reminder lingers after entering preview.
 const PREVIEW_HINT_FRAMES: u32 = 180;
+
+/// Thickness of the rainbow ring outlining the preview's video frame.
+const PREVIEW_BORDER: f32 = 4.0;
 
 /// An in-progress viewport drag of a document object.
 struct ViewportDrag {
@@ -255,7 +259,7 @@ impl ViewerMode {
 
         clear_background(BLACK);
         let fit = render_util::fit_size(
-            vec2(screen_width(), screen_height()),
+            vec2(screen_width() - 2.0 * PREVIEW_BORDER, screen_height() - 2.0 * PREVIEW_BORDER),
             render_util::DESIGN_WIDTH / render_util::DESIGN_HEIGHT,
         );
         let (w, h) = (fit.x.round().max(1.0) as u32, fit.y.round().max(1.0) as u32);
@@ -265,7 +269,28 @@ impl ViewerMode {
         let renderer = self.preview_renderer.as_ref().unwrap();
         renderer.render_frame(&self.scene, &camera);
         set_default_camera();
-        render_util::draw_fitted_texture(&renderer.target.texture);
+        let dest = Rect::new((screen_width() - fit.x) / 2.0, (screen_height() - fit.y) / 2.0, fit.x, fit.y);
+        draw_texture_ex(
+            &renderer.target.texture,
+            dest.x,
+            dest.y,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(dest.w, dest.h)),
+                flip_y: true,
+                ..Default::default()
+            },
+        );
+
+        // Rainbow ring marking the video frame's true extent — the scene
+        // background is black like the window, so the frame edge would be
+        // invisible without it. Wall-clock phase, so it keeps moving while
+        // playback is paused.
+        let phase = (get_time() * 0.2).fract() as f32;
+        for (chunk, pos) in border_chunks(dest, PREVIEW_BORDER, 24.0) {
+            let color = hsl_to_rgb((pos + phase).fract(), 1.0, 0.5);
+            draw_rectangle(chunk.x, chunk.y, chunk.w, chunk.h, color);
+        }
 
         if self.preview_hint_frames > 0 {
             self.preview_hint_frames -= 1;
@@ -453,6 +478,51 @@ impl ViewerMode {
     }
 }
 
+/// Border ring around `rect`: chunk rectangles of roughly `chunk_len` px,
+/// each paired with its fractional position (0..1) along the perimeter,
+/// walking clockwise from the top-left corner. The top and bottom strips
+/// extend `thickness` past the rect on both sides to cover the corners.
+fn border_chunks(rect: Rect, thickness: f32, chunk_len: f32) -> Vec<(Rect, f32)> {
+    let t = thickness;
+    let horiz = rect.w + 2.0 * t;
+    let total = 2.0 * horiz + 2.0 * rect.h;
+    if t <= 0.0 || total <= 0.0 || chunk_len <= 0.0 {
+        return Vec::new();
+    }
+    let left = rect.x - t;
+    let right = rect.x + rect.w;
+    let top = rect.y - t;
+    let bottom = rect.y + rect.h;
+
+    let subdivide = |len: f32| {
+        let count = (len / chunk_len).ceil().max(1.0) as usize;
+        let step = len / count as f32;
+        (0..count).map(move |i| (i as f32 * step, step))
+    };
+
+    let mut chunks = Vec::new();
+    let mut walked = 0.0;
+    for (start, len) in subdivide(horiz) {
+        chunks.push((Rect::new(left + start, top, len, t), (walked + start + len / 2.0) / total));
+    }
+    walked += horiz;
+    for (start, len) in subdivide(rect.h) {
+        chunks.push((Rect::new(right, rect.y + start, t, len), (walked + start + len / 2.0) / total));
+    }
+    walked += rect.h;
+    for (start, len) in subdivide(horiz) {
+        chunks.push((
+            Rect::new(right + t - start - len, bottom, len, t),
+            (walked + start + len / 2.0) / total,
+        ));
+    }
+    walked += horiz;
+    for (start, len) in subdivide(rect.h) {
+        chunks.push((Rect::new(left, bottom - start - len, t, len), (walked + start + len / 2.0) / total));
+    }
+    chunks
+}
+
 /// Intersect a ray with the plane z = `plane_z`; returns the XY hit point.
 fn ray_plane_z(origin: Vec3, dir: Vec3, plane_z: f32) -> Option<Vec2> {
     if dir.z.abs() < 1e-6 {
@@ -492,5 +562,47 @@ mod tests {
         let viewer = ViewerMode::new(crate::registry::find("torus").unwrap());
         assert!(!viewer.preview);
         assert!(viewer.preview_renderer.is_none());
+    }
+
+    #[test]
+    fn border_chunks_ring_bounds_and_walk_order() {
+        let rect = Rect::new(100.0, 50.0, 640.0, 360.0);
+        let chunks = border_chunks(rect, 4.0, 24.0);
+
+        // The ring's bounding box is the rect expanded by the thickness.
+        let min_x = chunks.iter().map(|(r, _)| r.x).fold(f32::MAX, f32::min);
+        let min_y = chunks.iter().map(|(r, _)| r.y).fold(f32::MAX, f32::min);
+        let max_x = chunks.iter().map(|(r, _)| r.x + r.w).fold(f32::MIN, f32::max);
+        let max_y = chunks.iter().map(|(r, _)| r.y + r.h).fold(f32::MIN, f32::max);
+        assert_eq!((min_x, min_y, max_x, max_y), (96.0, 46.0, 744.0, 414.0));
+
+        // Perimeter positions walk 0..1 strictly forward (continuous rainbow).
+        let positions: Vec<f32> = chunks.iter().map(|(_, p)| *p).collect();
+        assert!(positions.windows(2).all(|w| w[0] < w[1]));
+        assert!(positions.iter().all(|p| (0.0..1.0).contains(p)));
+    }
+
+    #[test]
+    fn border_chunks_tile_each_strip_without_gaps() {
+        let rect = Rect::new(100.0, 50.0, 640.0, 360.0);
+        let chunks = border_chunks(rect, 4.0, 24.0);
+
+        let strip_len = |pred: &dyn Fn(&Rect) -> bool, horizontal: bool| -> f32 {
+            chunks
+                .iter()
+                .filter(|(r, _)| pred(r))
+                .map(|(r, _)| if horizontal { r.w } else { r.h })
+                .sum()
+        };
+        // Top/bottom strips cover width + both corners; sides cover the height.
+        assert!((strip_len(&|r| r.y < 50.0, true) - 648.0).abs() < 1e-3);
+        assert!((strip_len(&|r| r.y >= 410.0, true) - 648.0).abs() < 1e-3);
+        assert!((strip_len(&|r| r.x < 100.0 && r.y >= 50.0 && r.y < 410.0, false) - 360.0).abs() < 1e-3);
+        assert!((strip_len(&|r| r.x >= 740.0 && r.y >= 50.0 && r.y < 410.0, false) - 360.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn border_chunks_zero_thickness_is_empty() {
+        assert!(border_chunks(Rect::new(0.0, 0.0, 100.0, 100.0), 0.0, 24.0).is_empty());
     }
 }
