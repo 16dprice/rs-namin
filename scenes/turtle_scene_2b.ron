@@ -1,0 +1,165 @@
+(
+    description: "showing commands that we can give the turtle",
+    camera: (
+        position: (0.0, 0.0, 5.6),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+        set: [],
+    ),
+    objects: [
+        (
+            id: "sprite_1",
+            object: Sprite(
+                image: "assets/aseprite-files/turtle.png",
+                position: (0.0, 0.0, 0.0),
+                size: (1.0, 1.0),
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("size", Vec2((0.5, 0.5))),
+                ("center", Vec2((0.0, -0.125))),
+                ("position", Vec3((-2.0, 0.125, 0.0))),
+            ],
+        ),
+        (
+            id: "vectortext_1",
+            object: VectorText(
+                content: "forward 1",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("position", Vec3((1.0465657, 2.440844, 0.0))),
+                ("scale", Float(0.4)),
+            ],
+        ),
+        (
+            id: "vectortext_1_copy",
+            object: VectorText(
+                content: "rotate +45",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("position", Vec3((1.0504084, 1.9833368, 0.0))),
+                ("scale", Float(0.4)),
+            ],
+        ),
+        (
+            id: "vectortext_1_copy_2",
+            object: VectorText(
+                content: "forward 0.5",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("position", Vec3((1.0695764, 1.5041139, 0.0))),
+                ("scale", Float(0.4)),
+            ],
+        ),
+        (
+            id: "vectortext_1_copy_2_copy",
+            object: VectorText(
+                content: "rotate  -225",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("position", Vec3((1.04147, 1.0529965, 0.0))),
+                ("scale", Float(0.4)),
+            ],
+        ),
+        (
+            id: "vectortext_1_copy_2_copy_copy",
+            object: VectorText(
+                content: "forward 3",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("position", Vec3((1.0708711, 0.56993127, 0.0))),
+                ("scale", Float(0.4)),
+            ],
+        ),
+    ],
+    tracks: [
+        (
+            object: "sprite_1",
+            property: "position",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Vec3((-1.4960704, 0.11899572, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 1.0,
+                    value: Vec3((-1.0, 0.125, 0.0)),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 2.0,
+                    value: Vec3((-1.0, 0.12499101, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 3.0,
+                    value: Vec3((-0.64644, 0.478553, 0.0)),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 4.0,
+                    value: Vec3((-0.64644, 0.478553, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 7.0,
+                    value: Vec3((-3.6464, 0.478553, 0.0)),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "sprite_1",
+            property: "rotation",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 1.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 2.0,
+                    value: Float(0.7853),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 3.0,
+                    value: Float(0.7853),
+                    easing: Linear,
+                ),
+                (
+                    time: 4.0,
+                    value: Float(-3.1415927),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+    ],
+    bindings: [],
+    export: (
+        resolution: None,
+        fps: None,
+        output: None,
+    ),
+)

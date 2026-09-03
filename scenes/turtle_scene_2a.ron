@@ -1,0 +1,307 @@
+(
+    description: "introducing location, direction, and pen",
+    camera: (
+        position: (0.0, 0.0, 5.6),
+        target: (0.0, 0.0, 0.0),
+        fov: 60.0,
+        set: [],
+    ),
+    objects: [
+        (
+            id: "sprite_1",
+            object: Sprite(
+                image: "assets/aseprite-files/turtle.png",
+                position: (0.0, 0.0, 0.0),
+                size: (1.0, 1.0),
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("size", Vec2((0.5, 0.5))),
+                ("center", Vec2((0.0, -0.125))),
+                ("flip_x", Bool(false)),
+                ("rotation", Float(0.0)),
+                ("position", Vec3((-2.4, 0.125, 0.0))),
+                ("color", Vec4((1.0, 1.0, 1.0, 1.0))),
+            ],
+            appear_at: Some(2.0),
+        ),
+        (
+            id: "location_text",
+            object: VectorText(
+                content: "Location",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("scale", Float(0.6)),
+                ("position", Vec3((0.75, 1.8011961, 0.0))),
+                ("progress", Float(1.0)),
+                ("stagger", Float(0.6)),
+                ("stroke_width", Float(0.005)),
+                ("color", Vec4((0.43739533, 0.42909092, 1.0, 1.0))),
+            ],
+            appear_at: Some(2.5),
+        ),
+        (
+            id: "direction_text",
+            object: VectorText(
+                content: "Direction",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("scale", Float(0.6)),
+                ("position", Vec3((0.75, 0.80056965, 0.0))),
+                ("progress", Float(0.0)),
+                ("stagger", Float(0.6)),
+                ("stroke_width", Float(0.005)),
+                ("color", Vec4((0.36363637, 1.0, 0.72925645, 1.0))),
+            ],
+            appear_at: Some(7.0),
+        ),
+        (
+            id: "pen_text",
+            object: VectorText(
+                content: "Pen",
+                position: (-2.8, 0.0, 0.0),
+                scale: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+            set: [
+                ("scale", Float(0.6)),
+                ("position", Vec3((0.75, -0.2, 0.0))),
+                ("progress", Float(0.0)),
+                ("stagger", Float(0.6)),
+                ("stroke_width", Float(0.005)),
+                ("color", Vec4((0.81904125, 0.41454548, 1.0, 1.0))),
+            ],
+            appear_at: Some(12.5),
+        ),
+        (
+            id: "ring_1",
+            object: Ring(
+                position: (0.0, 0.0, 0.0),
+                radius: 1.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+                progress: 1.0,
+            ),
+            set: [
+                ("position", Vec3((-3.4, 0.0, -0.001))),
+                ("progress", Float(0.0)),
+                ("color", Vec4((0.8227856, 0.41254258, 1.0, 1.0))),
+            ],
+        ),
+    ],
+    tracks: [
+        (
+            object: "sprite_1",
+            property: "color",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Vec4((1.0, 1.0, 1.0, 1.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 2.0,
+                    value: Vec4((0.0, 0.0, 0.0, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 2.5,
+                    value: Vec4((1.0, 1.0, 1.0, 1.0)),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "location_text",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 2.5,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 6.0,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "sprite_1",
+            property: "position",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Vec3((-2.4, 0.125, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 4.269589,
+                    value: Vec3((-2.4, 0.125, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 5.140574,
+                    value: Vec3((-2.4, 1.0, 0.0)),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 5.9603934,
+                    value: Vec3((-2.8, -0.3, 0.0)),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 6.7278867,
+                    value: Vec3((-2.4, 0.125, 0.0)),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 12.833687,
+                    value: Vec3((-2.4, 0.125, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 14.12,
+                    value: Vec3((-2.4, 0.125, 0.0)),
+                    easing: Linear,
+                ),
+                (
+                    time: 14.333404,
+                    value: Vec3((-2.4, 0.125, 0.0)),
+                    easing: Linear,
+                ),
+            ],
+        ),
+        (
+            object: "direction_text",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 7.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 10.5,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "sprite_1",
+            property: "rotation",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 8.36,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 9.755591,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 11.143763,
+                    value: Float(-1.0),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 12.458541,
+                    value: Float(0.0),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 13.76,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 14.75,
+                    value: Float(1.5707),
+                    easing: CubicInOut,
+                ),
+                (
+                    time: 14.91,
+                    value: Float(1.5707),
+                    easing: Linear,
+                ),
+                (
+                    time: 18.793255,
+                    value: Float(7.9),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "pen_text",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 12.5,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 16.0,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+        (
+            object: "ring_1",
+            property: "progress",
+            keyframes: [
+                (
+                    time: 0.0,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 14.9131975,
+                    value: Float(0.0),
+                    easing: Linear,
+                ),
+                (
+                    time: 18.793255,
+                    value: Float(1.0),
+                    easing: CubicInOut,
+                ),
+            ],
+        ),
+    ],
+    bindings: [
+        (
+            target: "sprite_1",
+            property: "position",
+            source: "ring_1",
+            source_property: "pen_position",
+            offset: Some(Vec3((0.0, 0.125, 0.001))),
+            start: Some(14.9),
+            end: None,
+        ),
+    ],
+    export: (
+        resolution: None,
+        fps: None,
+        output: None,
+    ),
+)

@@ -1,5 +1,5 @@
 (
-    description: "Second scene of turtle graphics and L Systems video",
+    description: "Turtle Drawing a Square",
     camera: (
         position: (1.0, 1.0, 10.0),
         target: (1.0, 1.0, 0.0),
@@ -83,6 +83,7 @@
                 ("size", Vec2((0.25, 0.25))),
                 ("center", Vec2((0.0, -0.125))),
             ],
+            appear_at: Some(10.0),
         ),
     ],
     tracks: [
@@ -91,12 +92,12 @@
             property: "progress",
             keyframes: [
                 (
-                    time: 0.0,
+                    time: 10.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 5.0,
+                    time: 15.0,
                     value: Float(1.0),
                     easing: CubicInOut,
                 ),
@@ -107,17 +108,17 @@
             property: "progress",
             keyframes: [
                 (
-                    time: 0.0,
+                    time: 10.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 6.0,
+                    time: 16.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 11.0,
+                    time: 21.0,
                     value: Float(1.0),
                     easing: CubicInOut,
                 ),
@@ -128,22 +129,22 @@
             property: "progress",
             keyframes: [
                 (
-                    time: 0.0,
+                    time: 10.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 0.0,
+                    time: 10.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 12.0,
+                    time: 22.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 17.0,
+                    time: 27.0,
                     value: Float(1.0),
                     easing: CubicInOut,
                 ),
@@ -154,17 +155,17 @@
             property: "progress",
             keyframes: [
                 (
-                    time: 0.0,
+                    time: 10.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 18.0,
+                    time: 28.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 23.0,
+                    time: 33.0,
                     value: Float(1.0),
                     easing: CubicInOut,
                 ),
@@ -175,37 +176,37 @@
             property: "rotation",
             keyframes: [
                 (
-                    time: 0.0,
+                    time: 10.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 5.0,
+                    time: 15.0,
                     value: Float(0.0),
                     easing: Linear,
                 ),
                 (
-                    time: 6.0,
+                    time: 16.0,
                     value: Float(-1.5707),
                     easing: CubicInOut,
                 ),
                 (
-                    time: 11.0,
+                    time: 21.0,
                     value: Float(-1.5707),
                     easing: Linear,
                 ),
                 (
-                    time: 12.0,
+                    time: 22.0,
                     value: Float(-3.1415),
                     easing: CubicInOut,
                 ),
                 (
-                    time: 17.0,
+                    time: 27.0,
                     value: Float(-3.1415),
                     easing: Linear,
                 ),
                 (
-                    time: 18.0,
+                    time: 28.0,
                     value: Float(-4.712),
                     easing: CubicInOut,
                 ),
@@ -301,7 +302,7 @@
             source_property: "pen_position",
             offset: None,
             start: None,
-            end: Some(6.0),
+            end: Some(16.0),
         ),
         (
             target: "sprite_1",
@@ -309,8 +310,8 @@
             source: "line_2",
             source_property: "pen_position",
             offset: None,
-            start: Some(6.0),
-            end: Some(12.0),
+            start: Some(16.0),
+            end: Some(22.0),
         ),
         (
             target: "sprite_1",
@@ -318,8 +319,8 @@
             source: "line_3",
             source_property: "pen_position",
             offset: None,
-            start: Some(12.0),
-            end: Some(18.0),
+            start: Some(22.0),
+            end: Some(28.0),
         ),
         (
             target: "sprite_1",
@@ -327,8 +328,8 @@
             source: "line_4",
             source_property: "pen_position",
             offset: None,
-            start: Some(18.0),
-            end: Some(23.0),
+            start: Some(28.0),
+            end: Some(33.0),
         ),
     ],
     export: (
